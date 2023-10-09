@@ -13,7 +13,7 @@ import (
 func TestGetLoggerShouldGetTheLoggerForGivenModule(t *testing.T) {
 	Initialize(false, logging.INFO, API, "_testdata")
 
-	l := LoggersMap.GetLogger("api-js")
+	l := loggersMap.getLogger("api-js")
 	if l == nil {
 		t.Error("Expected a logger to be initilized for api-js")
 	}
@@ -22,7 +22,7 @@ func TestGetLoggerShouldGetTheLoggerForGivenModule(t *testing.T) {
 func TestLoggerInitWithInfoLevel(t *testing.T) {
 	Initialize(false, logging.INFO, API, "_testdata")
 
-	if !LoggersMap.GetLogger(moduleID).IsEnabledFor(logging.INFO) {
+	if !loggersMap.getLogger(moduleID).IsEnabledFor(logging.INFO) {
 		t.Error("Expected Log to be enabled for INFO")
 	}
 }
@@ -30,7 +30,7 @@ func TestLoggerInitWithInfoLevel(t *testing.T) {
 func TestLoggerInitWithDefaultLevel(t *testing.T) {
 	Initialize(false, logging.INFO, API, "_testdata")
 
-	if !LoggersMap.GetLogger(moduleID).IsEnabledFor(logging.INFO) {
+	if !loggersMap.getLogger(moduleID).IsEnabledFor(logging.INFO) {
 		t.Error("Expected Log to be enabled for default log level")
 	}
 }
@@ -38,7 +38,7 @@ func TestLoggerInitWithDefaultLevel(t *testing.T) {
 func TestLoggerInitWithDebugLevel(t *testing.T) {
 	Initialize(false, logging.DEBUG, API, "_testdata")
 
-	if !LoggersMap.GetLogger(moduleID).IsEnabledFor(logging.DEBUG) {
+	if !loggersMap.getLogger(moduleID).IsEnabledFor(logging.DEBUG) {
 		t.Error("Expected Log to be enabled for DEBUG")
 	}
 }
@@ -46,7 +46,7 @@ func TestLoggerInitWithDebugLevel(t *testing.T) {
 func TestLoggerInitWithWarningLevel(t *testing.T) {
 	Initialize(false, logging.WARNING, API, "_testdata")
 
-	if !LoggersMap.GetLogger(moduleID).IsEnabledFor(logging.WARNING) {
+	if !loggersMap.getLogger(moduleID).IsEnabledFor(logging.WARNING) {
 		t.Error("Expected Log to be enabled for WARNING")
 	}
 }
@@ -54,7 +54,7 @@ func TestLoggerInitWithWarningLevel(t *testing.T) {
 func TestLoggerInitWithErrorLevel(t *testing.T) {
 	Initialize(false, logging.ERROR, API, "_testdata")
 
-	if !LoggersMap.GetLogger(moduleID).IsEnabledFor(logging.ERROR) {
+	if !loggersMap.getLogger(moduleID).IsEnabledFor(logging.ERROR) {
 		t.Error("Expected Log to be enabled for ERROR")
 	}
 }
@@ -115,7 +115,7 @@ func TestGetLogFileInProjectWhenAbsoluteCustomLogsDirIsSet(t *testing.T) {
 func TestGetErrorText(t *testing.T) {
 	expectedText := fmt.Sprintf("An Error has Occurred: %s", "some error")
 	fatalErrors = append(fatalErrors, expectedText)
-	got := GetFatalErrorMsg()
+	got := getFatalErrorMsg()
 	want := expectedText
 
 	if got != want {
