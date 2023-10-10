@@ -22,7 +22,12 @@ func GinResponseBodyLogMiddleware(module string, stdout bool) gin.HandlerFunc {
 		blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
 		c.Writer = blw
 		c.Next()
-		logger.InfoLog(module, stdout, "Response "+blw.body.String())
+		if len(blw.body.String()) < 1000 {
+			logger.InfoLog(module, stdout, "Response "+blw.body.String())
+		} else {
+			logger.InfoLog(module, stdout, "Response "+blw.body.String()[:1000])
+		}
+
 	}
 }
 
@@ -32,7 +37,12 @@ func GinRequestBodyLogMiddleware(module string, stdout bool) gin.HandlerFunc {
 		tee := io.TeeReader(c.Request.Body, &buf)
 		body, _ := io.ReadAll(tee)
 		c.Request.Body = io.NopCloser(&buf)
-		logger.InfoLog(module, stdout, "Request "+string(body))
+		if len(string(body)) < 1000 {
+			logger.InfoLog(module, stdout, "Request "+string(body))
+		} else {
+			logger.InfoLog(module, stdout, "Request "+string(body)[:1000])
+		}
+
 		c.Next()
 	}
 }

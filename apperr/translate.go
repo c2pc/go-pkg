@@ -19,8 +19,7 @@ func SetTranslators(validate *validator.Validate) {
 	_ = rutranslations.RegisterDefaultTranslations(validate, trans)
 }
 
-func getTranslator(c *gin.Context) ut.Translator {
-	acceptLang := c.GetHeader("Accept-Language")
+func getTranslator(acceptLang string) ut.Translator {
 	t, found := utrans.FindTranslator(acceptLang)
 	if !found {
 		t, _ = utrans.FindTranslator("ru")
@@ -29,14 +28,26 @@ func getTranslator(c *gin.Context) ut.Translator {
 	return t
 }
 
+func getTranslatorHTTP(c *gin.Context) ut.Translator {
+	acceptLang := c.GetHeader("Accept-Language")
+	return getTranslator(acceptLang)
+}
+
 type Translate map[string]string
 
-func (t Translate) Translate(c *gin.Context) string {
-	acceptLang := c.GetHeader("Accept-Language")
+func (t Translate) Translate(acceptLang string) string {
 	tr, found := t[acceptLang]
 	if !found {
-		return t["ru"]
+		tr, found = t["ru"]
+		if !found {
+			return ""
+		}
 	}
 
 	return tr
+}
+
+func (t Translate) TranslateHttp(c *gin.Context) string {
+	acceptLang := c.GetHeader("Accept-Language")
+	return t.Translate(acceptLang)
 }

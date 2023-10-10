@@ -13,11 +13,11 @@ type APPError struct {
 	ShowMessageBanner bool   `json:"show_message_banner"`
 
 	Translate Translate `json:"-"`
-	Status    int       `json:"-"`
+	Status    Code      `json:"-"`
 	Err       error     `json:"-"`
 }
 
-func New(status int, id string) *APPError {
+func New(status Code, id string) *APPError {
 	return &APPError{Status: status, ID: id}
 }
 
@@ -28,6 +28,16 @@ func (e APPError) WithError(err error) *APPError {
 
 func (e APPError) WithContext(context string) *APPError {
 	e.Context = context
+	return &e
+}
+
+func (e APPError) WithId(id string) *APPError {
+	e.ID = id
+	return &e
+}
+
+func (e APPError) WithStatus(status Code) *APPError {
+	e.Status = status
 	return &e
 }
 
@@ -47,7 +57,9 @@ func (e APPError) WithTitle(title string) *APPError {
 }
 
 func (e APPError) WithText(text string) *APPError {
-	e.Text = text
+	if text != "" {
+		e.Text = text
+	}
 	return &e
 }
 
