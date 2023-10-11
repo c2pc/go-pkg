@@ -12,9 +12,10 @@ type APPError struct {
 	Context           string `json:"context"`
 	ShowMessageBanner bool   `json:"show_message_banner"`
 
-	Translate Translate `json:"-"`
-	Status    Code      `json:"-"`
-	Err       error     `json:"-"`
+	Translate     Translate     `json:"-"`
+	TranslateArgs []interface{} `json:"-"`
+	Status        Code          `json:"-"`
+	Err           error         `json:"-"`
 }
 
 func New(status Code, id string) *APPError {
@@ -43,6 +44,11 @@ func (e APPError) WithStatus(status Code) *APPError {
 
 func (e APPError) WithTranslate(translate Translate) *APPError {
 	e.Translate = translate
+	return &e
+}
+
+func (e APPError) WithTranslateArgs(args ...interface{}) *APPError {
+	e.TranslateArgs = args
 	return &e
 }
 

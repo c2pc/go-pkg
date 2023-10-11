@@ -56,7 +56,6 @@ func HTTPResponse(c *gin.Context, err error) {
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
-	var appError *APPError
 
 	var appErr *APPError
 	if errors.As(err, &appErr) {
@@ -69,7 +68,8 @@ func HTTPResponse(c *gin.Context, err error) {
 					WithTitle(appErr.Title).
 					WithText(ErrSyntax.Translate.TranslateHttp(c)),
 			)
-		case errors.As(err, &ErrValidation):
+			return
+		case Is(err, ErrValidation):
 			if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 				v.RegisterTagNameFunc(RegisterTagNameFunc)
 			}
@@ -96,6 +96,7 @@ func HTTPResponse(c *gin.Context, err error) {
 				"show_message_banner": appErr.ShowMessageBanner,
 				"errors":              errs,
 			})
+			return
 
 		case errors.Is(appErr.Err, io.EOF), errors.Is(appErr.Err, io.ErrUnexpectedEOF), errors.Is(appErr.Err, io.ErrNoProgress):
 			c.AbortWithStatusJSON(ErrEmptyData.Status.HTTP(),
@@ -105,17 +106,10 @@ func HTTPResponse(c *gin.Context, err error) {
 					WithTitle(appErr.Title).
 					WithText(ErrEmptyData.Translate.TranslateHttp(c)),
 			)
-		case errors.As(err, &appError):
-			errors.As(err, &appError)
-			c.AbortWithStatusJSON(appError.Status.HTTP(), appError.WithText(appError.Translate.TranslateHttp(c)))
+			return
 		default:
-			c.AbortWithStatusJSON(ErrInternal.Status.HTTP(),
-				ErrInternal.
-					WithContext(appErr.Context).
-					WithShowMessageBanner(appErr.ShowMessageBanner).
-					WithTitle(appErr.Title).
-					WithText(ErrInternal.Translate.TranslateHttp(c)),
-			)
+			c.AbortWithStatusJSON(appErr.Status.HTTP(), appErr.WithText(appErr.Translate.TranslateHttp(c)))
+			return
 		}
 	} else {
 		c.AbortWithStatusJSON(ErrInternal.Status.HTTP(), err.Error())

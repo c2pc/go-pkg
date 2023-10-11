@@ -1,12 +1,18 @@
 package jwt
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"github.com/c2pc/go-pkg/apperr"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
+	"strings"
 	"time"
 )
+
+const AuthUserKey = "authUser"
+const authorizationHeader = "Authorization"
 
 type JWT struct {
 	Key      []byte
@@ -26,6 +32,42 @@ type Claims struct {
 	Id    int
 	Login string
 	Role  string
+	Token string
+}
+
+func (j *JWT) Authenticate(c *gin.Context) {
+	token, err := ParseAuthHeader(c)
+	if err != nil {
+		apperr.HTTPResponse(c, apperr.ErrUnauthenticated.WithError(err))
+		return
+	}
+
+	tokenClaims, err := j.ParseToken(token)
+	if err != nil {
+		apperr.HTTPResponse(c, apperr.ErrUnauthenticated.WithError(err))
+		return
+	}
+
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), AuthUserKey, tokenClaims))
+
+	c.Next()
+}
+
+func ParseAuthHeader(c *gin.Context) (string, error) {
+	header := c.GetHeader(authorizationHeader)
+	if header == "" {
+		return "", errors.New("empty auth header")
+	}
+	headerParts := strings.Split(header, " ")
+
+	if len(headerParts) != 2 || headerParts[0] != "Bearer" {
+		return "", errors.New("invalid auth header")
+	}
+	if len(headerParts[1]) == 0 {
+		return "", errors.New("token is empty")
+	}
+
+	return headerParts[1], nil
 }
 
 func (j *JWT) ParseToken(token string) (*Claims, error) {
@@ -49,6 +91,7 @@ func (j *JWT) ParseToken(token string) (*Claims, error) {
 		Id:    int(mapClaims["id"].(float64)),
 		Login: mapClaims["l"].(string),
 		Role:  mapClaims["n"].(string),
+		Token: token,
 	}, nil
 }
 

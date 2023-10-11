@@ -1,12 +1,14 @@
 package apperr
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/locales/en"
 	"github.com/go-playground/locales/ru"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	rutranslations "github.com/go-playground/validator/v10/translations/ru"
+	"golang.org/x/text/language"
 )
 
 var utrans *ut.UniversalTranslator
@@ -30,12 +32,21 @@ func getTranslator(acceptLang string) ut.Translator {
 
 func getTranslatorHTTP(c *gin.Context) ut.Translator {
 	acceptLang := c.GetHeader("Accept-Language")
-	return getTranslator(acceptLang)
+	var matcher = language.NewMatcher([]language.Tag{
+		language.Russian,
+		language.MustParse("ru-RU"),
+		language.English,
+		language.MustParse("en-US"),
+	})
+	tag, _ := language.MatchStrings(matcher, acceptLang)
+	matched, _, _ := matcher.Match(tag)
+	base, _ := matched.Base()
+	return getTranslator(base.String())
 }
 
 type Translate map[string]string
 
-func (t Translate) Translate(acceptLang string) string {
+func (t Translate) Translate(acceptLang string, args ...interface{}) string {
 	tr, found := t[acceptLang]
 	if !found {
 		tr, found = t["ru"]
@@ -44,10 +55,10 @@ func (t Translate) Translate(acceptLang string) string {
 		}
 	}
 
-	return tr
+	return fmt.Sprintf(tr, args...)
 }
 
-func (t Translate) TranslateHttp(c *gin.Context) string {
+func (t Translate) TranslateHttp(c *gin.Context, args ...interface{}) string {
 	acceptLang := c.GetHeader("Accept-Language")
-	return t.Translate(acceptLang)
+	return t.Translate(acceptLang, args...)
 }

@@ -50,7 +50,7 @@ func TestGetTranslators(t *testing.T) {
 		c.Request, _ = http.NewRequest(http.MethodPost, "/", nil)
 		c.Request.Header.Set("Accept-Language", al)
 
-		tr := getTranslator(c)
+		tr := getTranslatorHTTP(c)
 		tr2, found := utrans.FindTranslator(al)
 		if !found {
 			tr2, found = utrans.FindTranslator("ru")
@@ -84,7 +84,7 @@ func TestTranslate(t *testing.T) {
 		c.Request, _ = http.NewRequest(http.MethodPost, "/", nil)
 		c.Request.Header.Set("Accept-Language", al)
 
-		text := tr.Translate(c)
+		text := tr.TranslateHttp(c)
 		tx, found := tr[al]
 		if !found {
 			tx, _ = tr["ru"]
