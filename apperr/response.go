@@ -15,6 +15,11 @@ import (
 	"unicode"
 )
 
+type ValidateError struct {
+	Column string `json:"column"`
+	Error  string `json:"error"`
+}
+
 func RegisterTagNameFunc(fld reflect.StructField) string {
 	fieldName := fld.Tag.Get("key")
 	if fieldName == "-" {
@@ -76,16 +81,12 @@ func HTTPResponse(c *gin.Context, err error) {
 
 			errors.As(err, &ErrValidation)
 
-			type errT = struct {
-				column string
-				error  string
-			}
-			var errs []errT
+			var errs []ValidateError
 			if ErrValidation.Err != nil {
 				var validateErrors validator.ValidationErrors
 				errors.As(ErrValidation.Err, &validateErrors)
 				for s, v := range validateErrors.Translate(getTranslatorHTTP(c)) {
-					errs = append(errs, errT{column: getNamespace(s), error: v})
+					errs = append(errs, ValidateError{Column: getNamespace(s), Error: v})
 				}
 			}
 			c.AbortWithStatusJSON(ErrValidation.Status.HTTP(), gin.H{
@@ -123,6 +124,23 @@ func GRPCResponse(err error) error {
 	if errors.As(err, &appErr) {
 		switch {
 		case errors.As(err, &ErrValidation):
+			if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+				v.RegisterTagNameFunc(RegisterTagNameFunc)
+			}
+
+			errors.As(err, &ErrValidation)
+
+			errs := []ValidateError{}
+			if ErrValidation.Err != nil {
+				var validateErrors validator.ValidationErrors
+				errors.As(ErrValidation.Err, &validateErrors)
+				for s, v := range validateErrors.Translate(getTranslator("ru")) {
+					errs = append(errs, ValidateError{Column: getNamespace(s), Error: v})
+				}
+			}
+
+			errConvert, _ := json.Marshal(errs)
+
 			st := status.New(ErrValidation.Status.GRPC(), appErr.ID)
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
@@ -130,6 +148,7 @@ func GRPCResponse(err error) error {
 				{Field: "text", Description: ErrValidation.Translate.Translate("ru")},
 				{Field: "context", Description: appErr.Context},
 				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
+				{Field: "errors", Description: string(errConvert)},
 			}
 			br.FieldViolations = append(br.FieldViolations, v...)
 			st, _ = st.WithDetails(br)

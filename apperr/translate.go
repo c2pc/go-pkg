@@ -60,5 +60,14 @@ func (t Translate) Translate(acceptLang string, args ...interface{}) string {
 
 func (t Translate) TranslateHttp(c *gin.Context, args ...interface{}) string {
 	acceptLang := c.GetHeader("Accept-Language")
-	return t.Translate(acceptLang, args...)
+	var matcher = language.NewMatcher([]language.Tag{
+		language.Russian,
+		language.MustParse("ru-RU"),
+		language.English,
+		language.MustParse("en-US"),
+	})
+	tag, _ := language.MatchStrings(matcher, acceptLang)
+	matched, _, _ := matcher.Match(tag)
+	base, _ := matched.Base()
+	return t.Translate(base.String(), args...)
 }
