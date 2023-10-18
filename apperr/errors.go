@@ -22,4 +22,7 @@ var (
 	ErrNotFound = New(StatusNotFound, "not_found").WithTranslate(Translate{
 		"ru": "Не найдено",
 	})
+	ErrServerIsNotAvailable = New(StatusInternalServerError, "server_is_not_available").WithTranslate(Translate{
+		"ru": "Сервер недоступен",
+	})
 )
