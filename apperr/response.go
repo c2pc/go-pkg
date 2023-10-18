@@ -15,6 +15,13 @@ import (
 	"unicode"
 )
 
+func init() {
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterTagNameFunc(RegisterTagNameFunc)
+		SetTranslators(v)
+	}
+}
+
 type ValidateError struct {
 	Column string `json:"column"`
 	Error  string `json:"error"`
@@ -75,10 +82,6 @@ func HTTPResponse(c *gin.Context, err error) {
 			)
 			return
 		case Is(err, ErrValidation):
-			if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-				v.RegisterTagNameFunc(RegisterTagNameFunc)
-			}
-
 			errors.As(err, &ErrValidation)
 
 			var errs []ValidateError
