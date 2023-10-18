@@ -63,14 +63,14 @@ func getNamespace(str string) string {
 
 // HTTPResponse writes an error response to client
 func HTTPResponse(c *gin.Context, err error) {
-	_ = c.Error(err).SetType(gin.ErrorTypePrivate)
-
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 
 	var appErr *APPError
 	if errors.As(err, &appErr) {
+		appErr = appErr.WithText(appErr.Translate.TranslateHttp(c))
+		_ = c.Error(err).SetType(gin.ErrorTypePrivate)
 		switch {
 		case errors.As(appErr.Err, &syntaxError), errors.As(appErr.Err, &unmarshalTypeError), errors.As(appErr.Err, &invalidUnmarshalError):
 			c.AbortWithStatusJSON(ErrSyntax.Status.HTTP(),
@@ -116,6 +116,7 @@ func HTTPResponse(c *gin.Context, err error) {
 			return
 		}
 	} else {
+		_ = c.Error(err).SetType(gin.ErrorTypePrivate)
 		c.AbortWithStatusJSON(ErrInternal.Status.HTTP(), err.Error())
 	}
 }
@@ -126,11 +127,7 @@ func GRPCResponse(err error) error {
 	var appErr *APPError
 	if errors.As(err, &appErr) {
 		switch {
-		case errors.As(err, &ErrValidation):
-			if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-				v.RegisterTagNameFunc(RegisterTagNameFunc)
-			}
-
+		case Is(err, ErrValidation):
 			errors.As(err, &ErrValidation)
 
 			errs := []ValidateError{}
@@ -157,24 +154,12 @@ func GRPCResponse(err error) error {
 			st, _ = st.WithDetails(br)
 
 			return st.Err()
-		case errors.As(err, &appError):
+		default:
 			st := status.New(appError.Status.GRPC(), appErr.ID)
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: appErr.Title},
 				{Field: "text", Description: appError.Translate.Translate("ru")},
-				{Field: "context", Description: appErr.Context},
-				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
-			}
-			br.FieldViolations = append(br.FieldViolations, v...)
-			st, _ = st.WithDetails(br)
-			return st.Err()
-		default:
-			st := status.New(ErrInternal.Status.GRPC(), appErr.ID)
-			v := []*errdetails.BadRequest_FieldViolation{
-				{Field: "id", Description: appErr.ID},
-				{Field: "title", Description: appErr.Title},
-				{Field: "text", Description: ErrInternal.Translate.Translate("ru")},
 				{Field: "context", Description: appErr.Context},
 				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
 			}
