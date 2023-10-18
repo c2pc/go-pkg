@@ -70,7 +70,7 @@ func HTTPResponse(c *gin.Context, err error) {
 	var appErr *APPError
 	if errors.As(err, &appErr) {
 		appErr = appErr.WithText(appErr.Translate.TranslateHttp(c))
-		_ = c.Error(err).SetType(gin.ErrorTypePrivate)
+		_ = c.Error(appErr).SetType(gin.ErrorTypePrivate)
 		switch {
 		case errors.As(appErr.Err, &syntaxError), errors.As(appErr.Err, &unmarshalTypeError), errors.As(appErr.Err, &invalidUnmarshalError):
 			c.AbortWithStatusJSON(ErrSyntax.Status.HTTP(),
