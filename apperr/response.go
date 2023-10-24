@@ -112,7 +112,7 @@ func HTTPResponse(c *gin.Context, err error) {
 			)
 			return
 		default:
-			c.AbortWithStatusJSON(appErr.Status.HTTP(), appErr.WithText(appErr.Translate.TranslateHttp(c)))
+			c.AbortWithStatusJSON(appErr.Status.HTTP(), appErr.WithText(appErr.Translate.TranslateHttp(c, appErr.TranslateArgs)))
 			return
 		}
 	} else {
@@ -160,7 +160,7 @@ func GRPCResponse(err error) error {
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: appErr.Title},
-				{Field: "text", Description: appError.Translate.Translate("ru")},
+				{Field: "text", Description: appError.Translate.Translate("ru", appError.TranslateArgs)},
 				{Field: "context", Description: appErr.Context},
 				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
 			}
