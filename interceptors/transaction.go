@@ -30,6 +30,7 @@ func (tr *Transaction) UnaryServerInterceptor(ctx context.Context, req interface
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
+			panic(r)
 			return
 		}
 	}()
@@ -56,6 +57,7 @@ func (tr *Transaction) StreamServerInterceptor(srv interface{}, stream grpc.Serv
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
+			panic(r)
 			return
 		}
 	}()
