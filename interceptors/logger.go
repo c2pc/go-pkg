@@ -19,9 +19,9 @@ func Logger(loggerID string, newLine bool) logging.Logger {
 		msg = strings.ToUpper(msg)
 
 		if len(fields) < 1000 {
-			logg.Printf("%s:%v - %+v", prefix, msg, fields)
+			logg.Printf("%s: %v - %+v", prefix, msg, fields)
 		} else {
-			logg.Printf("%s:%v - %+v...", prefix, msg, fields[:1000])
+			logg.Printf("%s: %v - %+v...", prefix, msg, fields[:1000])
 		}
 	})
 }
