@@ -171,9 +171,10 @@ func (j *Json) Version() (int, error) {
 		return 0, err
 	}
 
-	/*if v.Version == 0 {
-		return 0, errors.New("not found config version into file " + j.config.ConfigPath)
-	}*/
+	if v.Version == 0 {
+		return config.NilVersion, nil
+		/*return 0, errors.New("not found config version into file " + j.config.ConfigPath)*/
+	}
 
 	return v.Version, nil
 }
