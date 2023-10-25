@@ -8,7 +8,7 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/c2pc/go-pkg/config_migration/source"
+	"github.com/c2pc/go-pkg/migration/source"
 )
 
 type driver struct {

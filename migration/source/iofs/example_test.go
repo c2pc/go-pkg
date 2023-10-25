@@ -4,9 +4,9 @@ import (
 	"embed"
 	"log"
 
-	"github.com/c2pc/go-pkg/config_migration"
-	_ "github.com/c2pc/go-pkg/config_migration/config/yaml"
-	"github.com/c2pc/go-pkg/config_migration/source/iofs"
+	"github.com/c2pc/go-pkg/migration"
+	_ "github.com/c2pc/go-pkg/migration/config/yaml"
+	"github.com/c2pc/go-pkg/migration/source/iofs"
 )
 
 //go:embed testdata/migrations/*.sql

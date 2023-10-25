@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/c2pc/go-pkg/config_migration/source"
-	"github.com/c2pc/go-pkg/config_migration/source/iofs"
+	"github.com/c2pc/go-pkg/migration/source"
+	"github.com/c2pc/go-pkg/migration/source/iofs"
 )
 
 func init() {

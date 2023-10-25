@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	st "github.com/c2pc/go-pkg/config_migration/source/testing"
+	st "github.com/c2pc/go-pkg/migration/source/testing"
 )
 
 func Test(t *testing.T) {

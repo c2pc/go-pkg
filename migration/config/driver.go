@@ -6,7 +6,7 @@ package config
 
 import (
 	"fmt"
-	iurl "github.com/c2pc/go-pkg/config_migration/url"
+	iurl "github.com/c2pc/go-pkg/migration/url"
 	"io"
 	"sync"
 )

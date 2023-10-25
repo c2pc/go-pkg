@@ -13,9 +13,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/c2pc/go-pkg/config_migration/config"
-	"github.com/c2pc/go-pkg/config_migration/source"
-	iurl "github.com/c2pc/go-pkg/config_migration/url"
+	"github.com/c2pc/go-pkg/migration/config"
+	"github.com/c2pc/go-pkg/migration/source"
+	iurl "github.com/c2pc/go-pkg/migration/url"
 )
 
 // DefaultPrefetchMigrations sets the number of migrations to pre-read

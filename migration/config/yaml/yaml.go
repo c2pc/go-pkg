@@ -1,20 +1,21 @@
-package json
+package yaml
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/c2pc/go-pkg/config_migration/config"
+	"github.com/c2pc/go-pkg/migration/config"
 	"github.com/pkg/errors"
 	"github.com/rogpeppe/go-internal/lockedfile"
+	"gopkg.in/yaml.v3"
 	"io"
 	nurl "net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func init() {
-	y := Json{}
-	config.Register("json", &y)
+	y := Yaml{}
+	config.Register("yaml", &y)
 }
 
 var (
@@ -26,13 +27,13 @@ type Config struct {
 	ConfigPath string
 }
 
-type Json struct {
+type Yaml struct {
 	file *lockedfile.File
 
 	config *Config
 }
 
-func New(config *Config) (*Json, error) {
+func New(config *Config) (*Yaml, error) {
 	if config == nil {
 		return nil, ErrNilConfig
 	}
@@ -46,34 +47,34 @@ func New(config *Config) (*Json, error) {
 		return nil, err
 	}
 
-	js := &Json{
+	yml := &Yaml{
 		config: &Config{
 			ConfigPath: path,
 		},
 	}
 
-	return js, nil
+	return yml, nil
 }
 
-func (j *Json) Open(configPath string) (config.Driver, error) {
-	js, err := New(&Config{ConfigPath: configPath})
+func (y *Yaml) Open(configPath string) (config.Driver, error) {
+	yml, err := New(&Config{ConfigPath: configPath})
 	if err != nil {
 		return nil, err
 	}
 
-	file, err := lockedfile.OpenFile(js.config.ConfigPath, os.O_RDWR|os.O_CREATE, 0755)
+	file, err := lockedfile.OpenFile(yml.config.ConfigPath, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return nil, err
 	}
 
-	js.file = file
+	yml.file = file
 
-	return js, nil
+	return yml, nil
 }
 
-func (j *Json) Close() error {
-	if j.file != nil {
-		if err := j.file.Close(); err != nil {
+func (y *Yaml) Close() error {
+	if y.file != nil {
+		if err := y.file.Close(); err != nil {
 			return err
 		}
 	}
@@ -81,67 +82,62 @@ func (j *Json) Close() error {
 	return nil
 }
 
-func (j *Json) Lock() error {
+func (y *Yaml) Lock() error {
 	return nil
 }
 
-func (j *Json) Unlock() error {
-	return j.Close()
+func (y *Yaml) Unlock() error {
+	return y.Close()
 }
 
-func (j *Json) Run(migration io.Reader) error {
+func (y *Yaml) Run(migration io.Reader) error {
 	migrFile, err := io.ReadAll(migration)
 	if err != nil {
 		return err
 	}
 
 	migrMap := map[string]interface{}{}
-	if err := json.Unmarshal(migrFile, &migrMap); err != nil {
+	if err := yaml.Unmarshal(migrFile, &migrMap); err != nil {
 		return errors.Wrapf(err, "failed to parse migration file")
 	}
 
-	if _, err = j.file.Seek(0, 0); err != nil {
+	if _, err = y.file.Seek(0, 0); err != nil {
 		return err
 	}
 
-	configFile, err := io.ReadAll(j.file)
+	configFile, err := io.ReadAll(y.file)
 	if err != nil {
 		return err
 	}
 
-	if len(configFile) == 0 {
-		configFile = []byte("{}")
-	}
-
 	configMap := map[string]interface{}{}
-	if err := json.Unmarshal(configFile, &configMap); err != nil {
-		return errors.Wrapf(err, "failed to parse %s", j.config.ConfigPath)
+	if err := yaml.Unmarshal(configFile, &configMap); err != nil {
+		return errors.Wrapf(err, "failed to parse %s", y.config.ConfigPath)
 	}
 
 	base := mergeMaps(migrMap, configMap)
 	base = clearMaps(base, migrMap)
-	base = deleteMaps(base)
 	delete(base, "version")
 
-	data, err := json.MarshalIndent(base, "", "    ")
+	data, err := yaml.Marshal(base)
+	if err != nil {
+		return err
+	}
+	newData := strings.ReplaceAll(string(data), "'", "")
+	newData = strings.ReplaceAll(newData, "null", "")
+
+	newData = fmt.Sprintf("version: %v\n", migrMap["version"]) + newData
+
+	err = y.file.Truncate(0)
 	if err != nil {
 		return err
 	}
 
-	newData := string(data)
-	newData = fmt.Sprintf(`{
-    "version": %v,`, migrMap["version"]) + newData[1:]
-
-	err = j.file.Truncate(0)
-	if err != nil {
+	if _, err = y.file.Seek(0, 0); err != nil {
 		return err
 	}
 
-	if _, err = j.file.Seek(0, 0); err != nil {
-		return err
-	}
-
-	_, err = j.file.Write([]byte(newData))
+	_, err = y.file.Write([]byte(newData))
 	if err != nil {
 		return err
 	}
@@ -149,38 +145,38 @@ func (j *Json) Run(migration io.Reader) error {
 	return nil
 }
 
-func (j *Json) Version() (int, error) {
+func (y *Yaml) Version() (int, error) {
 	type version struct {
-		Version int `json:"version"`
+		Version int `yaml:"version"`
 	}
 
-	if _, err := j.file.Seek(0, 0); err != nil {
+	if _, err := y.file.Seek(0, 0); err != nil {
 		return 0, err
 	}
 
-	r, err := io.ReadAll(j.file)
+	r, err := io.ReadAll(y.file)
 	if err != nil {
 		return 0, err
 	}
 
-	if len(r) == 0 {
-		return config.NilVersion, nil
-	}
-
 	v := new(version)
-	if err := json.Unmarshal(r, v); err != nil {
+	if err := yaml.Unmarshal(r, v); err != nil {
 		return 0, err
 	}
 
 	if v.Version == 0 {
 		return config.NilVersion, nil
-		/*return 0, errors.New("not found config version into file " + j.config.ConfigPath)*/
+		/*if len(r) == 0 {
+			return config.NilVersion, nil
+		} else {
+			return 0, errors.New("not found config version into file " + y.config.ConfigPath)
+		}*/
 	}
 
 	return v.Version, nil
 }
 
-func (j *Json) Drop() error {
+func (y *Yaml) Drop() error {
 	return nil
 }
 
@@ -221,9 +217,6 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		out[k] = v
 	}
 	for k, v := range b {
-		if k[:1] == "_" {
-			continue
-		}
 		if v2, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
@@ -250,34 +243,16 @@ func clearMaps(c, d map[string]interface{}) map[string]interface{} {
 					out[k] = clearMaps(v, bv)
 				}
 			} else {
-				out["_"+k] = clearMaps(v, map[string]interface{}{})
+				out["#"+k] = clearMaps(v, map[string]interface{}{})
 			}
 			continue
 		}
 
 		if _, ok := d[k]; !ok {
-			if _, ok := out["_"+k]; !ok {
-				out["_"+k] = v
+			if _, ok := out["#"+k]; !ok {
+				out["#"+k] = v
 			}
 		} else {
-			out[k] = v
-		}
-	}
-
-	return out
-}
-
-func deleteMaps(e map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range e {
-		if v, ok := v.(map[string]interface{}); ok {
-			if k[:1] != "_" {
-				out[k] = deleteMaps(v)
-			}
-			continue
-		}
-
-		if k[:1] != "_" {
 			out[k] = v
 		}
 	}

@@ -3,8 +3,8 @@ package iofs_test
 import (
 	"testing"
 
-	"github.com/c2pc/go-pkg/config_migration/source/iofs"
-	st "github.com/c2pc/go-pkg/config_migration/source/testing"
+	"github.com/c2pc/go-pkg/migration/source/iofs"
+	st "github.com/c2pc/go-pkg/migration/source/testing"
 )
 
 func Test(t *testing.T) {

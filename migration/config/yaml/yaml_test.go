@@ -2,8 +2,8 @@ package yaml
 
 import (
 	"errors"
-	migrate "github.com/c2pc/go-pkg/config_migration"
-	_ "github.com/c2pc/go-pkg/config_migration/source/file"
+	migrate "github.com/c2pc/go-pkg/migration"
+	_ "github.com/c2pc/go-pkg/migration/source/file"
 	"testing"
 )
 
