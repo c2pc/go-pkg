@@ -67,7 +67,7 @@ func Open(path string) (Driver, error) {
 	d, ok := drivers[scheme]
 	driversMu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("database driver: unknown driver %v (forgotten import?)", scheme)
+		return nil, fmt.Errorf("config driver: unknown driver %v (forgotten import?)", scheme)
 	}
 
 	return d.Open(path)
