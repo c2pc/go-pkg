@@ -82,6 +82,13 @@ func (i *Migrations) First() (version uint, ok bool) {
 	return i.index[0], true
 }
 
+func (i *Migrations) Last() (version uint, ok bool) {
+	if len(i.index) == 0 {
+		return 0, false
+	}
+	return i.index[len(i.index)-1], true
+}
+
 func (i *Migrations) Prev(version uint) (prevVersion uint, ok bool) {
 	pos := i.findPos(version)
 	if pos >= 1 && len(i.index) > pos-1 {

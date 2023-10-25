@@ -99,6 +99,18 @@ func (d *PartialDriver) First() (version uint, err error) {
 	}
 }
 
+// Last is part of source.Driver interface implementation.
+func (d *PartialDriver) Last() (version uint, err error) {
+	if version, ok := d.migrations.Last(); ok {
+		return version, nil
+	}
+	return 0, &fs.PathError{
+		Op:   "last",
+		Path: d.path,
+		Err:  fs.ErrNotExist,
+	}
+}
+
 // Prev is part of source.Driver interface implementation.
 func (d *PartialDriver) Prev(version uint) (prevVersion uint, err error) {
 	if version, ok := d.migrations.Prev(version); ok {

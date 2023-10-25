@@ -517,13 +517,19 @@ func (m *Migrate) readUp(from int, limit int, ret chan<- interface{}) {
 
 		// apply first migration if from is nil version
 		if from == -1 {
-			firstVersion, err := m.sourceDrv.First()
+			/*firstVersion, err := m.sourceDrv.Last()
+			if err != nil {
+				ret <- err
+				return
+			}*/
+
+			lastVersion, err := m.sourceDrv.Last()
 			if err != nil {
 				ret <- err
 				return
 			}
 
-			migr, err := m.newMigration(firstVersion, int(firstVersion))
+			migr, err := m.newMigration(lastVersion, int(lastVersion))
 			if err != nil {
 				ret <- err
 				return
@@ -535,14 +541,15 @@ func (m *Migrate) readUp(from int, limit int, ret chan<- interface{}) {
 					m.logErr(err)
 				}
 			}()
-			from = int(firstVersion)
+			from = int(lastVersion)
 			count++
 			continue
 		}
 
 		// apply next migration
-		next, err := m.sourceDrv.Next(suint(from))
-		if errors.Is(err, os.ErrNotExist) {
+		//next, err := m.sourceDrv.Next(suint(from))
+		next, err := m.sourceDrv.Last()
+		if errors.Is(err, os.ErrNotExist) || int(next) == from {
 			// no limit, but no migrations applied?
 			if limit == -1 && count == 0 {
 				ret <- ErrNoChange

@@ -1,16 +1,5 @@
 {
     "version": 3,
-    "_server1": {
-        "_username1": true
-    },
-    "_server2": {
-        "_pass2": true,
-        "_username2": false
-    },
-    "_server4": {
-        "_pass3": 2,
-        "_username4": "username41"
-    },
     "server5": {
         "pass5": 0,
         "username5": ""

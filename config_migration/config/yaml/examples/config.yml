@@ -1,13 +1,4 @@
-version: 2
-#server4: 
-#server5:
-    #url5: url5
-    #username5: 
-server1:
-    #url1: url1
-    username1: 
-server2:
-    #url2: url2
-    pass2: pass21
-    username2: 
-server3: 
+version: 3
+server4:
+    pass4: 
+    username4: username41
