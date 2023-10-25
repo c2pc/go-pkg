@@ -119,7 +119,8 @@ func (j *Json) Run(migration io.Reader) error {
 	}
 
 	base := mergeMaps(migrMap, configMap)
-	//base = clearMaps(base, migrMap)
+	base = clearMaps(base, migrMap)
+	base = deleteMaps(base)
 	delete(base, "version")
 
 	data, err := json.MarshalIndent(base, "", "    ")
@@ -240,7 +241,7 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-/*func clearMaps(c, d map[string]interface{}) map[string]interface{} {
+func clearMaps(c, d map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{})
 	for k, v := range c {
 		if v, ok := v.(map[string]interface{}); ok {
@@ -264,4 +265,22 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	}
 
 	return out
-}*/
+}
+
+func deleteMaps(e map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{})
+	for k, v := range e {
+		if v, ok := v.(map[string]interface{}); ok {
+			if k[:1] != "_" {
+				out[k] = deleteMaps(v)
+			}
+			continue
+		}
+
+		if k[:1] != "_" {
+			out[k] = v
+		}
+	}
+
+	return out
+}
