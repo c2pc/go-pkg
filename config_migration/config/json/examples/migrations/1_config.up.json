@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "server1": {
+    "url1": "url1",
+    "username1": true
+  },
+  "server2": {
+    "url2": "url2",
+    "username2": false
+  },
+  "server3": {
+    "url3": "url3",
+    "username3": true
+  }
+}
