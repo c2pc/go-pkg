@@ -164,13 +164,13 @@ func (y *Yaml) Version() (int, error) {
 		return 0, err
 	}
 
-	if v.Version == 0 {
+	/*if v.Version == 0 {
 		if len(r) == 0 {
 			return config.NilVersion, nil
 		} else {
 			return 0, errors.New("not found config version into file " + y.config.ConfigPath)
 		}
-	}
+	}*/
 
 	return v.Version, nil
 }

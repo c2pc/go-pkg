@@ -171,9 +171,9 @@ func (j *Json) Version() (int, error) {
 		return 0, err
 	}
 
-	if v.Version == 0 {
+	/*if v.Version == 0 {
 		return 0, errors.New("not found config version into file " + j.config.ConfigPath)
-	}
+	}*/
 
 	return v.Version, nil
 }
@@ -219,6 +219,9 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 		out[k] = v
 	}
 	for k, v := range b {
+		if k[:1] == "_" {
+			continue
+		}
 		if v2, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
@@ -239,9 +242,6 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 func clearMaps(c, d map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{})
 	for k, v := range c {
-		if k[:1] == "_" {
-			continue
-		}
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := d[k]; ok {
 				if bv, ok := bv.(map[string]interface{}); ok {
