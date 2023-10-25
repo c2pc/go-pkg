@@ -119,7 +119,7 @@ func (j *Json) Run(migration io.Reader) error {
 	}
 
 	base := mergeMaps(migrMap, configMap)
-	base = clearMaps(base, migrMap)
+	//base = clearMaps(base, migrMap)
 	delete(base, "version")
 
 	data, err := json.MarshalIndent(base, "", "    ")
@@ -240,7 +240,7 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func clearMaps(c, d map[string]interface{}) map[string]interface{} {
+/*func clearMaps(c, d map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{})
 	for k, v := range c {
 		if v, ok := v.(map[string]interface{}); ok {
@@ -264,4 +264,4 @@ func clearMaps(c, d map[string]interface{}) map[string]interface{} {
 	}
 
 	return out
-}
+}*/
