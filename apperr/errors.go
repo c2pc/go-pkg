@@ -25,4 +25,7 @@ var (
 	ErrServerIsNotAvailable = New(StatusInternalServerError, "server_is_not_available").WithTranslate(Translate{
 		"ru": "Сервер недоступен",
 	})
+	Err404 = New(StatusInternalServerError, "404_error").WithTranslate(Translate{
+		"ru": "Ресурс не найден",
+	})
 )
