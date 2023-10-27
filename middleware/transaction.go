@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/c2pc/go-pkg/apperr"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -41,6 +42,8 @@ func (tr *Transaction) DBTransactionMiddleware() gin.HandlerFunc {
 			if r := recover(); r != nil {
 				txHandle.Rollback()
 				apperr.HTTPResponse(c, apperr.ErrInternal)
+				fmt.Println(r)
+
 				return
 			}
 		}()
