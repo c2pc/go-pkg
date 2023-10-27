@@ -1,38 +1,23 @@
 package yaml
 
 import (
-	"errors"
-	migrate "github.com/c2pc/go-pkg/migration"
-	_ "github.com/c2pc/go-pkg/migration/source/file"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"os"
 	"testing"
 )
 
-func TestYaml_Version(t *testing.T) {
-	m, err := migrate.New("file://./examples/migrations", "yaml://./examples/config.yml")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	version, err := m.Version()
-	if err != nil {
-		if !errors.Is(err, migrate.ErrNilVersion) {
-			t.Fatal(err)
-		}
-		return
-	}
-
-	if version <= 0 {
-		t.Error("Invalid version", version)
-	}
-}
-
-func TestYaml_Run(t *testing.T) {
+func TestYaml_Up(t *testing.T) {
 	m, err := migrate.New("file://./examples/migrations", "yaml://./examples/config.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if err := m.Up(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove("./examples/config.yml"); err != nil {
 		t.Fatal(err)
 	}
 }

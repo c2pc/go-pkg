@@ -3,6 +3,7 @@ package yaml
 import (
 	"fmt"
 	"github.com/c2pc/go-pkg/migration/config"
+	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/pkg/errors"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"gopkg.in/yaml.v3"
@@ -11,113 +12,120 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 func init() {
 	y := Yaml{}
-	config.Register("yaml", &y)
+	database.Register("yaml", &y)
 }
 
 var (
-	ErrNilConfig    = fmt.Errorf("no config")
-	ErrNoConfigPath = fmt.Errorf("no config path")
+	ErrNilFile = fmt.Errorf("no file")
+	ErrNoPath  = fmt.Errorf("no file path")
 )
 
 type Config struct {
-	ConfigPath string
+	Path        string
+	WithComment string
 }
 
 type Yaml struct {
-	file *lockedfile.File
-
-	config *Config
+	lockedfile *lockedfile.File
+	mu         sync.Mutex
+	config     *Config
 }
 
 func New(config *Config) (*Yaml, error) {
 	if config == nil {
-		return nil, ErrNilConfig
+		return nil, ErrNilFile
 	}
 
-	if config.ConfigPath == "" {
-		return nil, ErrNoConfigPath
+	if config.Path == "" {
+		return nil, ErrNoPath
 	}
 
-	path, err := parseURL(config.ConfigPath)
+	path, err := parseURL(config.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	yml := &Yaml{
 		config: &Config{
-			ConfigPath: path,
+			Path:        path,
+			WithComment: config.WithComment,
 		},
 	}
 
 	return yml, nil
 }
 
-func (y *Yaml) Open(configPath string) (config.Driver, error) {
-	yml, err := New(&Config{ConfigPath: configPath})
+func (y *Yaml) Open(filePath string) (database.Driver, error) {
+	js, err := New(&Config{Path: filePath})
 	if err != nil {
 		return nil, err
 	}
 
-	file, err := lockedfile.OpenFile(yml.config.ConfigPath, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	yml.file = file
-
-	return yml, nil
+	return js, nil
 }
 
 func (y *Yaml) Close() error {
-	if y.file != nil {
-		if err := y.file.Close(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return y.lockedfile.Close()
 }
 
 func (y *Yaml) Lock() error {
+	f, err := lockedfile.OpenFile(y.config.Path, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	y.mu.Lock()
+
+	y.lockedfile = f
+
 	return nil
 }
 
 func (y *Yaml) Unlock() error {
+	y.mu.Unlock()
 	return y.Close()
 }
 
 func (y *Yaml) Run(migration io.Reader) error {
-	migrFile, err := io.ReadAll(migration)
+	migrData, err := io.ReadAll(migration)
 	if err != nil {
 		return err
 	}
 
 	migrMap := map[string]interface{}{}
-	if err := yaml.Unmarshal(migrFile, &migrMap); err != nil {
+	if err := yaml.Unmarshal(migrData, &migrMap); err != nil {
 		return errors.Wrapf(err, "failed to parse migration file")
 	}
 
-	if _, err = y.file.Seek(0, 0); err != nil {
+	if _, err = y.lockedfile.Seek(0, 0); err != nil {
 		return err
 	}
 
-	configFile, err := io.ReadAll(y.file)
+	fileData, err := io.ReadAll(y.lockedfile)
 	if err != nil {
 		return err
 	}
 
-	configMap := map[string]interface{}{}
-	if err := yaml.Unmarshal(configFile, &configMap); err != nil {
-		return errors.Wrapf(err, "failed to parse %s", y.config.ConfigPath)
+	fileMap := map[string]interface{}{}
+	if err := yaml.Unmarshal(fileData, &fileMap); err != nil {
+		return errors.Wrapf(err, "failed to parse %s", y.config.Path)
 	}
 
-	base := mergeMaps(migrMap, configMap)
-	base = clearMaps(base, migrMap)
+	base := map[string]interface{}{}
+	if y.config.WithComment == "" {
+		base = config.Merge(migrMap, fileMap)
+	} else {
+		base = config.MergeWithComment(migrMap, fileMap, y.config.WithComment)
+		delete(base, y.config.WithComment+"version")
+		delete(base, y.config.WithComment+"force")
+	}
+
 	delete(base, "version")
+	delete(base, "force")
 
 	data, err := yaml.Marshal(base)
 	if err != nil {
@@ -126,18 +134,16 @@ func (y *Yaml) Run(migration io.Reader) error {
 	newData := strings.ReplaceAll(string(data), "'", "")
 	newData = strings.ReplaceAll(newData, "null", "")
 
-	newData = fmt.Sprintf("version: %v\n", migrMap["version"]) + newData
-
-	err = y.file.Truncate(0)
+	err = y.lockedfile.Truncate(0)
 	if err != nil {
 		return err
 	}
 
-	if _, err = y.file.Seek(0, 0); err != nil {
+	if _, err = y.lockedfile.Seek(0, 0); err != nil {
 		return err
 	}
 
-	_, err = y.file.Write([]byte(newData))
+	_, err = y.lockedfile.Write([]byte(newData))
 	if err != nil {
 		return err
 	}
@@ -145,38 +151,96 @@ func (y *Yaml) Run(migration io.Reader) error {
 	return nil
 }
 
-func (y *Yaml) Version() (int, error) {
-	type version struct {
-		Version int `yaml:"version"`
+func (y *Yaml) SetVersion(version int, dirty bool) error {
+	if _, err := y.lockedfile.Seek(0, 0); err != nil {
+		return err
 	}
 
-	if _, err := y.file.Seek(0, 0); err != nil {
-		return 0, err
-	}
-
-	r, err := io.ReadAll(y.file)
+	fileData, err := io.ReadAll(y.lockedfile)
 	if err != nil {
-		return 0, err
+		return err
+	}
+
+	fileMap := map[string]interface{}{}
+	if err := yaml.Unmarshal(fileData, &fileMap); err != nil {
+		return errors.Wrapf(err, "failed to parse %s", y.config.Path)
+	}
+
+	delete(fileMap, "version")
+	delete(fileMap, "force")
+
+	data, err := yaml.Marshal(fileMap)
+	if err != nil {
+		return err
+	}
+
+	newData := strings.ReplaceAll(string(data), "null", "")
+
+	if len(fileMap) == 0 {
+		newData = ""
+	}
+
+	newData = fmt.Sprintf("force: %v\n", dirty) + newData
+	newData = fmt.Sprintf("version: %v\n", version) + newData
+
+	err = y.lockedfile.Truncate(0)
+	if err != nil {
+		return err
+	}
+
+	if _, err = y.lockedfile.Seek(0, 0); err != nil {
+		return err
+	}
+
+	_, err = y.lockedfile.Write([]byte(newData))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (y *Yaml) Version() (int, bool, error) {
+	type version struct {
+		Version int  `yaml:"version"`
+		Force   bool `json:"force"`
+	}
+
+	if _, err := y.lockedfile.Seek(0, 0); err != nil {
+		return 0, false, err
+	}
+
+	r, err := io.ReadAll(y.lockedfile)
+	if err != nil {
+		return 0, false, err
+	}
+
+	if len(r) == 0 {
+		return database.NilVersion, false, nil
 	}
 
 	v := new(version)
 	if err := yaml.Unmarshal(r, v); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	if v.Version == 0 {
-		return config.NilVersion, nil
-		/*if len(r) == 0 {
-			return config.NilVersion, nil
-		} else {
-			return 0, errors.New("not found config version into file " + y.config.ConfigPath)
-		}*/
+		return database.NilVersion, false, nil
 	}
 
-	return v.Version, nil
+	return v.Version, v.Force, nil
 }
 
 func (y *Yaml) Drop() error {
+	err := y.lockedfile.Truncate(0)
+	if err != nil {
+		return err
+	}
+
+	if _, err = y.lockedfile.Seek(0, 0); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -209,53 +273,4 @@ func parseURL(url string) (string, error) {
 		p = abs
 	}
 	return p, nil
-}
-
-func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range a {
-		out[k] = v
-	}
-	for k, v := range b {
-		if v2, ok := v.(map[string]interface{}); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = mergeMaps(bv, v2)
-					continue
-				}
-			}
-			out[k] = v2
-			continue
-		}
-
-		out[k] = v
-	}
-
-	return out
-}
-
-func clearMaps(c, d map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range c {
-		if v, ok := v.(map[string]interface{}); ok {
-			if bv, ok := d[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = clearMaps(v, bv)
-				}
-			} else {
-				out["#"+k] = clearMaps(v, map[string]interface{}{})
-			}
-			continue
-		}
-
-		if _, ok := d[k]; !ok {
-			if _, ok := out["#"+k]; !ok {
-				out["#"+k] = v
-			}
-		} else {
-			out[k] = v
-		}
-	}
-
-	return out
 }

@@ -4,76 +4,205 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/c2pc/go-pkg/migration/config"
+	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/pkg/errors"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	nurl "net/url"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 func init() {
-	y := Json{}
-	config.Register("json", &y)
+	j := Json{}
+	database.Register("json", &j)
 }
 
 var (
-	ErrNilConfig    = fmt.Errorf("no config")
-	ErrNoConfigPath = fmt.Errorf("no config path")
+	ErrNilFile = fmt.Errorf("no file")
+	ErrNoPath  = fmt.Errorf("no file path")
 )
 
 type Config struct {
-	ConfigPath string
+	Path        string
+	WithComment string
 }
 
 type Json struct {
-	file *lockedfile.File
-
-	config *Config
+	lockedfile *lockedfile.File
+	mu         sync.Mutex
+	config     *Config
 }
 
 func New(config *Config) (*Json, error) {
 	if config == nil {
-		return nil, ErrNilConfig
+		return nil, ErrNilFile
 	}
 
-	if config.ConfigPath == "" {
-		return nil, ErrNoConfigPath
+	if config.Path == "" {
+		return nil, ErrNoPath
 	}
 
-	path, err := parseURL(config.ConfigPath)
+	path, err := parseURL(config.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	js := &Json{
 		config: &Config{
-			ConfigPath: path,
+			Path:        path,
+			WithComment: config.WithComment,
 		},
 	}
 
 	return js, nil
 }
 
-func (j *Json) Open(configPath string) (config.Driver, error) {
-	js, err := New(&Config{ConfigPath: configPath})
+func (j *Json) Open(filePath string) (database.Driver, error) {
+	js, err := New(&Config{Path: filePath})
 	if err != nil {
 		return nil, err
 	}
-
-	file, err := lockedfile.OpenFile(js.config.ConfigPath, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	js.file = file
 
 	return js, nil
 }
 
 func (j *Json) Close() error {
-	if j.file != nil {
-		if err := j.file.Close(); err != nil {
+	return j.lockedfile.Close()
+}
+
+func (j *Json) Lock() error {
+	f, err := lockedfile.OpenFile(j.config.Path, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	j.mu.Lock()
+
+	j.lockedfile = f
+
+	return nil
+}
+
+func (j *Json) Unlock() error {
+	j.mu.Unlock()
+	return j.Close()
+}
+
+func (j *Json) Run(migration io.Reader) error {
+	migrData, err := io.ReadAll(migration)
+	if err != nil {
+		return err
+	}
+
+	migrMap := map[string]interface{}{}
+	if err := json.Unmarshal(migrData, &migrMap); err != nil {
+		return errors.Wrapf(err, "failed to parse migration file")
+	}
+
+	if _, err = j.lockedfile.Seek(0, 0); err != nil {
+		return err
+	}
+
+	fileData, err := io.ReadAll(j.lockedfile)
+	if err != nil {
+		return err
+	}
+
+	if len(fileData) == 0 {
+		fileData = []byte("{}")
+	}
+
+	fileMap := map[string]interface{}{}
+	if err := json.Unmarshal(fileData, &fileMap); err != nil {
+		return errors.Wrapf(err, "failed to parse %s", j.config.Path)
+	}
+
+	base := map[string]interface{}{}
+	if j.config.WithComment == "" {
+		base = config.Merge(migrMap, fileMap)
+	} else {
+		base = config.MergeWithComment(migrMap, fileMap, j.config.WithComment)
+		delete(base, j.config.WithComment+"version")
+		delete(base, j.config.WithComment+"force")
+	}
+
+	delete(base, "version")
+	delete(base, "force")
+
+	data, err := json.MarshalIndent(base, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	err = j.lockedfile.Truncate(0)
+	if err != nil {
+		return err
+	}
+
+	if _, err = j.lockedfile.Seek(0, 0); err != nil {
+		return err
+	}
+
+	_, err = j.lockedfile.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (j *Json) SetVersion(version int, dirty bool) error {
+	if _, err := j.lockedfile.Seek(0, 0); err != nil {
+		return err
+	}
+
+	fileData, err := io.ReadAll(j.lockedfile)
+	if err != nil {
+		return err
+	}
+
+	if len(fileData) == 0 {
+		fileData = []byte("{}")
+	}
+
+	fileMap := map[string]interface{}{}
+	if err := json.Unmarshal(fileData, &fileMap); err != nil {
+		return errors.Wrapf(err, "failed to parse %s", j.config.Path)
+	}
+
+	if version >= 0 || (version == database.NilVersion && dirty) {
+		delete(fileMap, "version")
+		delete(fileMap, "force")
+
+		data, err := json.MarshalIndent(fileMap, "", "    ")
+		if err != nil {
+			return err
+		}
+
+		newData := string(data)
+		if len(fileMap) == 0 {
+			newData = fmt.Sprintf(`{
+    "version": %v,
+    "force": %v
+    `, version, dirty) + newData[1:]
+		} else {
+			newData = fmt.Sprintf(`{
+    "version": %v,
+    "force": %v,`, version, dirty) + newData[1:]
+		}
+
+		err = j.lockedfile.Truncate(0)
+		if err != nil {
+			return err
+		}
+
+		if _, err = j.lockedfile.Seek(0, 0); err != nil {
+			return err
+		}
+
+		_, err = j.lockedfile.Write([]byte(newData))
+		if err != nil {
 			return err
 		}
 	}
@@ -81,106 +210,47 @@ func (j *Json) Close() error {
 	return nil
 }
 
-func (j *Json) Lock() error {
-	return nil
-}
-
-func (j *Json) Unlock() error {
-	return j.Close()
-}
-
-func (j *Json) Run(migration io.Reader) error {
-	migrFile, err := io.ReadAll(migration)
-	if err != nil {
-		return err
-	}
-
-	migrMap := map[string]interface{}{}
-	if err := json.Unmarshal(migrFile, &migrMap); err != nil {
-		return errors.Wrapf(err, "failed to parse migration file")
-	}
-
-	if _, err = j.file.Seek(0, 0); err != nil {
-		return err
-	}
-
-	configFile, err := io.ReadAll(j.file)
-	if err != nil {
-		return err
-	}
-
-	if len(configFile) == 0 {
-		configFile = []byte("{}")
-	}
-
-	configMap := map[string]interface{}{}
-	if err := json.Unmarshal(configFile, &configMap); err != nil {
-		return errors.Wrapf(err, "failed to parse %s", j.config.ConfigPath)
-	}
-
-	base := mergeMaps(migrMap, configMap)
-	base = clearMaps(base, migrMap)
-	base = deleteMaps(base)
-	delete(base, "version")
-
-	data, err := json.MarshalIndent(base, "", "    ")
-	if err != nil {
-		return err
-	}
-
-	newData := string(data)
-	newData = fmt.Sprintf(`{
-    "version": %v,`, migrMap["version"]) + newData[1:]
-
-	err = j.file.Truncate(0)
-	if err != nil {
-		return err
-	}
-
-	if _, err = j.file.Seek(0, 0); err != nil {
-		return err
-	}
-
-	_, err = j.file.Write([]byte(newData))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (j *Json) Version() (int, error) {
+func (j *Json) Version() (int, bool, error) {
 	type version struct {
-		Version int `json:"version"`
+		Version int  `json:"version"`
+		Force   bool `json:"force"`
 	}
 
-	if _, err := j.file.Seek(0, 0); err != nil {
-		return 0, err
+	if _, err := j.lockedfile.Seek(0, 0); err != nil {
+		return 0, false, err
 	}
 
-	r, err := io.ReadAll(j.file)
+	r, err := io.ReadAll(j.lockedfile)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	if len(r) == 0 {
-		return config.NilVersion, nil
+		return database.NilVersion, false, nil
 	}
 
 	v := new(version)
 	if err := json.Unmarshal(r, v); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	if v.Version == 0 {
-		return config.NilVersion, nil
-		/*return 0, errors.New("not found config version into file " + j.config.ConfigPath)*/
+		return database.NilVersion, false, nil
 	}
 
-	return v.Version, nil
+	return v.Version, v.Force, nil
 }
 
 func (j *Json) Drop() error {
+	err := j.lockedfile.Truncate(0)
+	if err != nil {
+		return err
+	}
+
+	if _, err = j.lockedfile.Seek(0, 0); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -213,74 +283,4 @@ func parseURL(url string) (string, error) {
 		p = abs
 	}
 	return p, nil
-}
-
-func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range a {
-		out[k] = v
-	}
-	for k, v := range b {
-		if k[:1] == "_" {
-			continue
-		}
-		if v2, ok := v.(map[string]interface{}); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = mergeMaps(bv, v2)
-					continue
-				}
-			}
-			out[k] = v2
-			continue
-		}
-
-		out[k] = v
-	}
-
-	return out
-}
-
-func clearMaps(c, d map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range c {
-		if v, ok := v.(map[string]interface{}); ok {
-			if bv, ok := d[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = clearMaps(v, bv)
-				}
-			} else {
-				out["_"+k] = clearMaps(v, map[string]interface{}{})
-			}
-			continue
-		}
-
-		if _, ok := d[k]; !ok {
-			if _, ok := out["_"+k]; !ok {
-				out["_"+k] = v
-			}
-		} else {
-			out[k] = v
-		}
-	}
-
-	return out
-}
-
-func deleteMaps(e map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range e {
-		if v, ok := v.(map[string]interface{}); ok {
-			if k[:1] != "_" {
-				out[k] = deleteMaps(v)
-			}
-			continue
-		}
-
-		if k[:1] != "_" {
-			out[k] = v
-		}
-	}
-
-	return out
 }
