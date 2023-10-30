@@ -31,11 +31,11 @@ func NewMethod(methodID string, context string) *APPError {
 }
 
 func (e APPError) Combine(err *APPError) *APPError {
-	if e.MethodID != "" && !strings.Contains(e.ID, ".") {
-		e.ID = e.MethodID + "." + err.ID
+	if e.MethodID == "" {
+		e.ID = err.ID
 	} else if strings.Contains(e.ID, ".") {
 		i := strings.Index(e.ID, ".")
-		e.ID = err.ID[0:i] + err.ID
+		e.ID = err.MethodID + err.ID[i:]
 	} else {
 		e.ID = err.ID
 	}
