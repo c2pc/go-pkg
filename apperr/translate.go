@@ -69,7 +69,11 @@ func (t Translate) Translate(acceptLang string, args ...interface{}) string {
 		}
 	}
 
-	return fmt.Sprintf(tr, args...)
+	if len(args) > 0 {
+		return fmt.Sprintf(tr, args...)
+	}
+
+	return tr
 }
 
 func (t Translate) TranslateHttp(c *gin.Context, args ...interface{}) string {

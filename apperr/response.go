@@ -150,12 +150,11 @@ func GRPCResponse(err error) error {
 
 			return st.Err()
 		default:
-			errors.As(err, &appError)
 			st := status.New(appError.Status.GRPC(), appErr.ID)
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: appErr.Title},
-				{Field: "text", Description: appError.Text},
+				{Field: "text", Description: appErr.Text},
 				{Field: "context", Description: appErr.Context},
 				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
 			}
