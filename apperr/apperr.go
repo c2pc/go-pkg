@@ -36,6 +36,8 @@ func (e APPError) Combine(err *APPError) *APPError {
 	} else if strings.Contains(e.ID, ".") {
 		i := strings.Index(e.ID, ".")
 		e.ID = err.MethodID + err.ID[i:]
+	} else if e.MethodID != "" {
+		e.ID = err.MethodID + "." + err.ID
 	} else {
 		e.ID = err.ID
 	}
