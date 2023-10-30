@@ -12,6 +12,7 @@ type APPError struct {
 	Context           string `json:"context"`
 	ShowMessageBanner bool   `json:"show_message_banner"`
 
+	MethodID      string        `json:"-"`
 	Translate     Translate     `json:"-"`
 	TranslateArgs []interface{} `json:"-"`
 	Status        Code          `json:"-"`
@@ -20,6 +21,27 @@ type APPError struct {
 
 func New(status Code, id string) *APPError {
 	return &APPError{Status: status, ID: id}
+}
+
+func NewForResponse(methodID string, title string, context string) *APPError {
+	return &APPError{MethodID: methodID, Title: title, Context: context}
+}
+
+func (e APPError) WithApperr(err *APPError) *APPError {
+	if e.MethodID != "" {
+		e.ID = e.MethodID + "." + err.ID
+	} else {
+		e.ID = err.ID
+	}
+
+	e.Text = err.Text
+	e.ShowMessageBanner = err.ShowMessageBanner
+	e.Translate = err.Translate
+	e.TranslateArgs = err.TranslateArgs
+	e.Status = err.Status
+	e.Err = err.Err
+
+	return &e
 }
 
 func (e APPError) WithError(err error) *APPError {

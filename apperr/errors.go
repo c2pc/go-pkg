@@ -2,7 +2,7 @@ package apperr
 
 var (
 	ErrSyntax = New(StatusInternalServerError, "syntax").WithTranslate(Translate{
-		"ru": "Синтаксическая ошибка",
+		"ru": "Неверный запрос",
 	})
 	ErrValidation = New(StatusBadRequest, "validation").WithTranslate(Translate{
 		"ru": "Ошибка валидации",
@@ -25,7 +25,7 @@ var (
 	ErrServerIsNotAvailable = New(StatusInternalServerError, "server_is_not_available").WithTranslate(Translate{
 		"ru": "Сервер недоступен",
 	})
-	Err404 = New(StatusInternalServerError, "404_error").WithTranslate(Translate{
-		"ru": "Ресурс не найден",
+	Err404 = New(StatusInternalServerError, "invalid_request").WithTranslate(Translate{
+		"ru": "Неверный запрос",
 	})
 )
