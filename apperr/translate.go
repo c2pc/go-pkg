@@ -44,6 +44,20 @@ func getTranslatorHTTP(c *gin.Context) ut.Translator {
 	return getTranslator(base.String())
 }
 
+func getTranslateHTTP(c *gin.Context) string {
+	acceptLang := c.GetHeader("Accept-Language")
+	var matcher = language.NewMatcher([]language.Tag{
+		language.Russian,
+		language.MustParse("ru-RU"),
+		language.English,
+		language.MustParse("en-US"),
+	})
+	tag, _ := language.MatchStrings(matcher, acceptLang)
+	matched, _, _ := matcher.Match(tag)
+	base, _ := matched.Base()
+	return base.String()
+}
+
 type Translate map[string]string
 
 func (t Translate) Translate(acceptLang string, args ...interface{}) string {

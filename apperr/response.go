@@ -67,19 +67,15 @@ func HTTPResponse(c *gin.Context, err error) {
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 
+	translate := getTranslateHTTP(c)
+
 	var appErr *APPError
 	if errors.As(err, &appErr) {
-		appErr = appErr.WithText(appErr.Translate.TranslateHttp(c))
+		appErr = appErr.Translate(translate)
 		_ = c.Error(appErr).SetType(gin.ErrorTypePrivate)
 		switch {
 		case errors.As(appErr.Err, &syntaxError), errors.As(appErr.Err, &unmarshalTypeError), errors.As(appErr.Err, &invalidUnmarshalError):
-			c.AbortWithStatusJSON(ErrSyntax.Status.HTTP(),
-				ErrSyntax.
-					WithContext(appErr.Context).
-					WithShowMessageBanner(appErr.ShowMessageBanner).
-					WithTitle(appErr.Title).
-					WithText(ErrSyntax.Translate.TranslateHttp(c)),
-			)
+			c.AbortWithStatusJSON(ErrSyntax.Status.HTTP(), appErr.Combine(ErrSyntax).Translate(translate))
 			return
 		case Is(err, ErrValidation):
 			errors.As(err, &ErrValidation)
@@ -95,7 +91,7 @@ func HTTPResponse(c *gin.Context, err error) {
 			c.AbortWithStatusJSON(ErrValidation.Status.HTTP(), gin.H{
 				"id":                  appErr.ID,
 				"title":               appErr.Title,
-				"text":                ErrValidation.Translate.TranslateHttp(c),
+				"text":                ErrValidation.Text,
 				"context":             appErr.Context,
 				"show_message_banner": appErr.ShowMessageBanner,
 				"errors":              errs,
@@ -103,21 +99,16 @@ func HTTPResponse(c *gin.Context, err error) {
 			return
 
 		case errors.Is(appErr.Err, io.EOF), errors.Is(appErr.Err, io.ErrUnexpectedEOF), errors.Is(appErr.Err, io.ErrNoProgress):
-			c.AbortWithStatusJSON(ErrEmptyData.Status.HTTP(),
-				ErrEmptyData.
-					WithContext(appErr.Context).
-					WithShowMessageBanner(appErr.ShowMessageBanner).
-					WithTitle(appErr.Title).
-					WithText(ErrEmptyData.Translate.TranslateHttp(c)),
-			)
+			c.AbortWithStatusJSON(ErrEmptyData.Status.HTTP(), appErr.Combine(ErrEmptyData).Translate(translate))
 			return
 		default:
-			c.AbortWithStatusJSON(appErr.Status.HTTP(), appErr.WithText(appErr.Translate.TranslateHttp(c, appErr.TranslateArgs...)))
+			c.AbortWithStatusJSON(appErr.Status.HTTP(), appErr)
 			return
 		}
 	} else {
-		_ = c.Error(err).SetType(gin.ErrorTypePrivate)
-		c.AbortWithStatusJSON(ErrInternal.Status.HTTP(), err.Error())
+		appErr = ErrInternal.Translate(translate)
+		_ = c.Error(appErr).SetType(gin.ErrorTypePrivate)
+		c.AbortWithStatusJSON(ErrInternal.Status.HTTP(), appErr.Error())
 	}
 }
 
@@ -125,7 +116,11 @@ func GRPCResponse(err error) error {
 	br := &errdetails.BadRequest{}
 	var appError *APPError
 	var appErr *APPError
+
+	translate := "ru"
+
 	if errors.As(err, &appErr) {
+		appErr = appErr.Translate(translate)
 		switch {
 		case Is(err, ErrValidation):
 			errors.As(err, &ErrValidation)
@@ -134,7 +129,7 @@ func GRPCResponse(err error) error {
 			if ErrValidation.Err != nil {
 				var validateErrors validator.ValidationErrors
 				errors.As(ErrValidation.Err, &validateErrors)
-				for s, v := range validateErrors.Translate(getTranslator("ru")) {
+				for s, v := range validateErrors.Translate(getTranslator(translate)) {
 					errs = append(errs, ValidateError{Column: getNamespace(s), Error: v})
 				}
 			}
@@ -145,7 +140,7 @@ func GRPCResponse(err error) error {
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: appErr.Title},
-				{Field: "text", Description: ErrValidation.Translate.Translate("ru")},
+				{Field: "text", Description: appErr.Text},
 				{Field: "context", Description: appErr.Context},
 				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
 				{Field: "errors", Description: string(errConvert)},
@@ -160,7 +155,7 @@ func GRPCResponse(err error) error {
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: appErr.Title},
-				{Field: "text", Description: appError.Translate.Translate("ru", appError.TranslateArgs...)},
+				{Field: "text", Description: appError.Text},
 				{Field: "context", Description: appErr.Context},
 				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
 			}
@@ -170,12 +165,14 @@ func GRPCResponse(err error) error {
 		}
 	} else {
 		st := status.New(ErrInternal.Status.GRPC(), ErrInternal.ID)
+		appErr = ErrInternal.Translate(translate)
+
 		v := []*errdetails.BadRequest_FieldViolation{
-			{Field: "id", Description: ErrInternal.ID},
-			{Field: "title", Description: ErrInternal.Title},
-			{Field: "text", Description: ErrInternal.Translate.Translate("ru")},
-			{Field: "context", Description: ErrInternal.Context},
-			{Field: "show_message_banner", Description: strconv.FormatBool(ErrInternal.ShowMessageBanner)},
+			{Field: "id", Description: appErr.ID},
+			{Field: "title", Description: appErr.Title},
+			{Field: "text", Description: appErr.Text},
+			{Field: "context", Description: appErr.Context},
+			{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessageBanner)},
 		}
 		br.FieldViolations = append(br.FieldViolations, v...)
 		st, _ = st.WithDetails(br)

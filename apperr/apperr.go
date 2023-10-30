@@ -13,32 +13,35 @@ type APPError struct {
 	Context           string `json:"context"`
 	ShowMessageBanner bool   `json:"show_message_banner"`
 
-	MethodID      string        `json:"-"`
-	Translate     Translate     `json:"-"`
-	TranslateArgs []interface{} `json:"-"`
-	Status        Code          `json:"-"`
-	Err           error         `json:"-"`
+	MethodID           string        `json:"-"`
+	TextTranslate      Translate     `json:"-"`
+	TextTranslateArgs  []interface{} `json:"-"`
+	TitleTranslate     Translate     `json:"-"`
+	TitleTranslateArgs []interface{} `json:"-"`
+	Status             Code          `json:"-"`
+	Err                error         `json:"-"`
 }
 
 func New(status Code, id string) *APPError {
 	return &APPError{Status: status, ID: id}
 }
 
-func NewForResponse(methodID string, title string, context string) *APPError {
-	return &APPError{MethodID: methodID, Title: title, Context: context}
+func NewMethod(methodID string, context string) *APPError {
+	return &APPError{MethodID: methodID, Context: context}
 }
 
-func (e APPError) WithApperr(err *APPError) *APPError {
+func (e APPError) Combine(err *APPError) *APPError {
 	if e.MethodID != "" && !strings.Contains(e.ID, ".") {
 		e.ID = e.MethodID + "." + err.ID
+	} else if strings.Contains(e.ID, ".") {
+		i := strings.Index(e.ID, ".")
+		e.ID = err.ID[0:i] + err.ID
 	} else {
 		e.ID = err.ID
 	}
 
-	e.Text = err.Text
-	e.ShowMessageBanner = err.ShowMessageBanner
-	e.Translate = err.Translate
-	e.TranslateArgs = err.TranslateArgs
+	e.TextTranslate = err.TextTranslate
+	e.TextTranslateArgs = err.TextTranslateArgs
 	e.Status = err.Status
 	e.Err = err.Err
 
@@ -50,28 +53,23 @@ func (e APPError) WithError(err error) *APPError {
 	return &e
 }
 
-func (e APPError) WithContext(context string) *APPError {
-	e.Context = context
+func (e APPError) WithTextTranslate(translate Translate) *APPError {
+	e.TextTranslate = translate
 	return &e
 }
 
-func (e APPError) WithId(id string) *APPError {
-	e.ID = id
+func (e APPError) WithTextTranslateArgs(args ...interface{}) *APPError {
+	e.TextTranslateArgs = args
 	return &e
 }
 
-func (e APPError) WithStatus(status Code) *APPError {
-	e.Status = status
+func (e APPError) WithTitleTranslate(translate Translate) *APPError {
+	e.TitleTranslate = translate
 	return &e
 }
 
-func (e APPError) WithTranslate(translate Translate) *APPError {
-	e.Translate = translate
-	return &e
-}
-
-func (e APPError) WithTranslateArgs(args ...interface{}) *APPError {
-	e.TranslateArgs = args
+func (e APPError) WithTitleTranslateArgs(args ...interface{}) *APPError {
+	e.TitleTranslateArgs = args
 	return &e
 }
 
@@ -80,23 +78,18 @@ func (e APPError) WithShowMessageBanner(showMessageBanner bool) *APPError {
 	return &e
 }
 
-func (e APPError) WithTitle(title string) *APPError {
-	e.Title = title
-	return &e
-}
-
-func (e APPError) WithText(text string) *APPError {
-	if text != "" {
-		e.Text = text
-	}
+func (e APPError) Translate(lang string) *APPError {
+	e.Title = e.TitleTranslate.Translate(lang, e.TitleTranslateArgs...)
+	e.Text = e.TextTranslate.Translate(lang, e.TextTranslateArgs...)
 	return &e
 }
 
 func (e APPError) Error() string {
+	err := e.Translate("ru")
 	if e.Err != nil {
-		return fmt.Sprintf("%s -- %s -- %s -- %s \n %s", e.Context, e.ID, e.Title, e.Text, e.Err.Error())
+		return fmt.Sprintf("%s -- %s -- %s -- %s \n %s", err.Context, err.ID, err.Title, err.Text, err.Err.Error())
 	}
-	return fmt.Sprintf("%s -- %s -- %s -- %s", e.Context, e.ID, e.Title, e.Text)
+	return fmt.Sprintf("%s -- %s -- %s -- %s", err.Context, err.ID, err.Title, err.Text)
 }
 
 func Is(err, target error) bool {
