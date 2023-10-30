@@ -92,8 +92,14 @@ func (e APPError) WithShowMessageBanner(showMessageBanner bool) *APPError {
 }
 
 func (e APPError) Translate(lang string) *APPError {
-	e.Title = e.TitleTranslate.Translate(lang, e.TitleTranslateArgs...)
-	e.Text = e.TextTranslate.Translate(lang, e.TextTranslateArgs...)
+	if e.TitleTranslate != nil {
+		e.Title = e.TitleTranslate.Translate(lang, e.TitleTranslateArgs...)
+	}
+
+	if e.TextTranslate != nil {
+		e.Text = e.TextTranslate.Translate(lang, e.TextTranslateArgs...)
+	}
+
 	return &e
 }
 
