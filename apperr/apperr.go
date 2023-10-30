@@ -51,6 +51,8 @@ func (e APPError) Combine(err *APPError) *APPError {
 	}
 
 	e.Status = err.Status
+	e.Title = err.Title
+	e.Text = err.Text
 	e.Err = err.Err
 
 	return &e

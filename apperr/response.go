@@ -91,7 +91,7 @@ func HTTPResponse(c *gin.Context, err error) {
 			c.AbortWithStatusJSON(ErrValidation.Status.HTTP(), gin.H{
 				"id":                  appErr.ID,
 				"title":               appErr.Title,
-				"text":                ErrValidation.Text,
+				"text":                ErrValidation.Translate(translate).Text,
 				"context":             appErr.Context,
 				"show_message_banner": appErr.ShowMessageBanner,
 				"errors":              errs,
@@ -108,7 +108,7 @@ func HTTPResponse(c *gin.Context, err error) {
 	} else {
 		appErr = ErrInternal.Translate(translate)
 		_ = c.Error(appErr).SetType(gin.ErrorTypePrivate)
-		c.AbortWithStatusJSON(ErrInternal.Status.HTTP(), appErr.Error())
+		c.AbortWithStatusJSON(ErrInternal.Status.HTTP(), appErr)
 	}
 }
 
