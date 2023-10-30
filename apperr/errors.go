@@ -66,19 +66,19 @@ func ParseGRPCError(err error) *APPError {
 
 	switch st.Code() {
 	case codes.InvalidArgument:
-		appErr.Status = StatusBadRequest
+		appErr = appErr.WithStatus(StatusBadRequest)
 	case codes.Unauthenticated:
-		appErr.Status = StatusUnauthenticated
+		appErr = appErr.WithStatus(StatusUnauthenticated)
 	case codes.DeadlineExceeded, codes.Unavailable:
 		appErr = ErrServerIsNotAvailable
 	case codes.PermissionDenied:
-		appErr.Status = StatusForbidden
+		appErr = appErr.WithStatus(StatusForbidden)
 	case codes.NotFound:
-		appErr.Status = StatusNotFound
+		appErr = appErr.WithStatus(StatusNotFound)
 	case codes.Internal:
-		appErr.Status = StatusInternalServerError
+		appErr = appErr.WithStatus(StatusInternalServerError)
 	default:
-		appErr.Status = StatusInternalServerError
+		appErr = appErr.WithStatus(StatusInternalServerError)
 	}
 
 	return appErr
