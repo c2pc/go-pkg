@@ -114,7 +114,6 @@ func HTTPResponse(c *gin.Context, err error) {
 
 func GRPCResponse(err error) error {
 	br := &errdetails.BadRequest{}
-	var appError *APPError
 	var appErr *APPError
 
 	translate := "ru"
@@ -150,7 +149,7 @@ func GRPCResponse(err error) error {
 
 			return st.Err()
 		default:
-			st := status.New(appError.Status.GRPC(), appErr.ID)
+			st := status.New(appErr.Status.GRPC(), appErr.ID)
 			v := []*errdetails.BadRequest_FieldViolation{
 				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: appErr.Title},
