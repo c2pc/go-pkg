@@ -12,7 +12,6 @@ const (
 	StatusUnauthenticated
 	StatusForbidden
 	StatusNotFound
-
 	StatusInternalServerError
 )
 

@@ -40,8 +40,16 @@ func (e APPError) Combine(err *APPError) *APPError {
 		e.ID = err.ID
 	}
 
-	e.TextTranslate = err.TextTranslate
-	e.TextTranslateArgs = err.TextTranslateArgs
+	if e.TextTranslate == nil {
+		e.TextTranslate = err.TextTranslate
+		e.TextTranslateArgs = err.TextTranslateArgs
+	}
+
+	if e.TitleTranslate == nil {
+		e.TitleTranslate = err.TitleTranslate
+		e.TitleTranslateArgs = err.TitleTranslateArgs
+	}
+
 	e.Status = err.Status
 	e.Err = err.Err
 
@@ -50,6 +58,11 @@ func (e APPError) Combine(err *APPError) *APPError {
 
 func (e APPError) WithError(err error) *APPError {
 	e.Err = err
+	return &e
+}
+
+func (e APPError) WithStatus(status Code) *APPError {
+	e.Status = status
 	return &e
 }
 
