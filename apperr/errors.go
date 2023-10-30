@@ -5,10 +5,10 @@ var (
 		"ru": "Неверный запрос",
 	})
 	ErrValidation = New(StatusBadRequest, "validation").WithTranslate(Translate{
-		"ru": "Ошибка валидации",
+		"ru": "Неверный запрос",
 	})
 	ErrEmptyData = New(StatusInternalServerError, "empty_data").WithTranslate(Translate{
-		"ru": "Пустые данные",
+		"ru": "Неверный запрос",
 	})
 	ErrInternal = New(StatusInternalServerError, "internal").WithTranslate(Translate{
 		"ru": "Ошибка сервера",
