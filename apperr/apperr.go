@@ -3,6 +3,7 @@ package apperr
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type APPError struct {
@@ -28,7 +29,7 @@ func NewForResponse(methodID string, title string, context string) *APPError {
 }
 
 func (e APPError) WithApperr(err *APPError) *APPError {
-	if e.MethodID != "" {
+	if e.MethodID != "" && !strings.Contains(e.ID, ".") {
 		e.ID = e.MethodID + "." + err.ID
 	} else {
 		e.ID = err.ID
