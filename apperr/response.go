@@ -86,7 +86,8 @@ func HTTPResponse(c *gin.Context, err error) {
 				errors.As(ErrValidation.Err, &validateErrors)
 				for s, v := range validateErrors.Translate(getTranslatorHTTP(c)) {
 					column := getNamespace(s)
-					columnError := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(v, " "+column, ""), column+" ", ""), column, "")
+					columnError := strings.ReplaceAll(v, column, "")
+					columnError = strings.ReplaceAll(v, "  ", " ")
 					errs = append(errs, ValidateError{Column: getNamespace(s), Error: columnError})
 				}
 			}
@@ -132,7 +133,8 @@ func GRPCResponse(err error) error {
 				errors.As(ErrValidation.Err, &validateErrors)
 				for s, v := range validateErrors.Translate(getTranslator(translate)) {
 					column := getNamespace(s)
-					columnError := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(v, " "+column, ""), column+" ", ""), column, "")
+					columnError := strings.ReplaceAll(v, column, "")
+					columnError = strings.ReplaceAll(v, "  ", " ")
 					errs = append(errs, ValidateError{Column: column, Error: columnError})
 				}
 			}
