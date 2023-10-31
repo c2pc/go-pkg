@@ -85,7 +85,9 @@ func HTTPResponse(c *gin.Context, err error) {
 				var validateErrors validator.ValidationErrors
 				errors.As(ErrValidation.Err, &validateErrors)
 				for s, v := range validateErrors.Translate(getTranslatorHTTP(c)) {
-					errs = append(errs, ValidateError{Column: getNamespace(s), Error: v})
+					column := getNamespace(s)
+					columnError := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(v, " "+column, ""), column+" ", ""), column, "")
+					errs = append(errs, ValidateError{Column: getNamespace(s), Error: columnError})
 				}
 			}
 			c.AbortWithStatusJSON(ErrValidation.Status.HTTP(), gin.H{
@@ -129,7 +131,9 @@ func GRPCResponse(err error) error {
 				var validateErrors validator.ValidationErrors
 				errors.As(ErrValidation.Err, &validateErrors)
 				for s, v := range validateErrors.Translate(getTranslator(translate)) {
-					errs = append(errs, ValidateError{Column: getNamespace(s), Error: v})
+					column := getNamespace(s)
+					columnError := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(v, " "+column, ""), column+" ", ""), column, "")
+					errs = append(errs, ValidateError{Column: column, Error: columnError})
 				}
 			}
 
