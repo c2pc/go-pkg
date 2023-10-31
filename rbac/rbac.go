@@ -19,7 +19,7 @@ type AuthUser struct {
 func User(ctx context.Context) (*AuthUser, error) {
 	u, ok := ctx.Value(jwt.AuthUserKey).(*jwt.Claims)
 	if !ok {
-		return nil, apperr.ErrUnauthenticated.WithError(UnauthorizedAuthUser)
+		return nil, apperr.ErrUnauthorized.WithError(UnauthorizedAuthUser)
 	}
 	return &AuthUser{
 		ID:   u.Id,
