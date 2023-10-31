@@ -24,8 +24,11 @@ var (
 	ErrForbidden = New(StatusForbidden, "forbidden_error").WithTextTranslate(Translate{
 		"ru": "Нет доступа",
 	})
-	ErrUnauthenticated = New(StatusUnauthenticated, "unauthorized_error").WithTextTranslate(Translate{
+	ErrUnauthenticated = New(StatusUnauthenticated, "unauthenticated_error").WithTextTranslate(Translate{
 		"ru": "Ошибка аутентификации",
+	})
+	ErrUnauthorized = New(StatusUnauthenticated, "unauthorized_error").WithTextTranslate(Translate{
+		"ru": "Ошибка авторизации",
 	})
 	ErrNotFound = New(StatusNotFound, "not_found_error").WithTextTranslate(Translate{
 		"ru": "Не найдено",
