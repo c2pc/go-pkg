@@ -9,6 +9,9 @@ import (
 	"net/http"
 )
 
+var ErrInternal = apperr.NewMethod("", "all").
+	WithTitleTranslate(apperr.Translate{"ru": "Ошибка"})
+
 type ITransaction interface {
 	DBTransactionMiddleware() gin.HandlerFunc
 }
@@ -41,7 +44,7 @@ func (tr *Transaction) DBTransactionMiddleware() gin.HandlerFunc {
 		defer func() {
 			if r := recover(); r != nil {
 				txHandle.Rollback()
-				apperr.HTTPResponse(c, apperr.ErrInternal)
+				apperr.HTTPResponse(c, ErrInternal.Combine(apperr.ErrInternal))
 				fmt.Println(r)
 
 				return
@@ -53,7 +56,7 @@ func (tr *Transaction) DBTransactionMiddleware() gin.HandlerFunc {
 
 		if statusInList(c.Writer.Status(), []int{http.StatusOK, http.StatusCreated, http.StatusNoContent}) {
 			if err := txHandle.Commit().Error; err != nil {
-				apperr.HTTPResponse(c, apperr.ErrInternal.WithError(err))
+				apperr.HTTPResponse(c, ErrInternal.Combine(apperr.ErrInternal.WithError(err)))
 				return
 			}
 		} else {

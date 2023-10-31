@@ -14,6 +14,9 @@ import (
 const AuthUserKey = "authUser"
 const authorizationHeader = "Authorization"
 
+var ErrUnauthorized = apperr.NewMethod("", "auth").
+	WithTitleTranslate(apperr.Translate{"ru": "Попытка авторизации"})
+
 type JWT struct {
 	Key      []byte
 	Duration time.Duration
@@ -38,13 +41,13 @@ type Claims struct {
 func (j *JWT) Authenticate(c *gin.Context) {
 	token, err := ParseAuthHeader(c)
 	if err != nil {
-		apperr.HTTPResponse(c, apperr.ErrUnauthenticated.WithError(err))
+		apperr.HTTPResponse(c, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(err)))
 		return
 	}
 
 	tokenClaims, err := j.ParseToken(token)
 	if err != nil {
-		apperr.HTTPResponse(c, apperr.ErrUnauthenticated.WithError(err))
+		apperr.HTTPResponse(c, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(err)))
 		return
 	}
 
@@ -78,11 +81,11 @@ func (j *JWT) ParseToken(token string) (*Claims, error) {
 		return j.Key, nil
 	})
 	if err != nil {
-		return nil, apperr.ErrUnauthenticated.WithError(err)
+		return nil, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(err))
 	}
 
 	if !bearerToken.Valid {
-		return nil, apperr.ErrUnauthenticated.WithError(errors.New("invalid token"))
+		return nil, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(errors.New("invalid token")))
 	}
 
 	mapClaims := bearerToken.Claims.(jwt.MapClaims)

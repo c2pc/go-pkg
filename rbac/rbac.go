@@ -11,6 +11,12 @@ import (
 var UnauthorizedAuthUser = errors.New("error to get authUser param from auth token")
 var ForbiddenRole = errors.New("user does not have access")
 
+var ErrUnauthorized = apperr.NewMethod("", "auth").
+	WithTitleTranslate(apperr.Translate{"ru": "Попытка авторизации"})
+
+var ErrForbidden = apperr.NewMethod("", "auth").
+	WithTitleTranslate(apperr.Translate{"ru": "Попытка авторизации"})
+
 type AuthUser struct {
 	ID   int
 	Role string
@@ -19,7 +25,7 @@ type AuthUser struct {
 func User(ctx context.Context) (*AuthUser, error) {
 	u, ok := ctx.Value(jwt.AuthUserKey).(*jwt.Claims)
 	if !ok {
-		return nil, apperr.ErrUnauthorized.WithError(UnauthorizedAuthUser)
+		return nil, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(UnauthorizedAuthUser))
 	}
 	return &AuthUser{
 		ID:   u.Id,
@@ -47,7 +53,7 @@ func Can(roles ...string) func(c *gin.Context) {
 		if can {
 			c.Next()
 		} else {
-			apperr.HTTPResponse(c, apperr.ErrForbidden.WithError(ForbiddenRole))
+			apperr.HTTPResponse(c, ErrForbidden.Combine(apperr.ErrForbidden.WithError(ForbiddenRole)))
 			return
 		}
 	}

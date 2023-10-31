@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrInternal = apperr.NewMethod("", "all").
+	WithTitleTranslate(apperr.Translate{"ru": "Ошибка"})
+
 type ITransaction interface {
 	DBTransactionMiddleware() gin.HandlerFunc
 }
@@ -43,7 +46,7 @@ func (tr *Transaction) UnaryServerInterceptor(ctx context.Context, req interface
 		txHandle.Rollback()
 	} else {
 		if err := txHandle.Commit().Error; err != nil {
-			return resp, apperr.GRPCResponse(apperr.ErrInternal.WithError(err))
+			return resp, apperr.GRPCResponse(ErrInternal.Combine(apperr.ErrInternal.WithError(err)))
 		}
 	}
 
@@ -78,7 +81,7 @@ func (tr *Transaction) StreamServerInterceptor(srv interface{}, stream grpc.Serv
 		txHandle.Rollback()
 	} else {
 		if err := txHandle.Commit().Error; err != nil {
-			return apperr.GRPCResponse(apperr.ErrInternal.WithError(err))
+			return apperr.GRPCResponse(ErrInternal.Combine(apperr.ErrInternal.WithError(err)))
 		}
 	}
 
