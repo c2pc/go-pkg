@@ -64,17 +64,16 @@ func Response(ctx context.Context, err apperr.Error) error {
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
-	br := &errdetails.BadRequest{}
 
-	responseError := err
+	br := &errdetails.BadRequest{}
 
 	var childError apperr.Error
 	if !errors.As(err.Err, &childError) {
 		switch {
 		case errors.As(childError, &syntaxError), errors.As(childError, &unmarshalTypeError), errors.As(childError, &invalidUnmarshalError):
-			responseError = appErrors.ErrSyntax.WithError(childError)
+			err = appErrors.ErrSyntax.WithError(childError)
 		case errors.Is(childError, io.EOF), errors.Is(childError, io.ErrUnexpectedEOF), errors.Is(childError, io.ErrNoProgress):
-			responseError = appErrors.ErrEmptyData.WithError(childError)
+			err = appErrors.ErrEmptyData.WithError(childError)
 		case errors.As(childError, &validationError):
 			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(childError))
 			title, text := apperr.Translate(appErr, GetTranslate(ctx))
@@ -103,14 +102,14 @@ func Response(ctx context.Context, err apperr.Error) error {
 
 			return st.Err()
 		default:
-			responseError = appErrors.ErrInternal.WithError(childError)
+			err = appErrors.ErrInternal.WithError(childError)
 		}
 	}
 
-	appErr := apperr.Unwrap(responseError)
+	appErr := apperr.Unwrap(err)
 	title, text := apperr.Translate(appErr, GetTranslate(ctx))
 
-	st := status.New(codeToGrpc(appErr.Code), responseError.Error())
+	st := status.New(codeToGrpc(appErr.Code), err.Error())
 	v := []*errdetails.BadRequest_FieldViolation{
 		{Field: "id", Description: appErr.ID},
 		{Field: "title", Description: title},

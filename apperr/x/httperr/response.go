@@ -62,6 +62,8 @@ func Response(c *gin.Context, err apperr.Error) {
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
 
+	_ = c.Error(err).SetType(gin.ErrorTypePrivate)
+
 	var childError apperr.Error
 	if !errors.As(err.Err, &childError) {
 		switch {
