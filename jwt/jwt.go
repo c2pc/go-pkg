@@ -47,7 +47,7 @@ type User struct {
 	Role string `json:"role"`
 }
 
-func ParseAuthHeader(c *gin.Context) (string, apperr.Apperr) {
+func ParseAuthHeader(c *gin.Context) (string, error) {
 	header := c.GetHeader(authorizationHeader)
 	if header == "" {
 		return "", ErrEmptyAuthHeader
@@ -64,7 +64,7 @@ func ParseAuthHeader(c *gin.Context) (string, apperr.Apperr) {
 	return headerParts[1], nil
 }
 
-func (j *JWT) ParseToken(token string) (*User, apperr.Apperr) {
+func (j *JWT) ParseToken(token string) (*User, error) {
 	bearerToken, err := jwt.ParseWithClaims(token, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if jwt.GetSigningMethod(j.Algo) != token.Method {
 			return nil, jwt.ErrTokenSignatureInvalid
@@ -85,7 +85,7 @@ func (j *JWT) ParseToken(token string) (*User, apperr.Apperr) {
 	}
 }
 
-func (j *JWT) GenerateToken(u User) (string, float64, apperr.Apperr) {
+func (j *JWT) GenerateToken(u User) (string, float64, error) {
 	bits := make([]byte, 12)
 	_, err := rand.Read(bits)
 	if err != nil {

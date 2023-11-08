@@ -11,43 +11,43 @@ import (
 func TestNew(t *testing.T) {
 	err := New("id")
 
-	assert.Equal(t, "id", err.GetID())
+	assert.Equal(t, "id", err.ID)
 }
 
 func TestWithError(t *testing.T) {
 	err := New("id").WithError(errors.New("new err"))
-	assert.Equal(t, "id.new_err", err.Error())
+	assert.Equal(t, "id:new_err", err.Error())
 
 	err2 := New("id2").WithError(err)
-	assert.Equal(t, "id2.id.new_err", err2.Error())
+	assert.Equal(t, "id2:id:new_err", err2.Error())
 
 	err3 := New("id3").WithError(err2)
-	assert.Equal(t, "id3.id2.id.new_err", err3.Error())
+	assert.Equal(t, "id3:id2:id:new_err", err3.Error())
 }
 
 func TestWithID(t *testing.T) {
 	err := New("id", WithID("id2"))
 
-	assert.Equal(t, "id2", err.GetID())
+	assert.Equal(t, "id2", err.ID)
 }
 
 func TestWithContext(t *testing.T) {
 	err := New("id", WithContext("context"))
 
-	assert.Equal(t, "context", err.GetContext())
+	assert.Equal(t, "context", err.Context)
 }
 
 func TestWithShowMessage(t *testing.T) {
 	err := New("id", WithShowMessage(true))
 
-	assert.Equal(t, true, err.GetShowMessage())
+	assert.Equal(t, true, err.ShowMessage)
 }
 
 func TestWithTextTranslate(t *testing.T) {
 	textTranslate := translate.Translate{translate.RU: "text"}
 	err := New("id", WithTextTranslate(textTranslate))
 
-	assert.Equal(t, textTranslate, err.GetTextTranslate())
+	assert.Equal(t, textTranslate, err.TextTranslate)
 }
 
 func TestWithTextTranslateArgs(t *testing.T) {
@@ -55,14 +55,14 @@ func TestWithTextTranslateArgs(t *testing.T) {
 	textTranslateArgs := []interface{}{1, 2, 3}
 	err := New("id", WithTextTranslate(textTranslate)).WithTextArgs(textTranslateArgs...)
 
-	assert.Equal(t, textTranslateArgs, err.GetTextTranslateArgs())
+	assert.Equal(t, textTranslateArgs, err.TextTranslateArgs)
 }
 
 func TestWithTitleTranslate(t *testing.T) {
 	titleTranslate := translate.Translate{translate.RU: "title"}
 	err := New("id", WithTitleTranslate(titleTranslate))
 
-	assert.Equal(t, titleTranslate, err.GetTitleTranslate())
+	assert.Equal(t, titleTranslate, err.TitleTranslate)
 }
 
 func TestWithTitleTranslateArgs(t *testing.T) {
@@ -70,7 +70,7 @@ func TestWithTitleTranslateArgs(t *testing.T) {
 	titleTranslateArgs := []interface{}{4, 5, 6}
 	err := New("id", WithTitleTranslate(titleTranslate)).WithTitleArgs(titleTranslateArgs...)
 
-	assert.Equal(t, titleTranslateArgs, err.GetTitleTranslateArgs())
+	assert.Equal(t, titleTranslateArgs, err.TitleTranslateArgs)
 }
 
 func TestIs(t *testing.T) {
@@ -103,5 +103,5 @@ func TestIs(t *testing.T) {
 func TestWithCode(t *testing.T) {
 	err := New("id", WithCode(code.Aborted))
 
-	assert.Equal(t, code.Aborted, err.GetCode())
+	assert.Equal(t, code.Aborted, err.Code)
 }

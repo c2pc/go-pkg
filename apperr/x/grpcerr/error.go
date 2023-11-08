@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func ParseError(err error) apperr.Apperr {
-	var id string
-	var text string
+func ParseError(err error) *apperr.Error {
+	var id, text, title string
+
 	st := status.Convert(err)
 	grpcCode := code.GrpcToCode(st.Code())
 
@@ -23,6 +23,8 @@ func ParseError(err error) apperr.Apperr {
 					id = v.GetDescription()
 				case "text":
 					text = v.GetDescription()
+				case "title":
+					title = v.GetDescription()
 				}
 			}
 		}
@@ -32,5 +34,5 @@ func ParseError(err error) apperr.Apperr {
 		return appErrors.ErrServerIsNotAvailable
 	}
 
-	return apperr.New(id, apperr.WithCode(grpcCode)).SetText(text)
+	return apperr.New(id, apperr.WithCode(grpcCode), apperr.WithText(text), apperr.WithTitle(title))
 }

@@ -59,24 +59,22 @@ type ValidateError struct {
 	Error  string `json:"error"`
 }
 
-func Response(ctx context.Context, err apperr.Apperr) error {
+func Response(ctx context.Context, err *apperr.Error) error {
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
 	br := &errdetails.BadRequest{}
 
-	var appErr apperr.Apperr
-	if !errors.As(err.GetErr(), &appErr) {
-		childError := err.GetErr()
-
+	var appErr *apperr.Error
+	if !errors.As(err.Err, &appErr) {
 		switch {
-		case errors.As(childError, &syntaxError), errors.As(childError, &unmarshalTypeError), errors.As(childError, &invalidUnmarshalError):
-			err = appErrors.ErrSyntax.WithError(childError)
-		case errors.Is(childError, io.EOF), errors.Is(childError, io.ErrUnexpectedEOF), errors.Is(childError, io.ErrNoProgress):
-			err = appErrors.ErrEmptyData.WithError(childError)
-		case errors.As(childError, &validationError):
-			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(childError))
+		case errors.As(err.Err, &syntaxError), errors.As(err.Err, &unmarshalTypeError), errors.As(err.Err, &invalidUnmarshalError):
+			err = appErrors.ErrSyntax.WithError(err.Err)
+		case errors.Is(err.Err, io.EOF), errors.Is(err.Err, io.ErrUnexpectedEOF), errors.Is(err.Err, io.ErrNoProgress):
+			err = appErrors.ErrEmptyData.WithError(err.Err)
+		case errors.As(err.Err, &validationError):
+			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(err.Err))
 			title, text := apperr.Translate(appErr, GetTranslate(ctx))
 
 			errs := []ValidateError{}
@@ -89,13 +87,13 @@ func Response(ctx context.Context, err apperr.Apperr) error {
 
 			errConvert, _ := json.Marshal(errs)
 
-			st := status.New(codeToGrpc(appErr.GetCode()), appErr.Error())
+			st := status.New(codeToGrpc(appErr.Code), appErr.Error())
 			v := []*errdetails.BadRequest_FieldViolation{
-				{Field: "id", Description: appErr.GetID()},
+				{Field: "id", Description: appErr.ID},
 				{Field: "title", Description: title},
 				{Field: "text", Description: text},
-				{Field: "context", Description: appErr.GetContext()},
-				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.GetShowMessage())},
+				{Field: "context", Description: appErr.Context},
+				{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessage)},
 				{Field: "errors", Description: string(errConvert)},
 			}
 			br.FieldViolations = append(br.FieldViolations, v...)
@@ -103,20 +101,20 @@ func Response(ctx context.Context, err apperr.Apperr) error {
 
 			return st.Err()
 		default:
-			err = appErrors.ErrInternal.WithError(childError)
+			err = appErrors.ErrInternal.WithError(err.Err)
 		}
 	}
 
 	appErr = apperr.Unwrap(err)
 	title, text := apperr.Translate(appErr, GetTranslate(ctx))
 
-	st := status.New(codeToGrpc(appErr.GetCode()), appErr.Error())
+	st := status.New(codeToGrpc(appErr.Code), appErr.Error())
 	v := []*errdetails.BadRequest_FieldViolation{
-		{Field: "id", Description: appErr.GetID()},
+		{Field: "id", Description: appErr.ID},
 		{Field: "title", Description: title},
 		{Field: "text", Description: text},
-		{Field: "context", Description: appErr.GetContext()},
-		{Field: "show_message_banner", Description: strconv.FormatBool(appErr.GetShowMessage())},
+		{Field: "context", Description: appErr.Context},
+		{Field: "show_message_banner", Description: strconv.FormatBool(appErr.ShowMessage)},
 	}
 	br.FieldViolations = append(br.FieldViolations, v...)
 	st, _ = st.WithDetails(br)

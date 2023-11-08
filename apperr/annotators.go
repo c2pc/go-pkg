@@ -5,70 +5,64 @@ import (
 	"github.com/c2pc/go-pkg/apperr/utils/translate"
 )
 
-type Annotator func(Apperr) Apperr
+type Annotator func(*Error)
 
 func WithID(id string) Annotator {
-	return func(err Apperr) Apperr {
+	return func(err *Error) {
 		if id == "" {
-			return err
+			return
 		}
-		return err.SetID(id)
+		err.ID = id
 	}
 }
 
 func WithContext(context string) Annotator {
-	return func(err Apperr) Apperr {
+	return func(err *Error) {
 		if context == "" {
-			return err
+			return
 		}
-		return err.SetContext(context)
+		err.Context = context
 	}
 }
 
 func WithShowMessage(showMessage bool) Annotator {
-	return func(err Apperr) Apperr {
-		return err.SetShowMessage(showMessage)
+	return func(err *Error) {
+		err.ShowMessage = showMessage
 	}
 }
 
 func WithTextTranslate(tr translate.Translate) Annotator {
-	return func(err Apperr) Apperr {
+	return func(err *Error) {
 		if tr == nil {
-			return err
+			return
 		}
-		return err.SetTextTranslate(tr)
+		err.TextTranslate = tr
 	}
 }
 
 func WithTitleTranslate(tr translate.Translate) Annotator {
-	return func(err Apperr) Apperr {
+	return func(err *Error) {
 		if tr == nil {
-			return err
+			return
 		}
-		return err.SetTitleTranslate(tr)
+		err.TitleTranslate = tr
 	}
 }
 
 func WithCode(code code.Code) Annotator {
-	return func(err Apperr) Apperr {
-		return err.SetCode(code)
+	return func(err *Error) {
+		err.Code = code
 	}
 }
 
-func WithTextTranslateArgs(args ...any) Annotator {
-	return func(err Apperr) Apperr {
-		return err.SetTextTranslateArgs(args)
+func WithText(text string) Annotator {
+	return func(err *Error) {
+		err.Text = text
 	}
 }
 
-func WithTitleTranslateArgs(args ...any) Annotator {
-	return func(err Apperr) Apperr {
-		return err.SetTitleTranslateArgs(args)
-	}
-}
-
-func WithErr(r error) Annotator {
-	return func(err Apperr) Apperr {
-		return err.SetErr(r)
+func WithTitle(title string) Annotator {
+	return func(err *Error) {
+		err.Title = title
 	}
 }

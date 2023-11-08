@@ -29,7 +29,7 @@ type AuthUser struct {
 	Role string
 }
 
-func User(ctx context.Context) (*AuthUser, apperr.Apperr) {
+func User(ctx context.Context) (*AuthUser, error) {
 	u, ok := ctx.Value(jwt.AuthUserKey).(*jwt.User)
 	if !ok {
 		return nil, ErrErrorToGetUserFromContext

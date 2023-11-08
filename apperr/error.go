@@ -7,41 +7,12 @@ import (
 	"strings"
 )
 
-type Apperr interface {
-	Error() string
-	WithError(err error) Apperr
-	WithTextArgs(args ...any) Apperr
-	WithTitleArgs(args ...any) Apperr
-	NewID(id string) Apperr
-	GetIDSuffix() string
-	GetID() string
-	GetContext() string
-	GetShowMessage() bool
-	GetCode() code.Code
-	GetTextTranslate() translate.Translate
-	GetTextTranslateArgs() []interface{}
-	GetTitleTranslate() translate.Translate
-	GetTitleTranslateArgs() []interface{}
-	GetErr() error
-	SetID(id string) Apperr
-	SetContext(context string) Apperr
-	SetShowMessage(showMessage bool) Apperr
-	SetTextTranslate(tr translate.Translate) Apperr
-	SetTitleTranslate(tr translate.Translate) Apperr
-	SetCode(code code.Code) Apperr
-	SetTextTranslateArgs(args ...any) Apperr
-	SetTitleTranslateArgs(args ...any) Apperr
-	SetErr(err error) Apperr
-	SetText(text string) Apperr
-	SetTitle(title string) Apperr
-}
-
 type Error struct {
 	ID                 string
 	Context            string
 	ShowMessage        bool
-	Text               string
 	Code               code.Code
+	Text               string
 	TextTranslate      translate.Translate
 	TextTranslateArgs  []interface{}
 	Title              string
@@ -50,19 +21,21 @@ type Error struct {
 	Err                error
 }
 
-func New(id string, annotators ...Annotator) Apperr {
-	err := WithID(id)(&Error{})
+func New(id string, annotators ...Annotator) *Error {
+	err := &Error{}
+
+	WithID(id)(err)
 
 	for _, f := range annotators {
-		err = f(err)
+		f(err)
 	}
 
 	return err
 }
 
-func Copy(err Apperr, annotators ...Annotator) Apperr {
+func Replace(err *Error, annotators ...Annotator) *Error {
 	for _, f := range annotators {
-		err = f(err)
+		f(err)
 	}
 
 	return err
@@ -73,32 +46,42 @@ func (e *Error) Error() string {
 		return ""
 	}
 
-	var appError Apperr
+	var appError *Error
 	if errors.As(e.Err, &appError) {
-		return e.ID + "." + appError.Error()
+		return e.ID + "." + e.Err.Error()
 	}
 
 	return e.ID + "." + strings.ReplaceAll(e.Err.Error(), " ", "_")
 }
 
-func (e *Error) WithError(err error) Apperr {
+func (e *Error) WithError(err error) *Error {
 	e.Err = err
 	return e
 }
 
-func (e *Error) WithTextArgs(args ...any) Apperr {
+func (e *Error) WithTextArgs(args ...any) *Error {
 	e.TextTranslateArgs = args
 	return e
 }
 
-func (e *Error) WithTitleArgs(args ...any) Apperr {
+func (e *Error) WithTitleArgs(args ...any) *Error {
 	e.TitleTranslateArgs = args
 	return e
 }
 
-func (e *Error) NewID(id string) Apperr {
+func (e *Error) NewID(id string) *Error {
 	e.ID = id
 	return e
+}
+
+func Is(err, target error) bool {
+	var appError *Error
+	var appTarget *Error
+	if errors.As(err, &appError) && errors.As(target, &appTarget) {
+		return appError.ID == appTarget.ID
+	}
+
+	return errors.Is(err, target)
 }
 
 func (e *Error) GetIDSuffix() string {
@@ -109,119 +92,23 @@ func (e *Error) GetIDSuffix() string {
 	return ids[len(ids)-1]
 }
 
-func (e *Error) GetID() string {
-	return e.ID
-}
+func Translate(err *Error, lang string) (string, string) {
+	title := err.TitleTranslate.Translate(lang, err.TitleTranslateArgs...)
+	text := err.TextTranslate.Translate(lang, err.TextTranslateArgs...)
 
-func (e *Error) GetContext() string {
-	return e.Context
-}
-
-func (e *Error) GetShowMessage() bool {
-	return e.ShowMessage
-}
-
-func (e *Error) GetCode() code.Code {
-	return e.Code
-}
-
-func (e *Error) GetTextTranslate() translate.Translate {
-	return e.TextTranslate
-}
-
-func (e *Error) GetTextTranslateArgs() []interface{} {
-	return e.TextTranslateArgs
-}
-
-func (e *Error) GetTitleTranslate() translate.Translate {
-	return e.TitleTranslate
-}
-
-func (e *Error) GetTitleTranslateArgs() []interface{} {
-	return e.TitleTranslateArgs
-}
-
-func (e *Error) GetErr() error {
-	return e.Err
-}
-
-func (e *Error) SetID(id string) Apperr {
-	e.ID = id
-	return e
-}
-
-func (e *Error) SetContext(context string) Apperr {
-	e.Context = context
-	return e
-}
-
-func (e *Error) SetShowMessage(showMessage bool) Apperr {
-	e.ShowMessage = showMessage
-	return e
-}
-
-func (e *Error) SetCode(code code.Code) Apperr {
-	e.Code = code
-	return e
-}
-
-func (e *Error) SetTextTranslate(tr translate.Translate) Apperr {
-	e.TextTranslate = tr
-	return e
-}
-
-func (e *Error) SetTextTranslateArgs(args ...any) Apperr {
-	e.TextTranslateArgs = args
-	return e
-}
-
-func (e *Error) SetTitleTranslate(tr translate.Translate) Apperr {
-	e.TitleTranslate = tr
-	return e
-}
-
-func (e *Error) SetTitleTranslateArgs(args ...any) Apperr {
-	e.TitleTranslateArgs = args
-	return e
-}
-
-func (e *Error) SetErr(err error) Apperr {
-	e.Err = err
-	return e
-}
-
-func (e *Error) SetText(text string) Apperr {
-	e.Title = text
-	return e
-}
-
-func (e *Error) SetTitle(title string) Apperr {
-	e.Text = title
-	return e
-}
-
-func Is(err, target error) bool {
-	var appError Apperr
-	var appTarget Apperr
-	if errors.As(err, &appError) && errors.As(target, &appTarget) {
-		return appError.GetID() == appTarget.GetID()
+	if text == "" {
+		text = err.Text
 	}
 
-	return errors.Is(err, target)
+	return title, text
 }
 
-func Translate(err Apperr, lang string) (string, string) {
-	return err.GetTitleTranslate().Translate(lang, err.GetTitleTranslateArgs()...),
-		err.GetTextTranslate().Translate(lang, err.GetTextTranslateArgs()...)
-}
-
-func Unwrap(err Apperr) Apperr {
+func Unwrap(err *Error) *Error {
 	unwrappedError := err
 
 	lastError := err
-	if err.GetErr() != nil {
-		var r Apperr
-		if errors.As(err.GetErr(), &r) {
+	if err.Err != nil {
+		if r, ok := err.Err.(*Error); ok {
 			lastError = r
 		}
 	}
@@ -230,18 +117,17 @@ func Unwrap(err Apperr) Apperr {
 		return err
 	}
 
-	var id string
-	if lastError.GetID() == "" {
-		id = err.GetID()
+	unwrappedError.Text = lastError.Text
+	unwrappedError.TextTranslate = lastError.TextTranslate
+	unwrappedError.TextTranslateArgs = lastError.TextTranslateArgs
+	unwrappedError.Code = lastError.Code
+	unwrappedError.ShowMessage = lastError.ShowMessage
+
+	if lastError.ID == "" {
+		unwrappedError.ID = err.ID
 	} else {
-		id = err.GetID() + "." + lastError.GetID()
+		unwrappedError.ID = err.ID + "." + lastError.ID
 	}
 
-	return Copy(unwrappedError,
-		WithTextTranslate(lastError.GetTextTranslate()),
-		WithCode(lastError.GetCode()),
-		WithShowMessage(lastError.GetShowMessage()),
-		WithID(id),
-		WithTextTranslateArgs(lastError.GetTextTranslateArgs()),
-	)
+	return unwrappedError
 }

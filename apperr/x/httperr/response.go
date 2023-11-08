@@ -56,29 +56,21 @@ type ValidateError struct {
 	Error  string `json:"error"`
 }
 
-func Response(c *gin.Context, err apperr.Apperr) {
+func Response(c *gin.Context, err *apperr.Error) {
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
 
-	var appErr apperr.Apperr
-	if !errors.As(err.GetErr(), &appErr) {
-		childError := err.GetErr()
-
+	var appErr *apperr.Error
+	if !errors.As(err.Err, &appErr) {
 		switch {
-		case errors.As(childError, &syntaxError),
-			errors.As(childError, &unmarshalTypeError),
-			errors.As(childError, &invalidUnmarshalError):
-			err = appErrors.ErrSyntax.WithError(childError)
-
-		case errors.Is(childError, io.EOF),
-			errors.Is(childError, io.ErrUnexpectedEOF),
-			errors.Is(childError, io.ErrNoProgress):
-			err = appErrors.ErrEmptyData.WithError(childError)
-
-		case errors.As(childError, &validationError):
-			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(childError))
+		case errors.As(err.Err, &syntaxError), errors.As(err.Err, &unmarshalTypeError), errors.As(err.Err, &invalidUnmarshalError):
+			err = appErrors.ErrSyntax.WithError(err.Err)
+		case errors.Is(err.Err, io.EOF), errors.Is(err.Err, io.ErrUnexpectedEOF), errors.Is(err.Err, io.ErrNoProgress):
+			err = appErrors.ErrEmptyData.WithError(err.Err)
+		case errors.As(err.Err, &validationError):
+			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(err.Err))
 			title, text := apperr.Translate(appErr, GetTranslate(c))
 
 			errs := []ValidateError{}
@@ -89,12 +81,12 @@ func Response(c *gin.Context, err apperr.Apperr) {
 				errs = append(errs, ValidateError{Column: column, Error: columnError})
 			}
 
-			c.AbortWithStatusJSON(codeToHttp(appErr.GetCode()), gin.H{
-				"id":                  appErr.GetID(),
+			c.AbortWithStatusJSON(codeToHttp(appErr.Code), gin.H{
+				"id":                  appErr.ID,
 				"title":               title,
 				"text":                text,
-				"context":             appErr.GetContext(),
-				"show_message_banner": appErr.GetShowMessage(),
+				"context":             appErr.Context,
+				"show_message_banner": appErr.ShowMessage,
 				"errors":              errs,
 			})
 
@@ -105,11 +97,11 @@ func Response(c *gin.Context, err apperr.Apperr) {
 	appErr = apperr.Unwrap(err)
 	title, text := apperr.Translate(appErr, GetTranslate(c))
 
-	c.AbortWithStatusJSON(codeToHttp(appErr.GetCode()), gin.H{
-		"id":                  appErr.GetID(),
+	c.AbortWithStatusJSON(codeToHttp(appErr.Code), gin.H{
+		"id":                  appErr.ID,
 		"title":               title,
 		"text":                text,
-		"context":             appErr.GetContext(),
-		"show_message_banner": appErr.GetShowMessage(),
+		"context":             appErr.Context,
+		"show_message_banner": appErr.ShowMessage,
 	})
 }
