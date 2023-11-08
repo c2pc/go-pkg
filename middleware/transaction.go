@@ -4,13 +4,23 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/c2pc/go-pkg/apperr"
+	"github.com/c2pc/go-pkg/apperr/utils/appErrors"
+	"github.com/c2pc/go-pkg/apperr/utils/translate"
+	"github.com/c2pc/go-pkg/apperr/x/httperr"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
 )
 
-var ErrInternal = apperr.NewMethod("", "all").
-	WithTitleTranslate(apperr.Translate{"ru": "Ошибка"})
+var (
+	ErrInternalMethod = apperr.New("all",
+		apperr.WithTitleTranslate(translate.Translate{translate.RU: "Ошибка"}),
+		apperr.WithContext("all"),
+	)
+
+	ErrCommitDatabaseID = "commit_database_error"
+	ErrPanicID          = "panic_error"
+)
 
 type ITransaction interface {
 	DBTransactionMiddleware() gin.HandlerFunc
@@ -44,9 +54,8 @@ func (tr *Transaction) DBTransactionMiddleware() gin.HandlerFunc {
 		defer func() {
 			if r := recover(); r != nil {
 				txHandle.Rollback()
-				apperr.HTTPResponse(c, ErrInternal.Combine(apperr.ErrInternal))
+				httperr.Response(c, ErrInternalMethod.WithError(appErrors.ErrInternal.NewID(ErrPanicID)))
 				fmt.Println(r)
-
 				return
 			}
 		}()
@@ -56,7 +65,7 @@ func (tr *Transaction) DBTransactionMiddleware() gin.HandlerFunc {
 
 		if statusInList(c.Writer.Status(), []int{http.StatusOK, http.StatusCreated, http.StatusNoContent}) {
 			if err := txHandle.Commit().Error; err != nil {
-				apperr.HTTPResponse(c, ErrInternal.Combine(apperr.ErrInternal.WithError(err)))
+				httperr.Response(c, ErrInternalMethod.WithError(appErrors.ErrInternal.NewID(ErrCommitDatabaseID)))
 				return
 			}
 		} else {

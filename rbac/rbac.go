@@ -2,31 +2,39 @@ package rbac
 
 import (
 	"context"
-	"errors"
 	"github.com/c2pc/go-pkg/apperr"
+	"github.com/c2pc/go-pkg/apperr/utils/appErrors"
+	"github.com/c2pc/go-pkg/apperr/utils/translate"
+	"github.com/c2pc/go-pkg/apperr/x/httperr"
 	"github.com/c2pc/go-pkg/jwt"
 	"github.com/gin-gonic/gin"
 )
 
-var UnauthorizedAuthUser = errors.New("error to get authUser param from auth token")
-var ForbiddenRole = errors.New("user does not have access")
+var (
+	ErrUnauthorizedMethod = apperr.New("auth",
+		apperr.WithTitleTranslate(translate.Translate{translate.RU: "Попытка авторизации"}),
+		apperr.WithContext("auth"),
+	)
 
-var ErrUnauthorized = apperr.NewMethod("", "auth").
-	WithTitleTranslate(apperr.Translate{"ru": "Попытка авторизации"})
+	ErrForbiddenMethod = apperr.New("auth",
+		apperr.WithTitleTranslate(translate.Translate{translate.RU: "Попытка авторизации"}),
+		apperr.WithContext("auth"),
+	)
 
-var ErrForbidden = apperr.NewMethod("", "auth").
-	WithTitleTranslate(apperr.Translate{"ru": "Попытка авторизации"})
+	ErrErrorToGetUserFromContext = apperr.New("error_to_get_user_from_context")
+)
 
 type AuthUser struct {
 	ID   int
 	Role string
 }
 
-func User(ctx context.Context) (*AuthUser, error) {
-	u, ok := ctx.Value(jwt.AuthUserKey).(*jwt.Claims)
+func User(ctx context.Context) (*AuthUser, apperr.Apperr) {
+	u, ok := ctx.Value(jwt.AuthUserKey).(*jwt.User)
 	if !ok {
-		return nil, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(UnauthorizedAuthUser))
+		return nil, ErrErrorToGetUserFromContext
 	}
+
 	return &AuthUser{
 		ID:   u.Id,
 		Role: u.Role,
@@ -37,7 +45,7 @@ func Can(roles ...string) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		user, err := User(c.Request.Context())
 		if err != nil {
-			apperr.HTTPResponse(c, err)
+			httperr.Response(c, ErrUnauthorizedMethod.WithError(appErrors.ErrUnauthenticated.WithError(err)))
 			return
 		}
 
@@ -53,7 +61,7 @@ func Can(roles ...string) func(c *gin.Context) {
 		if can {
 			c.Next()
 		} else {
-			apperr.HTTPResponse(c, ErrForbidden.Combine(apperr.ErrForbidden.WithError(ForbiddenRole)))
+			httperr.Response(c, ErrForbiddenMethod.WithError(appErrors.ErrForbidden.WithError(err)))
 			return
 		}
 	}

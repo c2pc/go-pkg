@@ -3,14 +3,25 @@ package interceptors
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/c2pc/go-pkg/apperr"
+	"github.com/c2pc/go-pkg/apperr/utils/appErrors"
+	"github.com/c2pc/go-pkg/apperr/utils/translate"
+	"github.com/c2pc/go-pkg/apperr/x/grpcerr"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
 )
 
-var ErrInternal = apperr.NewMethod("", "all").
-	WithTitleTranslate(apperr.Translate{"ru": "Ошибка"})
+var (
+	ErrInternalMethod = apperr.New("all",
+		apperr.WithTitleTranslate(translate.Translate{translate.RU: "Ошибка"}),
+		apperr.WithContext("all"),
+	)
+
+	ErrCommitDatabaseID = "commit_database_error"
+	ErrPanicID          = "panic_error"
+)
 
 type ITransaction interface {
 	DBTransactionMiddleware() gin.HandlerFunc
@@ -26,41 +37,43 @@ func NewTr(db *gorm.DB) *Transaction {
 	}
 }
 
-func (tr *Transaction) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func (tr *Transaction) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, error error) {
 	txHandle := tr.DB.
 		WithContext(ctx).
 		Begin(&sql.TxOptions{})
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
-			panic(r)
+			error = grpcerr.Response(ctx, ErrInternalMethod.WithError(appErrors.ErrInternal.NewID(ErrPanicID)))
+			fmt.Println(r)
 			return
 		}
 	}()
 
 	newCtx := context.WithValue(ctx, "db_trx", txHandle)
 
-	resp, err := handler(newCtx, req)
+	response, err := handler(newCtx, req)
 
 	if err != nil {
 		txHandle.Rollback()
 	} else {
 		if err := txHandle.Commit().Error; err != nil {
-			return resp, apperr.GRPCResponse(ErrInternal.Combine(apperr.ErrInternal.WithError(err)))
+			return resp, grpcerr.Response(ctx, ErrInternalMethod.WithError(appErrors.ErrInternal.NewID(ErrCommitDatabaseID)))
 		}
 	}
 
-	return resp, err
+	return response, err
 }
 
-func (tr *Transaction) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (tr *Transaction) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (error error) {
 	txHandle := tr.DB.
 		WithContext(stream.Context()).
 		Begin(&sql.TxOptions{})
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
-			panic(r)
+			error = grpcerr.Response(stream.Context(), ErrInternalMethod.WithError(appErrors.ErrInternal.NewID(ErrPanicID)))
+			fmt.Println(r)
 			return
 		}
 	}()
@@ -72,16 +85,18 @@ func (tr *Transaction) StreamServerInterceptor(srv interface{}, stream grpc.Serv
 		ctx context.Context
 	}
 
-	err := handler(srv, &serverStream{
+	stream = &serverStream{
 		ServerStream: stream,
 		ctx:          newCtx,
-	})
+	}
+
+	err := handler(srv, stream)
 
 	if err != nil {
 		txHandle.Rollback()
 	} else {
 		if err := txHandle.Commit().Error; err != nil {
-			return apperr.GRPCResponse(ErrInternal.Combine(apperr.ErrInternal.WithError(err)))
+			return grpcerr.Response(stream.Context(), ErrInternalMethod.WithError(appErrors.ErrInternal.NewID(ErrPanicID)))
 		}
 	}
 

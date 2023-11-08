@@ -1,12 +1,10 @@
 package jwt
 
 import (
-	"context"
 	"crypto/rand"
-	"errors"
 	"github.com/c2pc/go-pkg/apperr"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"strings"
 	"time"
 )
@@ -14,8 +12,15 @@ import (
 const AuthUserKey = "authUser"
 const authorizationHeader = "Authorization"
 
-var ErrUnauthorized = apperr.NewMethod("", "auth").
-	WithTitleTranslate(apperr.Translate{"ru": "Попытка авторизации"})
+var (
+	ErrEmptyAuthHeader      = apperr.New("empty_auth_header")
+	ErrInvalidAuthHeader    = apperr.New("invalid_auth_header")
+	ErrEmptyToken           = apperr.New("empty_token")
+	ErrInvalidToken         = apperr.New("invalid_token")
+	ErrTokenParseError      = apperr.New("token_parse_error")
+	ErrInvalidRandomBits    = apperr.New("invalid_random_bits")
+	ErrErrorToSigningString = apperr.New("error_to_signing_string")
+)
 
 type JWT struct {
 	Key      []byte
@@ -31,89 +36,78 @@ func NewJWT(signingKey string, accessTokenTTL time.Duration, signingAlgorithm st
 	}
 }
 
-type Claims struct {
-	Id    int
-	Login string
-	Role  string
-	Token string
+type TokenClaims struct {
+	Id   int    `json:"id"`
+	Role string `json:"role"`
+	jwt.RegisteredClaims
 }
 
-func (j *JWT) Authenticate(c *gin.Context) {
-	token, err := ParseAuthHeader(c)
-	if err != nil {
-		apperr.HTTPResponse(c, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(err)))
-		return
-	}
-
-	tokenClaims, err := j.ParseToken(token)
-	if err != nil {
-		apperr.HTTPResponse(c, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(err)))
-		return
-	}
-
-	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), AuthUserKey, tokenClaims))
-
-	c.Next()
+type User struct {
+	Id   int    `json:"id"`
+	Role string `json:"role"`
 }
 
-func ParseAuthHeader(c *gin.Context) (string, error) {
+func ParseAuthHeader(c *gin.Context) (string, apperr.Apperr) {
 	header := c.GetHeader(authorizationHeader)
 	if header == "" {
-		return "", errors.New("empty auth header")
+		return "", ErrEmptyAuthHeader
 	}
 	headerParts := strings.Split(header, " ")
 
 	if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-		return "", errors.New("invalid auth header")
+		return "", ErrInvalidAuthHeader
 	}
 	if len(headerParts[1]) == 0 {
-		return "", errors.New("token is empty")
+		return "", ErrEmptyToken
 	}
 
 	return headerParts[1], nil
 }
 
-func (j *JWT) ParseToken(token string) (*Claims, error) {
-	bearerToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+func (j *JWT) ParseToken(token string) (*User, apperr.Apperr) {
+	bearerToken, err := jwt.ParseWithClaims(token, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if jwt.GetSigningMethod(j.Algo) != token.Method {
-			return nil, apperr.ErrInternal.WithError(errors.New("invalid signing method"))
+			return nil, jwt.ErrTokenSignatureInvalid
 		}
 		return j.Key, nil
 	})
 	if err != nil {
-		return nil, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(err))
+		return nil, ErrTokenParseError.WithError(err)
 	}
 
-	if !bearerToken.Valid {
-		return nil, ErrUnauthorized.Combine(apperr.ErrUnauthorized.WithError(errors.New("invalid token")))
+	if claims, ok := bearerToken.Claims.(*TokenClaims); ok && bearerToken.Valid {
+		return &User{
+			Id:   claims.Id,
+			Role: claims.Role,
+		}, nil
+	} else {
+		return nil, ErrInvalidToken
 	}
-
-	mapClaims := bearerToken.Claims.(jwt.MapClaims)
-
-	return &Claims{
-		Id:    int(mapClaims["id"].(float64)),
-		Login: mapClaims["l"].(string),
-		Role:  mapClaims["n"].(string),
-		Token: token,
-	}, nil
 }
 
-func (j *JWT) GenerateToken(u Claims) (string, float64, error) {
-	token := jwt.New(jwt.GetSigningMethod(j.Algo))
-	claims := token.Claims.(jwt.MapClaims)
-
+func (j *JWT) GenerateToken(u User) (string, float64, apperr.Apperr) {
 	bits := make([]byte, 12)
 	_, err := rand.Read(bits)
 	if err != nil {
-		return "", 0, err
+		return "", 0, ErrInvalidRandomBits.WithError(err)
 	}
 
-	claims["id"] = u.Id
-	claims["l"] = u.Login
-	claims["n"] = u.Role
-	claims["exp"] = time.Now().Add(j.Duration).Unix()
-	claims["tid"] = bits
+	claims := TokenClaims{
+		u.Id,
+		u.Role,
+		jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			ID:        string(bits),
+		},
+	}
 
+	token := jwt.NewWithClaims(jwt.GetSigningMethod(j.Algo), claims)
 	tokenString, err := token.SignedString(j.Key)
-	return tokenString, j.Duration.Seconds(), err
+	if err != nil {
+		return "", 0, ErrErrorToSigningString.WithError(err)
+	}
+
+	return tokenString, j.Duration.Seconds(), nil
 }
