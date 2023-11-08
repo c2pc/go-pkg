@@ -56,21 +56,21 @@ type ValidateError struct {
 	Error  string `json:"error"`
 }
 
-func Response(c *gin.Context, err *apperr.Error) {
+func Response(c *gin.Context, err apperr.Error) {
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
 
-	var appErr *apperr.Error
-	if !errors.As(err.Err, &appErr) {
+	var childError apperr.Error
+	if !errors.As(err.Err, &childError) {
 		switch {
-		case errors.As(err.Err, &syntaxError), errors.As(err.Err, &unmarshalTypeError), errors.As(err.Err, &invalidUnmarshalError):
-			err = appErrors.ErrSyntax.WithError(err.Err)
-		case errors.Is(err.Err, io.EOF), errors.Is(err.Err, io.ErrUnexpectedEOF), errors.Is(err.Err, io.ErrNoProgress):
-			err = appErrors.ErrEmptyData.WithError(err.Err)
-		case errors.As(err.Err, &validationError):
-			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(err.Err))
+		case errors.As(childError, &syntaxError), errors.As(childError, &unmarshalTypeError), errors.As(childError, &invalidUnmarshalError):
+			err = appErrors.ErrSyntax.WithError(childError)
+		case errors.Is(childError, io.EOF), errors.Is(childError, io.ErrUnexpectedEOF), errors.Is(childError, io.ErrNoProgress):
+			err = appErrors.ErrEmptyData.WithError(childError)
+		case errors.As(childError, &validationError):
+			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(childError))
 			title, text := apperr.Translate(appErr, GetTranslate(c))
 
 			errs := []ValidateError{}
@@ -94,7 +94,7 @@ func Response(c *gin.Context, err *apperr.Error) {
 		}
 	}
 
-	appErr = apperr.Unwrap(err)
+	appErr := apperr.Unwrap(err)
 	title, text := apperr.Translate(appErr, GetTranslate(c))
 
 	c.AbortWithStatusJSON(codeToHttp(appErr.Code), gin.H{

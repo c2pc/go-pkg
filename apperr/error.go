@@ -21,32 +21,32 @@ type Error struct {
 	Err                error
 }
 
-func New(id string, annotators ...Annotator) *Error {
-	err := &Error{}
+func New(id string, annotators ...Annotator) Error {
+	err := Error{}
 
-	WithID(id)(err)
+	WithID(id)(&err)
 
 	for _, f := range annotators {
-		f(err)
+		f(&err)
 	}
 
 	return err
 }
 
-func Replace(err *Error, annotators ...Annotator) *Error {
+func Replace(err Error, annotators ...Annotator) Error {
 	for _, f := range annotators {
-		f(err)
+		f(&err)
 	}
 
 	return err
 }
 
-func (e *Error) Error() string {
+func (e Error) Error() string {
 	if e.Err == nil {
-		return ""
+		return e.ID
 	}
 
-	var appError *Error
+	var appError Error
 	if errors.As(e.Err, &appError) {
 		return e.ID + "." + e.Err.Error()
 	}
@@ -54,29 +54,29 @@ func (e *Error) Error() string {
 	return e.ID + "." + strings.ReplaceAll(e.Err.Error(), " ", "_")
 }
 
-func (e *Error) WithError(err error) *Error {
+func (e Error) WithError(err error) Error {
 	e.Err = err
 	return e
 }
 
-func (e *Error) WithTextArgs(args ...any) *Error {
+func (e Error) WithTextArgs(args ...any) Error {
 	e.TextTranslateArgs = args
 	return e
 }
 
-func (e *Error) WithTitleArgs(args ...any) *Error {
+func (e Error) WithTitleArgs(args ...any) Error {
 	e.TitleTranslateArgs = args
 	return e
 }
 
-func (e *Error) NewID(id string) *Error {
+func (e Error) NewID(id string) Error {
 	e.ID = id
 	return e
 }
 
 func Is(err, target error) bool {
-	var appError *Error
-	var appTarget *Error
+	var appError Error
+	var appTarget Error
 	if errors.As(err, &appError) && errors.As(target, &appTarget) {
 		return appError.ID == appTarget.ID
 	}
@@ -84,7 +84,7 @@ func Is(err, target error) bool {
 	return errors.Is(err, target)
 }
 
-func (e *Error) GetIDSuffix() string {
+func (e Error) GetIDSuffix() string {
 	ids := strings.Split(e.ID, ".")
 	if len(ids) == 0 {
 		return e.ID
@@ -92,7 +92,7 @@ func (e *Error) GetIDSuffix() string {
 	return ids[len(ids)-1]
 }
 
-func Translate(err *Error, lang string) (string, string) {
+func Translate(err Error, lang string) (string, string) {
 	title := err.TitleTranslate.Translate(lang, err.TitleTranslateArgs...)
 	text := err.TextTranslate.Translate(lang, err.TextTranslateArgs...)
 
@@ -103,18 +103,16 @@ func Translate(err *Error, lang string) (string, string) {
 	return title, text
 }
 
-func Unwrap(err *Error) *Error {
+func Unwrap(err Error) Error {
 	unwrappedError := err
+	var lastError Error
 
-	lastError := err
 	if err.Err != nil {
-		if r, ok := err.Err.(*Error); ok {
+		if r, ok := err.Err.(Error); ok {
 			lastError = r
+		} else {
+			return unwrappedError
 		}
-	}
-
-	if Is(err, lastError) {
-		return err
 	}
 
 	unwrappedError.Text = lastError.Text

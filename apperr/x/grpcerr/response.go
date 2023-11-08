@@ -59,22 +59,24 @@ type ValidateError struct {
 	Error  string `json:"error"`
 }
 
-func Response(ctx context.Context, err *apperr.Error) error {
+func Response(ctx context.Context, err apperr.Error) error {
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
 	br := &errdetails.BadRequest{}
 
-	var appErr *apperr.Error
-	if !errors.As(err.Err, &appErr) {
+	responseError := err
+
+	var childError apperr.Error
+	if !errors.As(err.Err, &childError) {
 		switch {
-		case errors.As(err.Err, &syntaxError), errors.As(err.Err, &unmarshalTypeError), errors.As(err.Err, &invalidUnmarshalError):
-			err = appErrors.ErrSyntax.WithError(err.Err)
-		case errors.Is(err.Err, io.EOF), errors.Is(err.Err, io.ErrUnexpectedEOF), errors.Is(err.Err, io.ErrNoProgress):
-			err = appErrors.ErrEmptyData.WithError(err.Err)
-		case errors.As(err.Err, &validationError):
-			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(err.Err))
+		case errors.As(childError, &syntaxError), errors.As(childError, &unmarshalTypeError), errors.As(childError, &invalidUnmarshalError):
+			responseError = appErrors.ErrSyntax.WithError(childError)
+		case errors.Is(childError, io.EOF), errors.Is(childError, io.ErrUnexpectedEOF), errors.Is(childError, io.ErrNoProgress):
+			responseError = appErrors.ErrEmptyData.WithError(childError)
+		case errors.As(childError, &validationError):
+			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(childError))
 			title, text := apperr.Translate(appErr, GetTranslate(ctx))
 
 			errs := []ValidateError{}
@@ -101,14 +103,14 @@ func Response(ctx context.Context, err *apperr.Error) error {
 
 			return st.Err()
 		default:
-			err = appErrors.ErrInternal.WithError(err.Err)
+			responseError = appErrors.ErrInternal.WithError(childError)
 		}
 	}
 
-	appErr = apperr.Unwrap(err)
+	appErr := apperr.Unwrap(responseError)
 	title, text := apperr.Translate(appErr, GetTranslate(ctx))
 
-	st := status.New(codeToGrpc(appErr.Code), appErr.Error())
+	st := status.New(codeToGrpc(appErr.Code), responseError.Error())
 	v := []*errdetails.BadRequest_FieldViolation{
 		{Field: "id", Description: appErr.ID},
 		{Field: "title", Description: title},

@@ -105,3 +105,13 @@ func TestWithCode(t *testing.T) {
 
 	assert.Equal(t, code.Aborted, err.Code)
 }
+
+func TestUnwrap(t *testing.T) {
+	err1 := New("id")
+	err11 := New("id").WithError(err1)
+	err2 := New("id2").WithError(err1)
+	err21 := New("id2").WithError(err2)
+
+	assert.Equal(t, Unwrap(err11).Error(), Unwrap(err11).Error())
+	assert.Equal(t, Unwrap(err21).Error(), Unwrap(err21).Error())
+}

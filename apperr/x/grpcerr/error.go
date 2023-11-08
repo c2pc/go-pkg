@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func ParseError(err error) *apperr.Error {
+func ParseError(err error) apperr.Error {
 	var id, text, title string
 
 	st := status.Convert(err)

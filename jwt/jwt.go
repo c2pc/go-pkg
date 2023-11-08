@@ -1,10 +1,10 @@
 package jwt
 
 import (
-	"crypto/rand"
 	"github.com/c2pc/go-pkg/apperr"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -18,7 +18,6 @@ var (
 	ErrEmptyToken           = apperr.New("empty_token")
 	ErrInvalidToken         = apperr.New("invalid_token")
 	ErrTokenParseError      = apperr.New("token_parse_error")
-	ErrInvalidRandomBits    = apperr.New("invalid_random_bits")
 	ErrErrorToSigningString = apperr.New("error_to_signing_string")
 )
 
@@ -86,20 +85,12 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 }
 
 func (j *JWT) GenerateToken(u User) (string, float64, error) {
-	bits := make([]byte, 12)
-	_, err := rand.Read(bits)
-	if err != nil {
-		return "", 0, ErrInvalidRandomBits.WithError(err)
-	}
-
 	claims := TokenClaims{
 		u.Id,
 		u.Role,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			ID:        string(bits),
+			ID:        strconv.FormatInt(time.Now().Unix(), 10),
 		},
 	}
 
