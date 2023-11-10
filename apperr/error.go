@@ -58,7 +58,7 @@ func (e Error) Error() string {
 func (e Error) LastError() error {
 	var appError Error
 	if errors.As(e.Err, &appError) {
-		return e.LastError()
+		return appError.LastError()
 	}
 
 	return e.Err
