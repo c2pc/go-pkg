@@ -2,6 +2,7 @@ package apperr
 
 import (
 	"errors"
+	"fmt"
 	"github.com/c2pc/go-pkg/apperr/utils/code"
 	"github.com/c2pc/go-pkg/apperr/utils/translate"
 	"strings"
@@ -51,7 +52,16 @@ func (e Error) Error() string {
 		return e.ID + "." + e.Err.Error()
 	}
 
-	return e.ID + "." + strings.ReplaceAll(e.Err.Error(), " ", "_")
+	return e.ID + "." + fmt.Sprintf("(%s)", e.Err.Error())
+}
+
+func (e Error) LastError() error {
+	var appError Error
+	if errors.As(e.Err, &appError) {
+		return e.LastError()
+	}
+
+	return e.Err
 }
 
 func (e Error) WithError(err error) Error {

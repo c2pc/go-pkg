@@ -68,14 +68,19 @@ func Response(ctx context.Context, err apperr.Error) error {
 	br := &errdetails.BadRequest{}
 
 	var childError apperr.Error
-	if !errors.As(err.Err, &childError) {
+	lastError := err.LastError()
+	if !errors.As(lastError, &childError) {
 		switch {
-		case errors.As(childError, &syntaxError), errors.As(childError, &unmarshalTypeError), errors.As(childError, &invalidUnmarshalError):
-			err = appErrors.ErrSyntax.WithError(childError)
-		case errors.Is(childError, io.EOF), errors.Is(childError, io.ErrUnexpectedEOF), errors.Is(childError, io.ErrNoProgress):
-			err = appErrors.ErrEmptyData.WithError(childError)
-		case errors.As(childError, &validationError):
-			appErr := apperr.Unwrap(appErrors.ErrValidation.WithError(childError))
+		case errors.As(lastError, &syntaxError), errors.As(lastError, &unmarshalTypeError), errors.As(lastError, &invalidUnmarshalError):
+			err = err.WithError(appErrors.ErrSyntax.WithError(lastError))
+
+		case errors.Is(lastError, io.EOF), errors.Is(lastError, io.ErrUnexpectedEOF), errors.Is(lastError, io.ErrNoProgress):
+			err = err.WithError(appErrors.ErrEmptyData.WithError(lastError))
+
+		case errors.As(lastError, &validationError):
+			err = err.WithError(appErrors.ErrValidation.WithError(childError))
+
+			appErr := apperr.Unwrap(err)
 			title, text := apperr.Translate(appErr, GetTranslate(ctx))
 
 			errs := []ValidateError{}
@@ -102,7 +107,7 @@ func Response(ctx context.Context, err apperr.Error) error {
 
 			return st.Err()
 		default:
-			err = appErrors.ErrInternal.WithError(childError)
+			err = err.WithError(appErrors.ErrInternal.WithError(childError))
 		}
 	}
 
