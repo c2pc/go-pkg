@@ -75,7 +75,7 @@ func Response(c *gin.Context, err apperr.Error) {
 			err = err.WithError(appErrors.ErrEmptyData.WithError(lastError))
 
 		case errors.As(lastError, &validationError):
-			err = err.WithError(appErrors.ErrValidation.WithError(childError))
+			err = err.WithError(appErrors.ErrValidation.WithError(lastError))
 
 			appErr := apperr.Unwrap(err)
 			title, text := apperr.Translate(appErr, GetTranslate(c))
@@ -98,8 +98,6 @@ func Response(c *gin.Context, err apperr.Error) {
 			})
 
 			return
-		default:
-			err = err.WithError(appErrors.ErrInternal.WithError(childError))
 		}
 	}
 

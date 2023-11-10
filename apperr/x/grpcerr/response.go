@@ -106,8 +106,6 @@ func Response(ctx context.Context, err apperr.Error) error {
 			st, _ = st.WithDetails(br)
 
 			return st.Err()
-		default:
-			err = err.WithError(appErrors.ErrInternal.WithError(childError))
 		}
 	}
 
