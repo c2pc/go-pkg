@@ -36,14 +36,16 @@ func NewJWT(signingKey string, accessTokenTTL time.Duration, signingAlgorithm st
 }
 
 type TokenClaims struct {
-	Id   int    `json:"id"`
-	Role string `json:"role"`
+	Id           int    `json:"id"`
+	Role         string `json:"role"`
+	DepartmentId int    `json:"department_id"`
 	jwt.RegisteredClaims
 }
 
 type User struct {
-	Id   int    `json:"id"`
-	Role string `json:"role"`
+	Id           int    `json:"id"`
+	Role         string `json:"role"`
+	DepartmentId int    `json:"department_id"`
 }
 
 func ParseAuthHeader(c *gin.Context) (string, error) {
@@ -76,8 +78,9 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 
 	if claims, ok := bearerToken.Claims.(*TokenClaims); ok && bearerToken.Valid {
 		return &User{
-			Id:   claims.Id,
-			Role: claims.Role,
+			Id:           claims.Id,
+			Role:         claims.Role,
+			DepartmentId: claims.DepartmentId,
 		}, nil
 	} else {
 		return nil, ErrInvalidToken
@@ -88,6 +91,7 @@ func (j *JWT) GenerateToken(u User) (string, float64, error) {
 	claims := TokenClaims{
 		u.Id,
 		u.Role,
+		u.DepartmentId,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
 			ID:        strconv.FormatInt(time.Now().Unix(), 10),
