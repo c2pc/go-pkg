@@ -25,8 +25,9 @@ var (
 )
 
 type AuthUser struct {
-	ID   int
-	Role string
+	ID           int
+	Role         string
+	DepartmentID *int
 }
 
 func User(ctx context.Context) (*AuthUser, error) {
@@ -36,8 +37,9 @@ func User(ctx context.Context) (*AuthUser, error) {
 	}
 
 	return &AuthUser{
-		ID:   u.Id,
-		Role: u.Role,
+		ID:           u.Id,
+		Role:         u.Role,
+		DepartmentID: u.DepartmentId,
 	}, nil
 }
 
