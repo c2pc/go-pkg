@@ -38,6 +38,7 @@ func NewJWT(signingKey string, accessTokenTTL time.Duration, signingAlgorithm st
 type TokenClaims struct {
 	Id           int    `json:"id"`
 	Role         string `json:"role"`
+	Login        string `json:"login"`
 	DepartmentId *int   `json:"department_id"`
 	jwt.RegisteredClaims
 }
@@ -45,6 +46,7 @@ type TokenClaims struct {
 type User struct {
 	Id           int    `json:"id"`
 	Role         string `json:"role"`
+	Login        string `json:"login"`
 	DepartmentId *int   `json:"department_id"`
 }
 
@@ -80,6 +82,7 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 		return &User{
 			Id:           claims.Id,
 			Role:         claims.Role,
+			Login:        claims.Login,
 			DepartmentId: claims.DepartmentId,
 		}, nil
 	} else {
@@ -91,6 +94,7 @@ func (j *JWT) GenerateToken(u User) (string, float64, error) {
 	claims := TokenClaims{
 		u.Id,
 		u.Role,
+		u.Login,
 		u.DepartmentId,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
