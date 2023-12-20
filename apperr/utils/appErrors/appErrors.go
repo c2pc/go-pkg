@@ -9,7 +9,7 @@ import (
 var (
 	ErrSyntax = apperr.New("syntax_error",
 		apperr.WithTextTranslate(translate.Translate{translate.RU: "Неверный запрос"}),
-		apperr.WithCode(code.Internal),
+		apperr.WithCode(code.InvalidArgument),
 	)
 	ErrValidation = apperr.New("validation_error",
 		apperr.WithTextTranslate(translate.Translate{translate.RU: "Неверный запрос"}),
@@ -17,7 +17,7 @@ var (
 	)
 	ErrEmptyData = apperr.New("empty_data_error",
 		apperr.WithTextTranslate(translate.Translate{translate.RU: "Неверный запрос"}),
-		apperr.WithCode(code.Internal),
+		apperr.WithCode(code.InvalidArgument),
 	)
 	ErrInternal = apperr.New("internal_error",
 		apperr.WithTextTranslate(translate.Translate{translate.RU: "Ошибка сервера"}),
