@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	ModuleID       = "LOG"
-	logs           = "logs"
-	appLogFileName = "app.log"
+	ModuleID = "LOG"
+	logs     = "logs"
 )
 
 var level logging.Level
@@ -63,10 +62,10 @@ func (l *logCache) addLogger(module string) {
 }
 
 // Initialize logger with given level
-func Initialize(mr bool, logLevel string, customLogsDir string) {
+func Initialize(mr bool, logFile string, customLogsDir string) {
 	machineReadable = mr
-	level = loggingLevel(logLevel)
-	ActiveLogFile = getLogFile(appLogFileName, customLogsDir)
+	level = loggingLevel("")
+	ActiveLogFile = getLogFile(logFile, customLogsDir)
 	initFileLoggerBackend()
 	loggersMap = logCache{loggers: make(map[string]*logging.Logger)}
 	loggersMap.addLogger(ModuleID)
