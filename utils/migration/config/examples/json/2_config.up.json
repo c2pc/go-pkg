@@ -1,0 +1,13 @@
+{
+  "server1": {
+    "username1": ""
+  },
+  "server2": {
+    "username2": "",
+    "pass2": true
+  },
+  "server4": {
+    "username4": "username41",
+    "pass3": 2
+  }
+}
