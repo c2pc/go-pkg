@@ -89,12 +89,12 @@ func Is(err, target error) bool {
 	return errors.Is(err, target)
 }
 
-func (e Error) GetIDSuffix() string {
+func (e Error) GetIDPrefix() string {
 	ids := strings.Split(e.ID, ".")
 	if len(ids) == 0 {
 		return e.ID
 	}
-	return ids[len(ids)-1]
+	return ids[0]
 }
 
 func Translate(err Error, lang string) string {

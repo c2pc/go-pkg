@@ -1,4 +1,4 @@
-package grpcerr
+package grpc
 
 import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"

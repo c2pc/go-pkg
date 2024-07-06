@@ -1,18 +1,14 @@
-package grpcerr
+package http
 
 import (
-	"context"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"
 	"golang.org/x/text/language"
 )
 
-func GetTranslate(ctx context.Context) string {
-	acceptLang, ok := ctx.Value("accept-language").(string)
-	if !ok {
-		acceptLang = "ru"
-	}
-
+func GetTranslate(c *gin.Context) string {
+	acceptLang := c.GetHeader("Accept-Language")
 	var matcher = language.NewMatcher([]language.Tag{
 		language.Russian,
 		language.MustParse("ru-RU"),
@@ -25,6 +21,6 @@ func GetTranslate(ctx context.Context) string {
 	return base.String()
 }
 
-func getTranslator(ctx context.Context) ut.Translator {
-	return translator.GetTranslator(GetTranslate(ctx))
+func getTranslator(c *gin.Context) ut.Translator {
+	return translator.GetTranslator(GetTranslate(c))
 }

@@ -13,7 +13,9 @@ import (
 func Returning(columns ...string) clause.Returning {
 	var returningColumns []clause.Column
 	for _, c := range columns {
-		returningColumns = append(returningColumns, clause.Column{Name: c})
+		if c != "" {
+			returningColumns = append(returningColumns, clause.Column{Name: c})
+		}
 	}
 
 	return clause.Returning{Columns: returningColumns}
@@ -71,6 +73,19 @@ func OrderBy(orderBy map[string]string, tableName string) func(tx *gorm.DB) *gor
 			}
 			tx = tx.Order(key + " " + order)
 		}
+		return tx
+	}
+}
+
+func Limit(limit, offset int) func(tx *gorm.DB) *gorm.DB {
+	return func(tx *gorm.DB) *gorm.DB {
+		if limit > 0 {
+			tx = tx.Limit(limit)
+		}
+		if offset > 0 {
+			tx = tx.Offset(offset)
+		}
+
 		return tx
 	}
 }

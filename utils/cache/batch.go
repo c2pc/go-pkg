@@ -45,10 +45,10 @@ type BatchDeleterRedis struct {
 }
 
 // NewBatchDeleterRedis creates a new BatchDeleterRedis instance.
-func NewBatchDeleterRedis(redisClient redis.UniversalClient, options *rockscache.Options) *BatchDeleterRedis {
+func NewBatchDeleterRedis(redisClient redis.UniversalClient, options rockscache.Options) *BatchDeleterRedis {
 	return &BatchDeleterRedis{
 		redisClient: redisClient,
-		rocksClient: rockscache.NewClient(redisClient, *options),
+		rocksClient: rockscache.NewClient(redisClient, options),
 	}
 }
 
@@ -93,12 +93,12 @@ func (c *BatchDeleterRedis) AddKeys(keys ...string) {
 }
 
 // GetRocksCacheOptions returns the default configuration options for RocksCache.
-func GetRocksCacheOptions() *rockscache.Options {
+func GetRocksCacheOptions() rockscache.Options {
 	opts := rockscache.NewDefaultOptions()
 	opts.StrongConsistency = true
 	opts.RandomExpireAdjustment = 0.2
 
-	return &opts
+	return opts
 }
 
 func GetCache[T any](ctx context.Context, rcClient *rockscache.Client, key string, expire time.Duration, fn func(ctx context.Context) (T, error)) (T, error) {

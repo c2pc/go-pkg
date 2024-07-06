@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/repository"
@@ -11,6 +12,7 @@ var UserSearchable = clause.FieldSearchable{}
 
 type IUserRepository interface {
 	repository.Repository[IUserRepository, model.User]
+	GetUserWithPermissions(ctx context.Context, query string, args ...any) (*model.User, error)
 }
 
 type UserRepository struct {
@@ -46,4 +48,10 @@ func (r UserRepository) OrderBy(orderBy map[string]string) IUserRepository {
 func (r UserRepository) Omit(columns ...string) IUserRepository {
 	r.Repo = r.Repo.Omit(columns...)
 	return r
+}
+
+func (r UserRepository) GetUserWithPermissions(ctx context.Context, query string, args ...any) (*model.User, error) {
+	return r.Repo.
+		With("roles", "roles.role_permissions", "roles.role_permissions.permission").
+		Find(ctx, query, args...)
 }

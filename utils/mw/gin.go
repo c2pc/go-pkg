@@ -1,13 +1,19 @@
 package mw
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	"github.com/c2pc/go-pkg/v2/utils/response/httperr"
+	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +28,6 @@ var (
 	)
 )
 
-// CorsHandler gin cross-domain configuration.
 func CorsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
@@ -54,22 +59,102 @@ func CorsHandler() gin.HandlerFunc {
 	}
 }
 
-func GinParseOperationID() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func LogHandler(moduleID, debug string) gin.LoggerConfig {
+	writer := logger.NewLogWriter(moduleID, true, 0)
 
-		if c.Request.Method == http.MethodPost {
-			operationID := c.Request.Header.Get(constant.OperationID)
-			if operationID == "" {
-				httperr.Response(c, ErrEmptyOperationID)
-				c.Abort()
-				return
+	prefix := ""
+	if level.Is(debug, level.TEST) {
+		prefix = "\t"
+	}
+
+	return gin.LoggerConfig{
+		Formatter: func(param gin.LogFormatterParams) string {
+			var statusColor, methodColor, resetColor string
+			if param.IsOutputColor() {
+				statusColor = param.StatusCodeColor()
+				methodColor = param.MethodColor()
+				resetColor = param.ResetColor()
 			}
 
-			ctx := c.Request.Context()
-			ctx = mcontext.WithOperationIDContext(ctx, operationID)
+			if param.Latency > time.Minute {
+				param.Latency = param.Latency.Truncate(time.Second)
+			}
 
-			c.Request = c.Request.WithContext(ctx)
+			operationID, _ := mcontext.GetOperationID(param.Request.Context())
+
+			return fmt.Sprintf(" | %s | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
+				operationID,
+				statusColor, param.StatusCode, resetColor,
+				param.Latency,
+				param.ClientIP,
+				methodColor, param.Method, resetColor,
+				param.Path,
+				param.ErrorMessage, prefix,
+			)
+		},
+		Output: writer.Stdout,
+	}
+}
+
+func GinParseOperationID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method == http.MethodOptions {
+			c.JSON(http.StatusOK, "Options Request!")
+			c.Abort()
+			return
 		}
+
+		operationID := c.Request.Header.Get(constant.OperationID)
+		if operationID == "" {
+			response.Response(c, ErrEmptyOperationID)
+			c.Abort()
+			return
+		}
+
+		ctx := c.Request.Context()
+		ctx = mcontext.WithOperationIDContext(ctx, operationID)
+
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+type bodyLogWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (w bodyLogWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
+}
+
+func GinBodyLogMiddleware(module, debug string) gin.HandlerFunc {
+	if level.Is(debug, level.TEST) {
+		return func(c *gin.Context) {
+			var buf bytes.Buffer
+			blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+			c.Writer = blw
+
+			tee := io.TeeReader(c.Request.Body, &buf)
+			body, _ := io.ReadAll(tee)
+			c.Request.Body = io.NopCloser(&buf)
+
+			if len(string(body)) < 1000 {
+				logger.InfofLog(c.Request.Context(), module, "Request: %s", string(body))
+			} else {
+				logger.InfofLog(c.Request.Context(), module, "Request: %s...", string(body)[:1000])
+			}
+
+			c.Next()
+
+			if len(blw.body.String()) < 1000 {
+				logger.InfofLog(c.Request.Context(), module, "Response: %s", blw.body.String())
+			} else {
+				logger.InfofLog(c.Request.Context(), module, "Response: %s...", blw.body.String()[:1000])
+			}
+		}
+	}
+
+	return func(c *gin.Context) {}
 }

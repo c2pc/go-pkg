@@ -1,6 +1,6 @@
 package model
 
-const SuperAdmin = "super_admin"
+const SuperAdmin = "SuperAdmin"
 
 type Role struct {
 	ID   int    `json:"id"`

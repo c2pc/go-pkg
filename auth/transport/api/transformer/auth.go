@@ -12,7 +12,7 @@ type AuthTokenTransformer struct {
 	TokenType    string  `json:"token_type"`
 	UserID       int     `json:"user_id"`
 
-	User *UserTransformer `json:"user"`
+	User *AuthAccountTransformer `json:"user"`
 }
 
 func AuthTokenTransform(m *model.AuthToken) *AuthTokenTransformer {
@@ -22,7 +22,7 @@ func AuthTokenTransform(m *model.AuthToken) *AuthTokenTransformer {
 		ExpiresAt:    m.Auth.ExpiresAt,
 		TokenType:    m.Auth.TokenType,
 		UserID:       m.Auth.UserID,
-		User:         UserTransform(&m.User),
+		User:         AuthAccountTransform(&m.User),
 	}
 }
 
@@ -47,7 +47,7 @@ func AuthAccountTransform(m *model.User) *AuthAccountTransformer {
 		LastName:   m.LastName,
 		Email:      m.Email,
 		Phone:      m.Phone,
-		Roles:      transformer.NillableArray(m.Roles, RoleTransform),
+		Roles:      transformer.Array(m.Roles, RoleTransform),
 	}
 
 	return r

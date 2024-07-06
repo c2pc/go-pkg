@@ -4,6 +4,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
+	"github.com/gin-gonic/gin"
 )
 
 type UserTransformer struct {
@@ -15,7 +16,7 @@ type UserTransformer struct {
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
 
-	Roles []*RoleTransformer `json:"roles"`
+	Roles []*SimpleRoleTransformer `json:"roles"`
 }
 
 func UserTransform(m *model.User) *UserTransformer {
@@ -27,7 +28,7 @@ func UserTransform(m *model.User) *UserTransformer {
 		LastName:   m.LastName,
 		Email:      m.Email,
 		Phone:      m.Phone,
-		Roles:      transformer.NillableArray(m.Roles, RoleTransform),
+		Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
 	}
 
 	return r
@@ -42,10 +43,12 @@ type UserListTransformer struct {
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
 
-	Roles []*RoleTransformer `json:"roles"`
+	Roles []*SimpleRoleTransformer `json:"roles"`
 }
 
-func UserListTransform(p *model2.Pagination[model.User]) (r []UserListTransformer) {
+func UserListTransform(c *gin.Context, p *model2.Pagination[model.User]) (r []UserListTransformer) {
+	transformer.PaginationTransform(c, p)
+
 	for _, m := range p.Rows {
 		r = append(r, UserListTransformer{
 			ID:         m.ID,
@@ -55,7 +58,7 @@ func UserListTransform(p *model2.Pagination[model.User]) (r []UserListTransforme
 			LastName:   m.LastName,
 			Email:      m.Email,
 			Phone:      m.Phone,
-			Roles:      transformer.NillableArray(m.Roles, RoleTransform),
+			Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
 		})
 	}
 

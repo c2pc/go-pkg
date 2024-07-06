@@ -20,7 +20,7 @@ type RedisClient struct {
 	PoolSize    int      // Number of connections to pool.
 }
 
-func NewRedisClient(ctx context.Context, config *RedisClient, debug string) (redis.UniversalClient, error) {
+func NewRedisClient(config *RedisClient, debug string) (redis.UniversalClient, error) {
 	if len(config.Address) == 0 {
 		return nil, errors.New("redis address is empty")
 	}
@@ -50,7 +50,7 @@ func NewRedisClient(ctx context.Context, config *RedisClient, debug string) (red
 		redis.SetLogger(defaultLogger())
 	}
 
-	if err := cli.Ping(ctx).Err(); err != nil {
+	if err := cli.Ping(context.Background()).Err(); err != nil {
 		return nil, errors.New(fmt.Sprintf("Redis Ping failed %v", err))
 	}
 

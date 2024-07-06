@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"github.com/c2pc/go-pkg/v2/auth/cache/cachekey"
+	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
 	"github.com/redis/go-redis/v9"
 	"time"
@@ -14,6 +15,7 @@ type ITokenCache interface {
 	GetTokensWithoutError(ctx context.Context, userID int, DeviceID int) (map[string]int, error)
 	SetTokenMapByUidPid(ctx context.Context, userID int, DeviceID int, m map[string]int) error
 	DeleteTokenByUidPid(ctx context.Context, userID int, DeviceID int, fields []string) error
+	DeleteAllUserTokens(ctx context.Context, userID int) error
 }
 
 type TokenCache struct {
@@ -67,4 +69,17 @@ func (c *TokenCache) SetTokenMapByUidPid(ctx context.Context, userID int, Device
 
 func (c *TokenCache) DeleteTokenByUidPid(ctx context.Context, userID int, DeviceID int, fields []string) error {
 	return c.rdb.HDel(ctx, cachekey.GetTokenKey(userID, DeviceID), fields...).Err()
+}
+
+func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userID int) error {
+	var keys []string
+	for _, device := range model.DeviceIDs {
+		keys = append(keys, cachekey.GetTokenKey(userID, device))
+	}
+
+	if len(keys) > 0 {
+		return c.rdb.HDel(ctx, keys[0], keys[0:]...).Err()
+	}
+
+	return nil
 }

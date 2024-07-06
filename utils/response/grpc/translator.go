@@ -1,13 +1,18 @@
-package httperr
+package grpc
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 	ut "github.com/go-playground/universal-translator"
 	"golang.org/x/text/language"
 )
 
-func GetTranslate(c *gin.Context) string {
-	acceptLang := c.GetHeader("Accept-Language")
+func GetTranslate(ctx context.Context) string {
+	acceptLang, ok := ctx.Value("accept-language").(string)
+	if !ok {
+		acceptLang = "ru"
+	}
+
 	var matcher = language.NewMatcher([]language.Tag{
 		language.Russian,
 		language.MustParse("ru-RU"),
@@ -20,6 +25,6 @@ func GetTranslate(c *gin.Context) string {
 	return base.String()
 }
 
-func getTranslator(c *gin.Context) ut.Translator {
-	return translator.GetTranslator(GetTranslate(c))
+func getTranslator(ctx context.Context) ut.Translator {
+	return translator.GetTranslator(GetTranslate(ctx))
 }

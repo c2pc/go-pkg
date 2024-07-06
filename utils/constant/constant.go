@@ -10,6 +10,7 @@ const (
 )
 
 const (
+	APP_ID   = "APP"
 	DB_ID    = "DB"
 	REDIS_ID = "REDIS"
 )

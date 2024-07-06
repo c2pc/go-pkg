@@ -23,13 +23,11 @@ type UserCache struct {
 	accessExpire time.Duration
 }
 
-func NewUserCache(rdb redis.UniversalClient, accessExpire time.Duration, options *rockscache.Options) IUserCache {
-	batchHandler := cache.NewBatchDeleterRedis(rdb, options)
-
+func NewUserCache(rdb redis.UniversalClient, rcClient *rockscache.Client, batchHandler cache.BatchDeleter, accessExpire time.Duration) IUserCache {
 	return &UserCache{
 		BatchDeleter: batchHandler,
 		rdb:          rdb,
-		rcClient:     rockscache.NewClient(rdb, *options),
+		rcClient:     rcClient,
 		accessExpire: accessExpire,
 	}
 }

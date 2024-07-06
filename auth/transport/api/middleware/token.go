@@ -6,7 +6,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	"github.com/c2pc/go-pkg/v2/utils/response/httperr"
+	"github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/gin-gonic/gin"
 	"strings"
@@ -19,14 +19,14 @@ type ITokenMiddleware interface {
 }
 
 type TokenMiddleware struct {
-	authCache cache.ITokenCache
-	secret    string
+	tokenCache cache.ITokenCache
+	secret     string
 }
 
-func NewTokenMiddleware(authCache cache.ITokenCache, secret string) *TokenMiddleware {
+func NewTokenMiddleware(tokenCache cache.ITokenCache, secret string) *TokenMiddleware {
 	return &TokenMiddleware{
-		authCache: authCache,
-		secret:    secret,
+		tokenCache: tokenCache,
+		secret:     secret,
 	}
 }
 
@@ -35,23 +35,24 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 
 	tokensString, err := j.parseAuthHeader(c)
 	if err != nil {
-		httperr.Response(c, apperr.ErrUnauthenticated.WithError(err))
+		http.Response(c, apperr.ErrUnauthenticated.WithError(err))
 		return
 	}
 
 	claims, err := tokenverify.GetClaimFromToken(tokensString, tokenverify.Secret(j.secret))
 	if err != nil {
-		httperr.Response(c, apperr.ErrUnauthenticated.WithError(err))
+		http.Response(c, apperr.ErrUnauthenticated.WithError(err))
 		return
 	}
 
-	m, err := j.authCache.GetTokensWithoutError(ctx, claims.UserID, claims.DeviceID)
+	m, err := j.tokenCache.GetTokensWithoutError(ctx, claims.UserID, claims.DeviceID)
 	if err != nil {
-		httperr.Response(c, apperr.ErrUnauthenticated.WithError(err))
+		http.Response(c, apperr.ErrInternal.WithError(err))
 		return
 	}
 	if len(m) == 0 {
-		httperr.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
+		http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
+		return
 	}
 
 	if v, ok := m[tokensString]; ok {
@@ -62,18 +63,19 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 
 			c.Request = c.Request.WithContext(ctx)
 			c.Next()
+			return
 		case constant.KickedToken:
-			httperr.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenKicked))
+			http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenKicked))
 			c.Abort()
 			return
 		default:
-			httperr.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenUnknown))
+			http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenUnknown))
 			c.Abort()
 			return
 		}
 	}
 
-	httperr.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
+	http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
 	c.Abort()
 	return
 }

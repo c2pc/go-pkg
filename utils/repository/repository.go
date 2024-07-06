@@ -25,10 +25,12 @@ type Repository[T any, C model.Model] interface {
 	FindById(ctx context.Context, id int) (*C, error)
 	Delete(ctx context.Context, query string, args ...any) error
 	Create(ctx context.Context, u *C, returning ...string) (*C, error)
+	Create2(ctx context.Context, u *[]C, returning ...string) (*[]C, error)
 	CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, returning ...string) (*C, error)
-	FirstOrCreate(ctx context.Context, u *C, query string, args ...any) (*C, error)
+	FirstOrCreate(ctx context.Context, u *C, returning string, query string, args ...any) (*C, error)
 	Update(ctx context.Context, u *C, selects []interface{}, query string, args ...any) error
-	Updates(ctx context.Context, u map[string]interface{}, query string, args ...any) error
+	Update2(ctx context.Context, u *[]C, selects []interface{}, query string, args ...any) error
+	UpdateMap(ctx context.Context, u map[string]interface{}, query string, args ...any) error
 	Count(ctx context.Context, query string, args ...any) (int64, error)
 	List(ctx context.Context, f *model.Filter, query string, args ...any) ([]C, error)
 	Paginate(ctx context.Context, p *model.Meta[C], query string, args ...any) error
@@ -240,6 +242,18 @@ func (r Repo[C]) Create(ctx context.Context, u *C, returning ...string) (*C, err
 	return u, nil
 }
 
+func (r Repo[C]) Create2(ctx context.Context, u *[]C, returning ...string) (*[]C, error) {
+	res := r.DB().
+		WithContext(ctx).
+		Clauses(clause.Returning(returning...)).
+		Create(u)
+	if err := res.Error; err != nil {
+		return nil, r.Error(err)
+	}
+
+	return u, nil
+}
+
 func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, returning ...string) (*C, error) {
 	res := r.DB().
 		WithContext(ctx).
@@ -252,7 +266,7 @@ func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interfac
 
 		res = res.
 			Clauses(clause.OnConflict(onConflict, doUpdates)).
-			Select(selected[0], selected...)
+			Select(selected[0], selected[0:]...)
 	}
 
 	res = res.Create(u)
@@ -263,11 +277,11 @@ func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interfac
 	return u, nil
 }
 
-func (r Repo[C]) FirstOrCreate(ctx context.Context, u *C, query string, args ...any) (*C, error) {
+func (r Repo[C]) FirstOrCreate(ctx context.Context, u *C, returning string, query string, args ...any) (*C, error) {
 	res := r.DB().
 		WithContext(ctx).
 		Scopes(clause.Where(query, args...)).
-		Clauses(clause.Returning()).
+		Clauses(clause.Returning(returning)).
 		FirstOrCreate(u)
 	if err := res.Error; err != nil {
 		return nil, r.Error(err)
@@ -295,7 +309,26 @@ func (r Repo[C]) Update(ctx context.Context, u *C, selects []interface{}, query 
 	return nil
 }
 
-func (r Repo[C]) Updates(ctx context.Context, u map[string]interface{}, query string, args ...any) error {
+func (r Repo[C]) Update2(ctx context.Context, u *[]C, selects []interface{}, query string, args ...any) error {
+	res := r.
+		DB().
+		WithContext(ctx).
+		Model(r.Model()).
+		Scopes(clause.Where(query, args...))
+
+	if selects != nil && len(selects) > 0 {
+		res = res.Select(selects[0], selects...)
+	}
+
+	res = res.Updates(u)
+	if err := res.Error; err != nil {
+		return r.Error(err)
+	}
+
+	return nil
+}
+
+func (r Repo[C]) UpdateMap(ctx context.Context, u map[string]interface{}, query string, args ...any) error {
 	res := r.
 		DB().
 		WithContext(ctx).
@@ -347,9 +380,11 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 		Model(r.Model()).
 		Scopes(clause.Where(query, args...))
 
-	res := db.Session(&gorm.Session{}).Count(&p.TotalRows)
-	if err := res.Error; err != nil {
-		return r.Error(err)
+	if p.MustReturnTotalRows {
+		res := db.Session(&gorm.Session{}).Count(&p.TotalRows)
+		if err := res.Error; err != nil {
+			return r.Error(err)
+		}
 	}
 
 	var rows []C
@@ -357,9 +392,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 		SetDB(db).
 		OrderBy(p.OrderBy).
 		DB().
-		Scopes(func(db *gorm.DB) *gorm.DB {
-			return db.Offset(p.GetOffset()).Limit(p.GetLimit())
-		}).
+		Scopes(clause.Limit(p.GetLimit(), p.GetOffset())).
 		Find(&rows)
 	if err := res2.Error; err != nil {
 		return r.Error(err)

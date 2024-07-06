@@ -20,10 +20,25 @@ func SetValidateTranslators(validate *validator.Validate) {
 }
 
 func GetTranslator(acceptLang string) ut.Translator {
-	t, found := utrans.FindTranslator(acceptLang)
+	t, found := utrans.GetTranslator(acceptLang)
 	if !found {
-		t, _ = utrans.FindTranslator("ru")
+		t, _ = utrans.GetTranslator("ru")
 	}
 
 	return t
+}
+
+func RegisterValidatorTranslation(acceptLang Language, tag, text string, override bool) (string, ut.Translator, validator.RegisterTranslationsFunc, validator.TranslationFunc) {
+	return tag,
+		GetTranslator(string(acceptLang)),
+		func(ut ut.Translator) error {
+			return ut.Add(tag, text, override)
+		},
+		func(ut ut.Translator, fe validator.FieldError) string {
+			t, err := ut.T(fe.Tag(), fe.Field())
+			if err != nil {
+				return fe.Error()
+			}
+			return t
+		}
 }

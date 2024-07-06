@@ -6,61 +6,61 @@ import (
 )
 
 // Info logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Info(stdout bool, msg string) {
-	logInfo(loggersMap.getLogger(ModuleID), stdout, msg)
+func Info(msg string) {
+	logInfo(loggersMap.getLogger(ModuleID), true, msg)
 }
 
 // Infof logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Infof(stdout bool, msg string, args ...interface{}) {
-	Info(stdout, fmt.Sprintf(msg, args...))
+func Infof(msg string, args ...interface{}) {
+	Info(fmt.Sprintf(msg, args...))
 }
 
 // Error logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Error(stdout bool, msg string) {
-	logError(loggersMap.getLogger(ModuleID), stdout, msg)
+func Error(msg string) {
+	logError(loggersMap.getLogger(ModuleID), true, msg)
 }
 
 // Errorf logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Errorf(stdout bool, msg string, args ...interface{}) {
-	Error(stdout, fmt.Sprintf(msg, args...))
+func Errorf(msg string, args ...interface{}) {
+	Error(fmt.Sprintf(msg, args...))
 }
 
 // Warning logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Warning(stdout bool, msg string) {
-	logWarning(loggersMap.getLogger(ModuleID), stdout, msg)
+func Warning(msg string) {
+	logWarning(loggersMap.getLogger(ModuleID), true, msg)
 }
 
 // Warningf logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Warningf(stdout bool, msg string, args ...interface{}) {
-	Warning(stdout, fmt.Sprintf(msg, args...))
+func Warningf(msg string, args ...interface{}) {
+	Warning(fmt.Sprintf(msg, args...))
 }
 
 // Fatal logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
-func Fatal(stdout bool, msg string) {
+func Fatal(msg string) {
 	logCritical(loggersMap.getLogger(ModuleID), msg)
 	addFatalError(ModuleID, msg)
-	write(stdout, getFatalErrorMsg(), os.Stdout)
+	write(true, getFatalErrorMsg(), os.Stdout)
 	os.Exit(1)
 }
 
 // Fatalf logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
-func Fatalf(stdout bool, msg string, args ...interface{}) {
-	Fatal(stdout, fmt.Sprintf(msg, args...))
+func Fatalf(msg string, args ...interface{}) {
+	Fatal(fmt.Sprintf(msg, args...))
 }
 
 // Debug logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Debug(stdout bool, msg string) {
-	logDebug(loggersMap.getLogger(ModuleID), stdout, msg)
+func Debug(msg string) {
+	logDebug(loggersMap.getLogger(ModuleID), true, msg)
 }
 
 // Debugf logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Debugf(stdout bool, msg string, args ...interface{}) {
-	Debug(stdout, fmt.Sprintf(msg, args...))
+func Debugf(msg string, args ...interface{}) {
+	Debug(fmt.Sprintf(msg, args...))
 }
 
 // HandleWarningMessages logs multiple messages in WARNING mode
-func HandleWarningMessages(stdout bool, warnings []string) {
+func HandleWarningMessages(warnings []string) {
 	for _, warning := range warnings {
-		Warning(stdout, warning)
+		Warning(warning)
 	}
 }

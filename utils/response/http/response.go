@@ -1,4 +1,4 @@
-package httperr
+package http
 
 import (
 	"encoding/json"
@@ -9,36 +9,38 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"io"
-	"reflect"
 	"strings"
 	"unicode"
 )
 
 func init() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterTagNameFunc(RegisterTagNameFunc)
 		translator.SetValidateTranslators(v)
 	}
 }
 
-func RegisterTagNameFunc(fld reflect.StructField) string {
-	fieldName := fld.Tag.Get("key")
-	if fieldName == "-" {
-		return ""
+func removePrefix(str string) string {
+	touch := strings.LastIndex(str, ".")
+	if touch != -1 {
+		return str[touch+1:]
 	}
-	return fieldName
+	return str
+}
+
+func removeSuffix(str string) string {
+	touch := strings.Index(str, ".")
+	if touch != -1 {
+		return str[touch+1:]
+	}
+	return str
 }
 
 func getNamespace(str string) string {
-	touch := strings.Index(str, ".")
-	if touch != -1 {
-		str = str[strings.Index(str, ".")+1:]
-	}
-
+	str = removeSuffix(str)
 	newStr := ""
 	for i, s := range str {
 		if unicode.IsUpper(s) {
-			if i != 0 && string(str[i-1]) != "." {
+			if i != 0 && string(str[i-1]) != "." && string(str[i-1]) != strings.ToUpper(string(str[i-1])) {
 				newStr += "_" + strings.ToLower(string(s))
 			} else {
 				newStr += strings.ToLower(string(s))
@@ -85,9 +87,16 @@ func Response(c *gin.Context, err error) {
 
 			errs := []ValidateError{}
 			for s, v := range validationError.Translate(getTranslator(c)) {
+				str := removePrefix(s)
+				ers := strings.Split(v, "failed on")
+				columnError := strings.ReplaceAll(ers[len(ers)-1], str+" ", "")
+				if len(ers) > 1 {
+					columnError = "failed on" + columnError
+				}
+				columnError = strings.ReplaceAll(columnError, "  ", " ")
+				columnError = strings.ToLower(columnError)
+
 				column := getNamespace(s)
-				columnError := strings.ReplaceAll(v, column, "")
-				columnError = strings.ReplaceAll(v, "  ", " ")
 				errs = append(errs, ValidateError{Column: column, Error: columnError})
 			}
 

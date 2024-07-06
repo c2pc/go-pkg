@@ -72,16 +72,16 @@ type AuthLogin struct {
 }
 
 func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model.AuthToken, error) {
-	user, err := s.userRepository.With("roles", "roles.role_permissions").Find(ctx, "users.login = ?", input.Login)
+	user, err := s.userRepository.Find(ctx, "users.login = ?", input.Login)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	if !s.hasher.HashMatchesPassword(user.Password, input.Password) {
+	if !s.hasher.HashMatchesString(user.Password, input.Password) {
 		return nil, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 	}
 
-	return s.createSession(ctx, user, input.DeviceID)
+	return s.createSession(ctx, user.ID, input.DeviceID)
 }
 
 type AuthRefresh struct {
@@ -90,7 +90,7 @@ type AuthRefresh struct {
 }
 
 func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model.AuthToken, error) {
-	token, err := s.tokenRepository.With("user", "user.roles", "user.roles.role_permissions").Find(ctx, "tokens.token = ? && tokens.device_id = ?", input.Token, input.DeviceID)
+	token, err := s.tokenRepository.Find(ctx, "tokens.token = ? AND tokens.device_id = ?", input.Token, input.DeviceID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -99,7 +99,7 @@ func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model.Aut
 		return nil, apperr.ErrUnauthenticated.WithErrorText("token is expired")
 	}
 
-	return s.createSession(ctx, token.User, token.DeviceID)
+	return s.createSession(ctx, token.UserID, token.DeviceID)
 }
 
 type AuthLogout struct {
@@ -122,7 +122,7 @@ func (s AuthService) Account(ctx context.Context) (*model.User, error) {
 	}
 
 	user, err := s.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model.User, error) {
-		return s.userRepository.With("roles", "roles.role_permissions").Find(ctx, "users.id = ?", userID)
+		return s.userRepository.GetUserWithPermissions(ctx, "users.id = ?", userID)
 	})
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -131,8 +131,8 @@ func (s AuthService) Account(ctx context.Context) (*model.User, error) {
 	return user, nil
 }
 
-func (s AuthService) createSession(ctx context.Context, user *model.User, deviceID int) (*model.AuthToken, error) {
-	claims := tokenverify.BuildClaims(user.ID, deviceID, s.accessExpire)
+func (s AuthService) createSession(ctx context.Context, userID int, deviceID int) (*model.AuthToken, error) {
+	claims := tokenverify.BuildClaims(userID, deviceID, s.accessExpire)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.accessSecret))
 	if err != nil {
@@ -143,15 +143,15 @@ func (s AuthService) createSession(ctx context.Context, user *model.User, device
 	expiresAt := time.Now().Add(s.refreshExpire)
 
 	if _, err = s.tokenRepository.CreateOrUpdate(ctx, &model.RefreshToken{
-		UserID:    user.ID,
+		UserID:    userID,
 		DeviceID:  deviceID,
 		Token:     refreshToken,
 		ExpiresAt: expiresAt,
-	}, []interface{}{"user_id", "device_id"}, []interface{}{"refresh_token", "expires_at"}); err != nil {
+	}, []interface{}{"user_id", "device_id"}, []interface{}{"token", "expires_at"}); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	tokens, err := s.tokenCache.GetTokensWithoutError(ctx, user.ID, deviceID)
+	tokens, err := s.tokenCache.GetTokensWithoutError(ctx, userID, deviceID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -165,17 +165,24 @@ func (s AuthService) createSession(ctx context.Context, user *model.User, device
 	}
 
 	if len(deleteTokenKey) != 0 {
-		err = s.tokenCache.DeleteTokenByUidPid(ctx, user.ID, deviceID, deleteTokenKey)
+		err = s.tokenCache.DeleteTokenByUidPid(ctx, userID, deviceID, deleteTokenKey)
 		if err != nil {
 			return nil, apperr.ErrUnauthenticated.WithError(err)
 		}
 	}
 
-	if err = s.tokenCache.SetTokenFlagEx(ctx, user.ID, deviceID, tokenString, constant.NormalToken); err != nil {
+	if err = s.tokenCache.SetTokenFlagEx(ctx, userID, deviceID, tokenString, constant.NormalToken); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	if err := s.userCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
+	if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
+		return nil, apperr.ErrUnauthenticated.WithError(err)
+	}
+
+	user, err := s.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model.User, error) {
+		return s.userRepository.GetUserWithPermissions(ctx, "users.id = ?", userID)
+	})
+	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
@@ -185,7 +192,7 @@ func (s AuthService) createSession(ctx context.Context, user *model.User, device
 			RefreshToken: refreshToken,
 			ExpiresAt:    s.accessExpire.Seconds(),
 			TokenType:    "Bearer",
-			UserID:       user.ID,
+			UserID:       userID,
 		},
 		User: *user,
 	}, nil

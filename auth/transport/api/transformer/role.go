@@ -3,7 +3,21 @@ package transformer
 import (
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/transformer"
+	"github.com/gin-gonic/gin"
 )
+
+type SimpleRoleTransformer struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+func SimpleRoleTransform(m *model.Role) *SimpleRoleTransformer {
+	return &SimpleRoleTransformer{
+		ID:   m.ID,
+		Name: m.Name,
+	}
+}
 
 type RoleTransformer struct {
 	ID    int    `json:"id"`
@@ -35,7 +49,9 @@ type RoleListTransformer struct {
 	Exec  []int  `json:"exec"`
 }
 
-func RoleListTransform(p *model2.Pagination[model.Role]) (r []RoleListTransformer) {
+func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) (r []RoleListTransformer) {
+	transformer.PaginationTransform(c, p)
+
 	for _, m := range p.Rows {
 		t := RoleListTransformer{
 			ID:   m.ID,
@@ -48,17 +64,20 @@ func RoleListTransform(p *model2.Pagination[model.Role]) (r []RoleListTransforme
 	return r
 }
 
-func getRolePermissions(m *model.Role) (write, read, exec []int) {
+func getRolePermissions(m *model.Role) ([]int, []int, []int) {
+	write, read, exec := make([]int, 0), make([]int, 0), make([]int, 0)
+
 	if m.RolePermissions != nil {
 		for _, perm := range m.RolePermissions {
+			permID := perm.PermissionID
 			if perm.Write {
-				write = append(write, perm.PermissionID)
+				write = append(write, permID)
 			}
 			if perm.Read {
-				read = append(read, perm.PermissionID)
+				read = append(read, permID)
 			}
 			if perm.Exec {
-				exec = append(exec, perm.PermissionID)
+				exec = append(exec, permID)
 			}
 		}
 	}

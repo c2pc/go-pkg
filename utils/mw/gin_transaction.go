@@ -1,11 +1,11 @@
-package transaction
+package mw
 
 import (
 	"database/sql"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
-	"github.com/c2pc/go-pkg/v2/utils/response/httperr"
+	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -43,8 +43,8 @@ func (tr *Transaction) DBTransaction(c *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
-			logger.ErrorfLog(c.Request.Context(), constant.DB_ID, "%s - %v", apperr.ErrDBInternal.Error(), r)
-			httperr.Response(c, apperr.ErrDBInternal)
+			logger.ErrorfLog(c.Request.Context(), constant.APP_ID, "%s - %v", apperr.ErrInternal.Error(), r)
+			response.Response(c, apperr.ErrInternal)
 			return
 		}
 	}()
@@ -54,7 +54,7 @@ func (tr *Transaction) DBTransaction(c *gin.Context) {
 
 	if statusInList(c.Writer.Status(), []int{http.StatusOK, http.StatusCreated, http.StatusNoContent}) {
 		if err := txHandle.Commit().Error; err != nil {
-			httperr.Response(c, apperr.ErrDBInternal.WithError(err))
+			response.Response(c, apperr.ErrDBInternal.WithError(err))
 			return
 		}
 	} else {

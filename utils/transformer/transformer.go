@@ -17,9 +17,9 @@ func NillableArray[C, T any](m []C, tr func(*C) *T) []*T {
 }
 
 func Array[C, T any](m []C, tr func(*C) *T) []*T {
-	var r []*T
-	for _, a := range m {
-		r = append(r, tr(&a))
+	r := make([]*T, len(m))
+	for i, a := range m {
+		r[i] = tr(&a)
 	}
 
 	return r

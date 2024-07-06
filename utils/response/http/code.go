@@ -1,4 +1,4 @@
-package httperr
+package http
 
 import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"

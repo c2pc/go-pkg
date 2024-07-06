@@ -71,7 +71,7 @@ func Initialize(mr bool, logFile string, customLogsDir string) {
 	loggersMap.addLogger(ModuleID)
 	initialized = true
 
-	Debug(true, "")
+	Debug("")
 }
 
 func logInfo(logger *logging.Logger, stdout bool, msg string) {

@@ -5,22 +5,22 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/middleware"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/transformer"
+	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
-	"github.com/c2pc/go-pkg/v2/utils/response/httperr"
-	"github.com/c2pc/go-pkg/v2/utils/transaction"
+	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 type AuthHandler struct {
 	authService     service.IAuthService
-	tr              transaction.ITransaction
+	tr              mw.ITransaction
 	tokenMiddleware middleware.ITokenMiddleware
 }
 
 func NewAuthHandlers(
 	authService service.IAuthService,
-	tr transaction.ITransaction,
+	tr mw.ITransaction,
 	tokenMiddleware middleware.ITokenMiddleware,
 
 ) *AuthHandler {
@@ -44,7 +44,7 @@ func (h *AuthHandler) Init(api *gin.RouterGroup) {
 func (h *AuthHandler) login(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthLoginRequest](c)
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 
@@ -54,7 +54,7 @@ func (h *AuthHandler) login(c *gin.Context) {
 		DeviceID: cred.DeviceID,
 	})
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h *AuthHandler) login(c *gin.Context) {
 func (h *AuthHandler) refresh(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthRefreshRequest](c)
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *AuthHandler) refresh(c *gin.Context) {
 		DeviceID: cred.DeviceID,
 	})
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 
@@ -83,7 +83,7 @@ func (h *AuthHandler) refresh(c *gin.Context) {
 func (h *AuthHandler) logout(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthLogoutRequest](c)
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *AuthHandler) logout(c *gin.Context) {
 		Token: cred.Token,
 	})
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *AuthHandler) logout(c *gin.Context) {
 func (h *AuthHandler) account(c *gin.Context) {
 	data, err := h.authService.Account(c.Request.Context())
 	if err != nil {
-		httperr.Response(c, err)
+		response.Response(c, err)
 		return
 	}
 

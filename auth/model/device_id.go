@@ -18,6 +18,26 @@ const (
 	WindowsDeviceStr = "Windows"
 )
 
+var DeviceIDs = []int{
+	IOSDeviceID,
+	AndroidDeviceID,
+	DesktopDeviceID,
+	WebDeviceID,
+	ConsoleDeviceID,
+	LinuxDeviceID,
+	WindowsDeviceID,
+}
+
+var DeviceStrs = []string{
+	IOSDeviceStr,
+	AndroidDeviceStr,
+	DesktopDeviceStr,
+	WebDeviceStr,
+	ConsoleDeviceStr,
+	LinuxDeviceStr,
+	WindowsDeviceStr,
+}
+
 var DeviceID2Name = map[int]string{
 	IOSDeviceID:     IOSDeviceStr,
 	AndroidDeviceID: AndroidDeviceStr,
