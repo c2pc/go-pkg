@@ -3,7 +3,7 @@ package constant
 const ()
 
 const (
-	OperationID = "operationID"
+	OperationID = "X-Operation-ID"
 	TxValue     = "dbTx"
 	OpUserID    = "opUserID"
 	OpDeviceID  = "opDeviceID"
