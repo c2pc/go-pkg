@@ -76,7 +76,7 @@ func (s RoleService) List(ctx context.Context, m *model2.Meta[model.Role]) error
 }
 
 func (s RoleService) GetById(ctx context.Context, id int) (*model.Role, error) {
-	role, err := s.roleRepository.With("role_permissions").Find(ctx, `roles."id" = ?`, id)
+	role, err := s.roleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrRoleNotFound
@@ -125,7 +125,7 @@ type RoleUpdateInput struct {
 }
 
 func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) error {
-	role, err := s.roleRepository.Find(ctx, `roles."id" = ?`, id)
+	role, err := s.roleRepository.Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrRoleNotFound
@@ -139,7 +139,7 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 
 	if input.Name != nil && *input.Name != "" {
 		if *input.Name != role.Name {
-			if err = s.roleRepository.Update(ctx, &model.Role{Name: *input.Name}, []interface{}{"name"}, `roles."id" = ?`, role.ID); err != nil {
+			if err = s.roleRepository.Update(ctx, &model.Role{Name: *input.Name}, []interface{}{"name"}, `id = ?`, role.ID); err != nil {
 				if apperr.Is(err, apperr.ErrDBDuplicated) {
 					return ErrRoleExists
 				}
@@ -149,7 +149,7 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 	}
 
 	if input.Permissions != nil {
-		if err = s.rolePermissionRepository.Delete(ctx, `role_permissions."role_id" = ?`, role.ID); err != nil {
+		if err = s.rolePermissionRepository.Delete(ctx, `role_id = ?`, role.ID); err != nil {
 			return err
 		}
 
@@ -174,7 +174,7 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 }
 
 func (s RoleService) Delete(ctx context.Context, id int) error {
-	role, err := s.roleRepository.Find(ctx, `roles."id" = ?`, id)
+	role, err := s.roleRepository.Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrRoleNotFound
@@ -191,7 +191,7 @@ func (s RoleService) Delete(ctx context.Context, id int) error {
 		return ErrRoleCannotBeDeleted
 	}
 
-	if err := s.roleRepository.Delete(ctx, `roles."id" = ?`, role.ID); err != nil {
+	if err := s.roleRepository.Delete(ctx, `id = ?`, role.ID); err != nil {
 		return err
 	}
 
@@ -214,7 +214,7 @@ func (s RoleService) createPermissions(ctx context.Context, role *model.Role, pe
 
 		uniquePerms := stringutil.RemoveDuplicate(slices.Concat(write, read, exec))
 
-		permissions, err := s.permissionRepository.List(ctx, &model2.Filter{}, `permissions."id" IN (?)`, uniquePerms)
+		permissions, err := s.permissionRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniquePerms)
 		if err != nil {
 			return nil, err
 		}

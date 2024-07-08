@@ -9,7 +9,7 @@ import (
 func RoleSeeder(ctx context.Context, roleRepository repository.IRoleRepository, rolePermissionRepository repository.IRolePermissionRepository, permissions []model.Permission) (*model.Role, error) {
 	role, err := roleRepository.FirstOrCreate(ctx, &model.Role{
 		Name: model.SuperAdmin,
-	}, "id", `roles."name" = ?`, model.SuperAdmin)
+	}, "id", `name = ?`, model.SuperAdmin)
 	if err != nil {
 		return nil, err
 	}

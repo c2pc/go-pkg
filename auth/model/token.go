@@ -12,5 +12,5 @@ type RefreshToken struct {
 }
 
 func (m RefreshToken) TableName() string {
-	return "tokens"
+	return "auth_tokens"
 }

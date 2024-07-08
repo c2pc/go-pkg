@@ -22,7 +22,7 @@ func PermissionSeeder(ctx context.Context, permissionRepository repository.IPerm
 	for _, perm := range perms {
 		permsMap[perm.Name] = struct{}{}
 		if _, ok := permissionsMap[perm.Name]; !ok {
-			err := permissionRepository.Delete(ctx, `permissions."id" = ?`, perm.ID)
+			err := permissionRepository.Delete(ctx, `id = ?`, perm.ID)
 			if err != nil {
 				return nil, err
 			}

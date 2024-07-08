@@ -10,11 +10,11 @@ type User struct {
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
 
-	Roles []Role `json:"roles" gorm:"many2many:user_roles;"`
+	Roles []Role `json:"roles" gorm:"many2many:auth_user_roles;"`
 }
 
 func (m User) TableName() string {
-	return "users"
+	return "auth_users"
 }
 
 type UserRole struct {
@@ -23,5 +23,5 @@ type UserRole struct {
 }
 
 func (m UserRole) TableName() string {
-	return "user_roles"
+	return "auth_user_roles"
 }

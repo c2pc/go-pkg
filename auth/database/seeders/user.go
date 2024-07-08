@@ -9,7 +9,7 @@ import (
 )
 
 func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, userRoleRepository repository.IUserRoleRepository, hasher secret.Hasher, roleID int) error {
-	_, err := userRoleRepository.Find(ctx, `user_roles."role_id" = ?`, roleID)
+	_, err := userRoleRepository.Find(ctx, `role_id = ?`, roleID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			login := "admin"
@@ -21,7 +21,7 @@ func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, 
 				Login:     login,
 				FirstName: name,
 				Password:  pass,
-			}, "id", `users."login" = ?`, login)
+			}, "id", `login = ?`, login)
 			if err != nil {
 				return err
 			}
@@ -29,7 +29,7 @@ func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, 
 			_, err = userRoleRepository.FirstOrCreate(ctx, &model.UserRole{
 				UserID: admin.ID,
 				RoleID: roleID,
-			}, "", `user_roles."user_id" = ? AND user_roles."role_id" = ?`, admin.ID, roleID)
+			}, "", `user_id = ? AND role_id = ?`, admin.ID, roleID)
 			if err != nil {
 				return err
 			}

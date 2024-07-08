@@ -42,7 +42,7 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 	}
 
 	user, err := j.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model.User, error) {
-		return j.userRepository.GetUserWithPermissions(ctx, "users.id = ?", userID)
+		return j.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	})
 	if err != nil {
 		response.Response(c, apperr.ErrInternal.WithError(err))

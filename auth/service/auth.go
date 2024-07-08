@@ -72,7 +72,7 @@ type AuthLogin struct {
 }
 
 func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model.AuthToken, error) {
-	user, err := s.userRepository.Find(ctx, "users.login = ?", input.Login)
+	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -90,7 +90,7 @@ type AuthRefresh struct {
 }
 
 func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model.AuthToken, error) {
-	token, err := s.tokenRepository.Find(ctx, "tokens.token = ? AND tokens.device_id = ?", input.Token, input.DeviceID)
+	token, err := s.tokenRepository.Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -122,7 +122,7 @@ func (s AuthService) Account(ctx context.Context) (*model.User, error) {
 	}
 
 	user, err := s.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model.User, error) {
-		return s.userRepository.GetUserWithPermissions(ctx, "users.id = ?", userID)
+		return s.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	})
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -180,7 +180,7 @@ func (s AuthService) createSession(ctx context.Context, userID int, deviceID int
 	}
 
 	user, err := s.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model.User, error) {
-		return s.userRepository.GetUserWithPermissions(ctx, "users.id = ?", userID)
+		return s.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	})
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -199,7 +199,7 @@ func (s AuthService) createSession(ctx context.Context, userID int, deviceID int
 }
 
 func (s AuthService) clearSession(ctx context.Context, userID, deviceID int) error {
-	if err := s.tokenRepository.Delete(ctx, `tokens.user_id = ? AND tokens.device_id = ?`, userID, deviceID); err != nil {
+	if err := s.tokenRepository.Delete(ctx, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
 		if !apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return apperr.ErrUnauthenticated.WithError(err)
 		}

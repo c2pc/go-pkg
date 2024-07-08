@@ -79,7 +79,7 @@ func (s UserService) List(ctx context.Context, m *model2.Meta[model.User]) error
 }
 
 func (s UserService) GetById(ctx context.Context, id int) (*model.User, error) {
-	user, err := s.userRepository.With("roles").Find(ctx, `users."id" = ?`, id)
+	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrUserNotFound
@@ -124,7 +124,7 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.
 		return nil, err
 	}
 
-	user, err = s.userRepository.With("roles").Find(ctx, `users."id" = ?`, user.ID)
+	user, err = s.userRepository.With("roles").Find(ctx, `id = ?`, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ type UserUpdateInput struct {
 }
 
 func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) error {
-	user, err := s.userRepository.With("roles").Find(ctx, `users."id" = ?`, id)
+	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrUserNotFound
@@ -200,7 +200,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 	}
 
 	if len(selects) > 0 {
-		if err = s.userRepository.Update(ctx, user, selects, `users."id" = ?`, user.ID); err != nil {
+		if err = s.userRepository.Update(ctx, user, selects, `id = ?`, user.ID); err != nil {
 			if apperr.Is(err, apperr.ErrDBDuplicated) {
 				return ErrUserExists
 			}
@@ -228,7 +228,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 			}
 		}
 
-		if err = s.userRoleRepository.Delete(ctx, `user_roles."user_id" = ?`, user.ID); err != nil {
+		if err = s.userRoleRepository.Delete(ctx, `user_id = ?`, user.ID); err != nil {
 			return err
 		}
 
@@ -247,7 +247,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 }
 
 func (s UserService) Delete(ctx context.Context, id int) error {
-	user, err := s.userRepository.With("roles").Find(ctx, `users."id" = ?`, id)
+	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrUserNotFound
@@ -275,7 +275,7 @@ func (s UserService) Delete(ctx context.Context, id int) error {
 		}
 	}
 
-	if err := s.userRepository.Delete(ctx, `users."id" = ?`, user.ID); err != nil {
+	if err := s.userRepository.Delete(ctx, `id = ?`, user.ID); err != nil {
 		return err
 	}
 
@@ -294,7 +294,7 @@ func (s UserService) createRoles(ctx context.Context, user *model.User, rls []in
 	if len(rls) > 0 {
 		uniqueRoles := stringutil.RemoveDuplicate(rls)
 
-		roles, err := s.roleRepository.List(ctx, &model2.Filter{}, `roles."id" IN (?)`, uniqueRoles)
+		roles, err := s.roleRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniqueRoles)
 		if err != nil {
 			return err
 		}

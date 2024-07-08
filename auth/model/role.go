@@ -6,11 +6,11 @@ type Role struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 
-	RolePermissions []RolePermission `json:"role_permissions"`
+	RolePermissions []RolePermission `json:"role_permissions" gorm:"many2many:auth_role_permissions;"`
 }
 
 func (m Role) TableName() string {
-	return "roles"
+	return "auth_roles"
 }
 
 type RolePermission struct {
@@ -24,5 +24,5 @@ type RolePermission struct {
 }
 
 func (m RolePermission) TableName() string {
-	return "role_permissions"
+	return "auth_role_permissions"
 }
