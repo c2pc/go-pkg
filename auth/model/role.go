@@ -6,7 +6,7 @@ type Role struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 
-	RolePermissions []RolePermission `json:"role_permissions" gorm:"many2many:auth_role_permissions;"`
+	RolePermissions []RolePermission `json:"role_permissions"`
 }
 
 func (m Role) TableName() string {
@@ -20,7 +20,7 @@ type RolePermission struct {
 	Write        bool `json:"write"`
 	Exec         bool `json:"exec"`
 
-	Permission *Permission `json:"permission"`
+	Permission *Permission `json:"auth_permission"`
 }
 
 func (m RolePermission) TableName() string {
