@@ -72,11 +72,11 @@ func (s RoleService) Trx(db *gorm.DB) IRoleService {
 }
 
 func (s RoleService) List(ctx context.Context, m *model2.Meta[model.Role]) error {
-	return s.roleRepository.With("role_permissions").Paginate(ctx, m, ``)
+	return s.roleRepository.With("auth_role_permissions").Paginate(ctx, m, ``)
 }
 
 func (s RoleService) GetById(ctx context.Context, id int) (*model.Role, error) {
-	role, err := s.roleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
+	role, err := s.roleRepository.With("auth_role_permissions").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrRoleNotFound

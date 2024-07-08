@@ -75,11 +75,11 @@ func (s UserService) Trx(db *gorm.DB) IUserService {
 }
 
 func (s UserService) List(ctx context.Context, m *model2.Meta[model.User]) error {
-	return s.userRepository.With("roles").Paginate(ctx, m, ``)
+	return s.userRepository.With("auth_roles").Paginate(ctx, m, ``)
 }
 
 func (s UserService) GetById(ctx context.Context, id int) (*model.User, error) {
-	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
+	user, err := s.userRepository.With("auth_roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrUserNotFound
@@ -124,7 +124,7 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.
 		return nil, err
 	}
 
-	user, err = s.userRepository.With("roles").Find(ctx, `id = ?`, user.ID)
+	user, err = s.userRepository.With("auth_roles").Find(ctx, `id = ?`, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ type UserUpdateInput struct {
 }
 
 func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) error {
-	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
+	user, err := s.userRepository.With("auth_roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrUserNotFound
@@ -247,7 +247,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 }
 
 func (s UserService) Delete(ctx context.Context, id int) error {
-	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
+	user, err := s.userRepository.With("auth_roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrUserNotFound
