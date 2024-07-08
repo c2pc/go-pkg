@@ -52,6 +52,6 @@ func (r UserRepository) Omit(columns ...string) IUserRepository {
 
 func (r UserRepository) GetUserWithPermissions(ctx context.Context, query string, args ...any) (*model.User, error) {
 	return r.Repo.
-		With("auth_roles", "auth_roles.auth_role_permissions", "auth_roles.auth_role_permissions.auth_permission").
+		With("roles", "roles.role_permissions", "roles.role_permissions.permission").
 		Find(ctx, query, args...)
 }

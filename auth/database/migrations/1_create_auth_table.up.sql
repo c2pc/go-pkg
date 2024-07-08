@@ -52,4 +52,3 @@ create table if not exists auth_tokens
     expires_at timestamp    not null,
     unique (user_id, device_id)
 );
-
