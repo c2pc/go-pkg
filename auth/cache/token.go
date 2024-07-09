@@ -15,7 +15,7 @@ type ITokenCache interface {
 	GetTokensWithoutError(ctx context.Context, userID int, DeviceID int) (map[string]int, error)
 	SetTokenMapByUidPid(ctx context.Context, userID int, DeviceID int, m map[string]int) error
 	DeleteTokenByUidPid(ctx context.Context, userID int, DeviceID int, fields []string) error
-	DeleteAllUserTokens(ctx context.Context, userID int) error
+	DeleteAllUserTokens(ctx context.Context, userIDs ...int) error
 }
 
 type TokenCache struct {
@@ -71,10 +71,13 @@ func (c *TokenCache) DeleteTokenByUidPid(ctx context.Context, userID int, Device
 	return c.rdb.HDel(ctx, cachekey.GetTokenKey(userID, DeviceID), fields...).Err()
 }
 
-func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userID int) error {
+func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userIDs ...int) error {
 	var keys []string
-	for _, device := range model.DeviceIDs {
-		keys = append(keys, cachekey.GetTokenKey(userID, device))
+
+	for _, userID := range userIDs {
+		for _, device := range model.DeviceIDs {
+			keys = append(keys, cachekey.GetTokenKey(userID, device))
+		}
 	}
 
 	if len(keys) > 0 {

@@ -48,6 +48,7 @@ type RoleService struct {
 	rolePermissionRepository repository.IRolePermissionRepository
 	userRoleRepository       repository.IUserRoleRepository
 	userCache                cache.IUserCache
+	tokenCache               cache.ITokenCache
 }
 
 func NewRoleService(
@@ -56,6 +57,7 @@ func NewRoleService(
 	rolePermissionRepository repository.IRolePermissionRepository,
 	userRoleRepository repository.IUserRoleRepository,
 	userCache cache.IUserCache,
+	tokenCache cache.ITokenCache,
 ) RoleService {
 	return RoleService{
 		roleRepository:           roleRepository,
@@ -63,6 +65,7 @@ func NewRoleService(
 		rolePermissionRepository: rolePermissionRepository,
 		userRoleRepository:       userRoleRepository,
 		userCache:                userCache,
+		tokenCache:               tokenCache,
 	}
 }
 
@@ -167,6 +170,9 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 			if err := s.userCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
 				return apperr.ErrInternal.WithError(err)
 			}
+			if err := s.tokenCache.DeleteAllUserTokens(ctx, userIDs...); err != nil {
+				return apperr.ErrInternal.WithError(err)
+			}
 		}
 	}
 
@@ -197,6 +203,9 @@ func (s RoleService) Delete(ctx context.Context, id int) error {
 
 	if len(userIDs) > 0 {
 		if err := s.userCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
+			return apperr.ErrInternal.WithError(err)
+		}
+		if err := s.tokenCache.DeleteAllUserTokens(ctx, userIDs...); err != nil {
 			return apperr.ErrInternal.WithError(err)
 		}
 	}

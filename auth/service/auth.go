@@ -220,7 +220,7 @@ func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAcco
 	}
 
 	if len(selects) > 0 {
-		if err := s.userCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
+		if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
 			return apperr.ErrInternal.WithError(err)
 		}
 	}

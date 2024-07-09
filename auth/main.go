@@ -58,7 +58,7 @@ func New(cfg Config) (IAuth, error) {
 
 	authService := service.NewAuthService(repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
 	permissionService := service.NewPermissionService(repositories.PermissionRepository, permissionCache)
-	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache)
+	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
 	userService := service.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
 
 	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
