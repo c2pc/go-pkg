@@ -38,6 +38,7 @@ func (h *AuthHandler) Init(api *gin.RouterGroup) {
 		auth.POST("/refresh", h.tr.DBTransaction, h.refresh)
 		auth.POST("/logout", h.tr.DBTransaction, h.logout)
 		auth.POST("/account", h.tokenMiddleware.Authenticate, h.account)
+		auth.PATCH("/account", h.tokenMiddleware.Authenticate, h.tr.DBTransaction, h.updateAccountData)
 	}
 }
 
@@ -106,4 +107,28 @@ func (h *AuthHandler) account(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, transformer.AuthAccountTransform(data))
+}
+
+func (h *AuthHandler) updateAccountData(c *gin.Context) {
+	cred, err := request2.BindJSON[request.AuthUpdateAccountDataRequest](c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	if err := h.authService.Trx(request2.TxHandle(c)).UpdateAccountData(c.Request.Context(), service.AuthUpdateAccountData{
+		Login:      cred.Login,
+		FirstName:  cred.FirstName,
+		SecondName: cred.SecondName,
+		LastName:   cred.LastName,
+		Password:   cred.Password,
+		Email:      cred.Email,
+		Phone:      cred.Phone,
+		Settings:   cred.Settings,
+	}); err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
 }

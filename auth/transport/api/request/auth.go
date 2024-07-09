@@ -14,3 +14,14 @@ type AuthRefreshRequest struct {
 type AuthLogoutRequest struct {
 	Token string `json:"token" binding:"required"`
 }
+
+type AuthUpdateAccountDataRequest struct {
+	Login      *string `json:"login" binding:"omitempty,max=255,min=2"`
+	FirstName  *string `json:"first_name" binding:"omitempty,max=255,min=2"`
+	SecondName *string `json:"second_name" binding:"omitempty,len=0|min=2,max=255"`
+	LastName   *string `json:"last_name" binding:"omitempty,len=0|min=2,max=255"`
+	Password   *string `json:"password" binding:"omitempty,max=255,min=8"`
+	Email      *string `json:"email" binding:"omitempty,len=0|email,max=255"`
+	Phone      *string `json:"phone" binding:"omitempty,len=0|min=1,max=255"`
+	Settings   *string `json:"settings" binding:"omitempty"`
+}

@@ -20,7 +20,7 @@ var (
 		apperr.WithCode(code.NotFound),
 	)
 	ErrUserExists = apperr.New("user_exists_error",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Пользователь уже добавлен", translator.EN: "User has already been added"}),
+		apperr.WithTextTranslate(translator.Translate{translator.RU: "Пользователь с таким логином уже зарегистрирован", translator.EN: "A user with this login is already registered"}),
 		apperr.WithCode(code.InvalidArgument),
 	)
 	ErrUserRolesCannotBeChanged = apperr.New("user_roles_cannot_be_changed",

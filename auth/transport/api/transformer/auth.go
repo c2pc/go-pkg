@@ -34,6 +34,7 @@ type AuthAccountTransformer struct {
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
+	Settings   *string `json:"settings"`
 
 	Roles []*RoleTransformer `json:"roles"`
 }
@@ -47,7 +48,8 @@ func AuthAccountTransform(m *model.User) *AuthAccountTransformer {
 		LastName:   m.LastName,
 		Email:      m.Email,
 		Phone:      m.Phone,
-		Roles:      transformer.Array(m.Roles, RoleTransform),
+		Settings:   m.Settings,
+		Roles:      transformer.Array(m.Roles, RoleWithNameTransform),
 	}
 
 	return r

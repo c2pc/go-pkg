@@ -24,6 +24,7 @@ type IAuthService interface {
 	Refresh(ctx context.Context, input AuthRefresh) (*model.AuthToken, error)
 	Logout(ctx context.Context, input AuthLogout) error
 	Account(ctx context.Context) (*model.User, error)
+	UpdateAccountData(ctx context.Context, input AuthUpdateAccountData) error
 }
 
 type AuthService struct {
@@ -81,6 +82,10 @@ func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model.AuthTok
 		return nil, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 	}
 
+	if user.Blocked {
+		return nil, apperr.ErrUnauthenticated.WithErrorText("user is blocked")
+	}
+
 	return s.createSession(ctx, user.ID, input.DeviceID)
 }
 
@@ -129,6 +134,98 @@ func (s AuthService) Account(ctx context.Context) (*model.User, error) {
 	}
 
 	return user, nil
+}
+
+type AuthUpdateAccountData struct {
+	Login      *string
+	FirstName  *string
+	SecondName *string
+	LastName   *string
+	Password   *string
+	Email      *string
+	Phone      *string
+	Settings   *string
+}
+
+func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAccountData) error {
+	userID, ok := mcontext.GetOpUserID(ctx)
+	if !ok {
+		return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+	}
+
+	user := &model.User{}
+
+	var selects []interface{}
+	if input.Login != nil && *input.Login != "" {
+		user.Login = *input.Login
+		selects = append(selects, "login")
+	}
+	if input.FirstName != nil && *input.FirstName != "" {
+		user.FirstName = *input.FirstName
+		selects = append(selects, "first_name")
+	}
+	if input.Password != nil && *input.Password != "" {
+		password := s.hasher.HashString(*input.Password)
+		user.Password = password
+		selects = append(selects, "password")
+	}
+	if input.SecondName != nil {
+		if *user.SecondName == "" {
+			user.SecondName = nil
+		} else {
+			user.SecondName = input.SecondName
+		}
+		selects = append(selects, "second_name")
+	}
+	if input.LastName != nil {
+		if *user.LastName == "" {
+			user.LastName = nil
+		} else {
+			user.LastName = input.LastName
+		}
+		selects = append(selects, "last_name")
+	}
+	if input.Email != nil {
+		if *user.Email == "" {
+			user.Email = nil
+		} else {
+			user.Email = input.Email
+		}
+		selects = append(selects, "email")
+	}
+	if input.Phone != nil {
+		if *user.Phone == "" {
+			user.Phone = nil
+		} else {
+			user.Phone = input.Phone
+		}
+		selects = append(selects, "phone")
+	}
+	if input.Settings != nil {
+		if *user.Settings == "" {
+			user.Settings = nil
+		} else {
+			user.Settings = input.Settings
+		}
+		selects = append(selects, "settings")
+	}
+
+	if len(selects) > 0 {
+		if err := s.userRepository.Update(ctx, user, selects, `id = ?`, userID); err != nil {
+			if apperr.Is(err, apperr.ErrDBDuplicated) {
+				return ErrUserExists
+			}
+			return err
+		}
+	}
+
+	if len(selects) > 0 {
+		if err := s.userCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
+			return apperr.ErrInternal.WithError(err)
+		}
+	}
+
+	return nil
 }
 
 func (s AuthService) createSession(ctx context.Context, userID int, deviceID int) (*model.AuthToken, error) {

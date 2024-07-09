@@ -15,6 +15,7 @@ type UserTransformer struct {
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
+	Blocked    bool    `json:"blocked"`
 
 	Roles []*SimpleRoleTransformer `json:"roles"`
 }
@@ -28,6 +29,7 @@ func UserTransform(m *model.User) *UserTransformer {
 		LastName:   m.LastName,
 		Email:      m.Email,
 		Phone:      m.Phone,
+		Blocked:    m.Blocked,
 		Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
 	}
 
@@ -42,6 +44,7 @@ type UserListTransformer struct {
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
+	Blocked    bool    `json:"blocked"`
 
 	Roles []*SimpleRoleTransformer `json:"roles"`
 }
@@ -58,6 +61,7 @@ func UserListTransform(c *gin.Context, p *model2.Pagination[model.User]) (r []Us
 			LastName:   m.LastName,
 			Email:      m.Email,
 			Phone:      m.Phone,
+			Blocked:    m.Blocked,
 			Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
 		})
 	}

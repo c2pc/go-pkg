@@ -20,33 +20,47 @@ func SimpleRoleTransform(m *model.Role) *SimpleRoleTransformer {
 }
 
 type RoleTransformer struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Read  []int  `json:"read"`
-	Write []int  `json:"write"`
-	Exec  []int  `json:"exec"`
+	ID    int           `json:"id"`
+	Name  string        `json:"name"`
+	Read  []interface{} `json:"read"`
+	Write []interface{} `json:"write"`
+	Exec  []interface{} `json:"exec"`
 }
 
 func RoleTransform(m *model.Role) *RoleTransformer {
 	r := &RoleTransformer{
 		ID:    m.ID,
 		Name:  m.Name,
-		Read:  []int{},
-		Write: []int{},
-		Exec:  []int{},
+		Read:  []interface{}{},
+		Write: []interface{}{},
+		Exec:  []interface{}{},
 	}
 
-	r.Write, r.Read, r.Exec = getRolePermissions(m)
+	r.Write, r.Read, r.Exec = getRolePermissions(m, true)
+
+	return r
+}
+
+func RoleWithNameTransform(m *model.Role) *RoleTransformer {
+	r := &RoleTransformer{
+		ID:    m.ID,
+		Name:  m.Name,
+		Read:  []interface{}{},
+		Write: []interface{}{},
+		Exec:  []interface{}{},
+	}
+
+	r.Write, r.Read, r.Exec = getRolePermissions(m, false)
 
 	return r
 }
 
 type RoleListTransformer struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Read  []int  `json:"read"`
-	Write []int  `json:"write"`
-	Exec  []int  `json:"exec"`
+	ID    int           `json:"id"`
+	Name  string        `json:"name"`
+	Read  []interface{} `json:"read"`
+	Write []interface{} `json:"write"`
+	Exec  []interface{} `json:"exec"`
 }
 
 func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) (r []RoleListTransformer) {
@@ -57,19 +71,25 @@ func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) (r []Ro
 			ID:   m.ID,
 			Name: m.Name,
 		}
-		t.Write, t.Read, t.Exec = getRolePermissions(&m)
+		t.Write, t.Read, t.Exec = getRolePermissions(&m, true)
 		r = append(r, t)
 	}
 
 	return r
 }
 
-func getRolePermissions(m *model.Role) ([]int, []int, []int) {
-	write, read, exec := make([]int, 0), make([]int, 0), make([]int, 0)
+func getRolePermissions(m *model.Role, getIDs bool) ([]interface{}, []interface{}, []interface{}) {
+	write, read, exec := make([]interface{}, 0), make([]interface{}, 0), make([]interface{}, 0)
 
 	if m.RolePermissions != nil {
 		for _, perm := range m.RolePermissions {
-			permID := perm.PermissionID
+			var permID interface{}
+			if getIDs {
+				permID = perm.PermissionID
+			} else {
+				permID = perm.Permission.Name
+			}
+
 			if perm.Write {
 				write = append(write, permID)
 			}
