@@ -6,9 +6,9 @@ import (
 )
 
 type AuthTokenTransformer struct {
-	Token        string  `json:"token"`
-	RefreshToken string  `json:"refresh_token"`
-	ExpiresAt    float64 `json:"expires_at"`
+	Token        string  `json:"accessToken"`
+	RefreshToken string  `json:"refreshToken"`
+	ExpiresAt    float64 `json:"expires"`
 	TokenType    string  `json:"token_type"`
 	UserID       int     `json:"user_id"`
 
