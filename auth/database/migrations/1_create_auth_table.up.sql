@@ -32,8 +32,7 @@ create table if not exists auth_users
     first_name  varchar(256) not null,
     second_name varchar(256),
     last_name   varchar(256),
-    blocked     boolean default false,
-    settings    text
+    blocked     boolean default false
 );
 
 create table if not exists auth_user_roles
@@ -50,5 +49,13 @@ create table if not exists auth_tokens
     device_id  integer      not null,
     token      varchar(256) not null,
     expires_at timestamp    not null,
+    unique (user_id, device_id)
+);
+
+create table if not exists auth_settings
+(
+    user_id   integer not null references auth_users on update cascade on delete cascade,
+    device_id integer not null,
+    settings  text,
     unique (user_id, device_id)
 );

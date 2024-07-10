@@ -51,11 +51,6 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.List(c.Request.Context(), &m); err != nil {
-		response.Response(c, err)
-		return
-	}
-
 	c.JSON(http.StatusOK, transformer.UserListTransform(c, m.Pagination))
 }
 

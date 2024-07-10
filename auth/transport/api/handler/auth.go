@@ -124,7 +124,6 @@ func (h *AuthHandler) updateAccountData(c *gin.Context) {
 		Password:   cred.Password,
 		Email:      cred.Email,
 		Phone:      cred.Phone,
-		Settings:   cred.Settings,
 	}); err != nil {
 		response.Response(c, err)
 		return

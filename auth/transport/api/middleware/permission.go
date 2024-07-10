@@ -96,7 +96,7 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 	}(perm)
 
 	if !isCan {
-		response.Response(c, apperr.ErrForbidden.WithErrorText("user haven't permission to access "+c.FullPath()))
+		response.Response(c, apperr.ErrForbidden.WithErrorText("user haven't permission to access "+perm))
 		c.Abort()
 		return
 	}

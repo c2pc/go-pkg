@@ -144,7 +144,6 @@ type AuthUpdateAccountData struct {
 	Password   *string
 	Email      *string
 	Phone      *string
-	Settings   *string
 }
 
 func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAccountData) error {
@@ -207,15 +206,6 @@ func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAcco
 			user.Phone = input.Phone
 		}
 		selects = append(selects, "phone")
-	}
-
-	if input.Settings != nil {
-		if *input.Settings == "" {
-			user.Settings = nil
-		} else {
-			user.Settings = input.Settings
-		}
-		selects = append(selects, "settings")
 	}
 
 	if len(selects) > 0 {

@@ -9,7 +9,6 @@ type User struct {
 	Password   string  `json:"password"`
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
-	Settings   *string `json:"settings"`
 	Blocked    bool    `json:"blocked"`
 
 	Roles []Role `json:"roles" gorm:"many2many:auth_user_roles;"`

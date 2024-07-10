@@ -23,5 +23,4 @@ type AuthUpdateAccountDataRequest struct {
 	Password   *string `json:"password" binding:"omitempty,max=255,min=8"`
 	Email      *string `json:"email" binding:"omitempty,len=0|email,max=255"`
 	Phone      *string `json:"phone" binding:"omitempty,len=0|min=1,max=255"`
-	Settings   *string `json:"settings" binding:"omitempty"`
 }
