@@ -67,10 +67,10 @@ func (h *Handler) Init(api *gin.RouterGroup) {
 		//Authenticate
 		auth := handler.Group("", h.tokenMiddleware.Authenticate)
 		{
-			permissionHandler.Init(auth)
 			//Can
 			perm := auth.Group("", h.permissionMiddleware.Can)
 			{
+				permissionHandler.Init(auth)
 				roleHandler.Init(perm)
 				userHandler.Init(perm)
 			}

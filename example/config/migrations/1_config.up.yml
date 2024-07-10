@@ -1,0 +1,24 @@
+app:
+  debug: production
+  log: logs
+
+http:
+  host: localhost
+  port: 8061
+
+postgres_url: postgres:postgres@localhost:5432/auth?sslmode=disable
+
+redis:
+  address: [ localhost:6379 ]
+  username:
+  password:
+  cluster_mode: false
+  db: 0
+  max_retry: 10
+
+auth:
+  key: 23ogj2309gh9283gi23gnoi230o23f82
+  access_token_ttl: 30
+  refresh_token_ttl: 540
+
+password_salt: affwf32r2398h2gfu2o3ig293

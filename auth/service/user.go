@@ -167,7 +167,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 		selects = append(selects, "password")
 	}
 	if input.SecondName != nil {
-		if *user.SecondName == "" {
+		if *input.SecondName == "" {
 			user.SecondName = nil
 		} else {
 			user.SecondName = input.SecondName
@@ -175,7 +175,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 		selects = append(selects, "second_name")
 	}
 	if input.LastName != nil {
-		if *user.LastName == "" {
+		if *input.LastName == "" {
 			user.LastName = nil
 		} else {
 			user.LastName = input.LastName
@@ -183,7 +183,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 		selects = append(selects, "last_name")
 	}
 	if input.Email != nil {
-		if *user.Email == "" {
+		if *input.Email == "" {
 			user.Email = nil
 		} else {
 			user.Email = input.Email
@@ -191,7 +191,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 		selects = append(selects, "email")
 	}
 	if input.Phone != nil {
-		if *user.Phone == "" {
+		if *input.Phone == "" {
 			user.Phone = nil
 		} else {
 			user.Phone = input.Phone
@@ -238,6 +238,11 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 	}
 
 	if len(selects) > 0 || input.Roles != nil {
+		if input.Roles != nil || (input.Password != nil && *input.Password != "") {
+			if err := s.tokenCache.DeleteAllUserTokens(ctx, user.ID); err != nil {
+				return apperr.ErrInternal.WithError(err)
+			}
+		}
 		if err := s.userCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
 			return apperr.ErrInternal.WithError(err)
 		}

@@ -8,6 +8,7 @@ import (
 var Permissions = []model2.Permission{
 	{Method: "auth/roles", Desc: translator.Translate{translator.RU: "Роли", translator.EN: "Roles"}},
 	{Method: "auth/users", Desc: translator.Translate{translator.RU: "Пользователи", translator.EN: "Users"}},
+	{Method: "auth/permissions", Desc: translator.Translate{translator.RU: "Права", translator.EN: "Permissions"}},
 }
 
 var permissions = make(map[string]translator.Translate)
