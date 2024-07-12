@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/c2pc/go-pkg/v2/auth"
-	"github.com/c2pc/go-pkg/v2/auth/model"
 	config2 "github.com/c2pc/go-pkg/v2/example/config"
+	"github.com/c2pc/go-pkg/v2/example/model"
 	"github.com/c2pc/go-pkg/v2/example/transport/rest"
 	restHandler "github.com/c2pc/go-pkg/v2/example/transport/rest/handler"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
@@ -63,6 +63,7 @@ func main() {
 	trx := mw.NewTransaction(db)
 
 	authService, err := auth.New(auth.Config{
+		Debug:         configs.APP.Debug,
 		DB:            db,
 		Rdb:           rdb,
 		Transaction:   trx,

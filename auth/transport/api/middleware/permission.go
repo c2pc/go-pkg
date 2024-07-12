@@ -6,7 +6,10 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
+	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
 	"github.com/gin-gonic/gin"
@@ -20,14 +23,21 @@ type IPermissionMiddleware interface {
 }
 
 type PermissionMiddleware struct {
-	userCache      cache.IUserCache
-	userRepository repository.IUserRepository
+	debug                string
+	userCache            cache.IUserCache
+	permissionCache      cache.IPermissionCache
+	userRepository       repository.IUserRepository
+	permissionRepository repository.IPermissionRepository
 }
 
-func NewPermissionMiddleware(userCache cache.IUserCache, userRepository repository.IUserRepository) *PermissionMiddleware {
+func NewPermissionMiddleware(userCache cache.IUserCache, permissionCache cache.IPermissionCache, userRepository repository.IUserRepository,
+	permissionRepository repository.IPermissionRepository, debug string) *PermissionMiddleware {
 	return &PermissionMiddleware{
-		userCache:      userCache,
-		userRepository: userRepository,
+		debug:                debug,
+		userCache:            userCache,
+		permissionCache:      permissionCache,
+		userRepository:       userRepository,
+		permissionRepository: permissionRepository,
 	}
 }
 
@@ -50,6 +60,23 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
+	if level.Is(j.debug, level.TEST) {
+		logger.InfofLog(ctx, "PERMISSION", "[USER] %+v", user)
+	}
+
+	permissions, err := j.permissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model.Permission, error) {
+		return j.permissionRepository.List(ctx, &model2.Filter{}, ``)
+	})
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		c.Abort()
+		return
+	}
+
+	if level.Is(j.debug, level.TEST) {
+		logger.InfofLog(ctx, "PERMISSION", "[PERMISSIONS] %+v", permissions)
+	}
+
 	var perm string
 
 	fullEls := strings.Split(c.FullPath(), "/")
@@ -62,8 +89,34 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		perm = match[1]
 	}
 
+	if level.Is(j.debug, level.TEST) {
+		logger.InfofLog(ctx, "PERMISSION", "[PATH] %s", perm)
+	}
+
 	if perm == "" {
 		response.Response(c, apperr.ErrInternal.WithErrorText(c.FullPath()+" permission not found for "+c.Request.URL.Path))
+	}
+
+	permission := func(perm string) *model.Permission {
+		perms := strings.Split(perm, "/")
+		for i := range perms {
+			p2 := strings.Join(perms[0:len(perms)-i], "/")
+			for _, p := range permissions {
+				if p.Name == p2 {
+					return &p
+				}
+			}
+		}
+		return nil
+	}(perm)
+
+	if level.Is(j.debug, level.TEST) {
+		logger.InfofLog(ctx, "PERMISSION", "[PERMISSION] %+v", permission)
+	}
+
+	if permission == nil {
+		c.Next()
+		return
 	}
 
 	isCan := func(perm string) bool {
@@ -93,7 +146,7 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		}
 
 		return false
-	}(perm)
+	}(permission.Name)
 
 	if !isCan {
 		response.Response(c, apperr.ErrForbidden.WithErrorText("user haven't permission to access "+perm))

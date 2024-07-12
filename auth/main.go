@@ -29,6 +29,7 @@ type IAuth interface {
 }
 
 type Config struct {
+	Debug         string
 	DB            *gorm.DB
 	Rdb           redis.UniversalClient
 	Transaction   mw.ITransaction
@@ -62,7 +63,7 @@ func New(cfg Config) (IAuth, error) {
 	userService := service.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
 
 	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
-	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, repositories.UserRepository)
+	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
 	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
 
 	return Auth{

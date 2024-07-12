@@ -59,5 +59,15 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 	api := handler.Group("api/v1")
 	{
 		h.authService.InitHandler(api)
+
+		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)
+		{
+			book := secure.Group("/books")
+			{
+				NewBookHandlers().Init(book)
+				NewLikeHandlers().Init(book)
+			}
+
+		}
 	}
 }
