@@ -4,54 +4,18 @@ import (
 	"errors"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"github.com/c2pc/go-pkg/v2/utils/i18n"
 	"github.com/golang-jwt/jwt/v4"
 	"time"
 )
 
 var (
-	ErrTokenMalformed = apperr.New("token_malformed_error",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Неверный токен",
-			translator.EN: "Token malformed",
-		}),
-		apperr.WithCode(code.Unauthenticated),
-	)
-	ErrTokenNotValidYet = apperr.New("token_not_valid_yet",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Недействительный токен",
-			translator.EN: "Token not valid yet",
-		}),
-		apperr.WithCode(code.Unauthenticated),
-	)
-	ErrTokenUnknown = apperr.New("token_unknown",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Неизвестный токен",
-			translator.EN: "Token unknown",
-		}),
-		apperr.WithCode(code.Unauthenticated),
-	)
-	ErrTokenExpired = apperr.New("token_expired",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Срок действия токена истек",
-			translator.EN: "Token expired",
-		}),
-		apperr.WithCode(code.Unauthenticated),
-	)
-	ErrTokenNotExist = apperr.New("token_not_exist",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Токен не найден",
-			translator.EN: "Token not exist",
-		}),
-		apperr.WithCode(code.Unauthenticated),
-	)
-	ErrTokenKicked = apperr.New("token_kicked",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Токен удален",
-			translator.EN: "Token kicked",
-		}),
-		apperr.WithCode(code.Unauthenticated),
-	)
+	ErrTokenMalformed   = apperr.New("token_malformed_error", apperr.WithTextTranslate(i18n.ErrTokenMalformed), apperr.WithCode(code.Unauthenticated))
+	ErrTokenNotValidYet = apperr.New("token_not_valid_yet", apperr.WithTextTranslate(i18n.ErrTokenNotValidYet), apperr.WithCode(code.Unauthenticated))
+	ErrTokenUnknown     = apperr.New("token_unknown", apperr.WithTextTranslate(i18n.ErrTokenUnknown), apperr.WithCode(code.Unauthenticated))
+	ErrTokenExpired     = apperr.New("token_expired", apperr.WithTextTranslate(i18n.ErrTokenExpired), apperr.WithCode(code.Unauthenticated))
+	ErrTokenNotExist    = apperr.New("token_not_exist", apperr.WithTextTranslate(i18n.ErrTokenNotExist), apperr.WithCode(code.Unauthenticated))
+	ErrTokenKicked      = apperr.New("token_kicked", apperr.WithTextTranslate(i18n.ErrTokenKicked), apperr.WithCode(code.Unauthenticated))
 )
 
 const minutesBefore = 5

@@ -1,14 +1,15 @@
 package model
 
 import (
+	"github.com/c2pc/go-pkg/v2/auth/i18n"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 )
 
 var Permissions = []model2.Permission{
-	{Method: "auth/roles", Desc: translator.Translate{translator.RU: "Роли", translator.EN: "Roles"}},
-	{Method: "auth/users", Desc: translator.Translate{translator.RU: "Пользователи", translator.EN: "Users"}},
-	{Method: "auth/permissions", Desc: translator.Translate{translator.RU: "Права", translator.EN: "Permissions"}},
+	{Method: "auth/roles", Desc: i18n.RolesPermission},
+	{Method: "auth/users", Desc: i18n.UsersPermission},
+	{Method: "auth/permissions", Desc: i18n.PermissionsPermission},
 }
 
 var permissions = make(map[string]translator.Translate)

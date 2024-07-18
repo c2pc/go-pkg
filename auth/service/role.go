@@ -3,34 +3,22 @@ package service
 import (
 	"context"
 	"github.com/c2pc/go-pkg/v2/auth/cache"
+	"github.com/c2pc/go-pkg/v2/auth/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"gorm.io/gorm"
 	"slices"
 )
 
 var (
-	ErrRoleNotFound = apperr.New("role_not_found",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Роль не найдена", translator.EN: "Role not found"}),
-		apperr.WithCode(code.NotFound),
-	)
-	ErrRoleExists = apperr.New("role_exists_error",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Роль уже добавлена", translator.EN: "Role has already been added"}),
-		apperr.WithCode(code.InvalidArgument),
-	)
-	ErrRoleCannotBeChanged = apperr.New("role_cannot_be_changed",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Роль нельзя редактировать", translator.EN: "Role cannot be changed"}),
-		apperr.WithCode(code.PermissionDenied),
-	)
-	ErrRoleCannotBeDeleted = apperr.New("role_cannot_be_deleted",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Роль нельзя удалять", translator.EN: "Role cannot be deleted"}),
-		apperr.WithCode(code.PermissionDenied),
-	)
+	ErrRoleNotFound        = apperr.New("role_not_found", apperr.WithTextTranslate(i18n.ErrRoleNotFound), apperr.WithCode(code.NotFound))
+	ErrRoleExists          = apperr.New("role_exists_error", apperr.WithTextTranslate(i18n.ErrRoleExists), apperr.WithCode(code.InvalidArgument))
+	ErrRoleCannotBeChanged = apperr.New("role_cannot_be_changed", apperr.WithTextTranslate(i18n.ErrRoleCannotBeChanged), apperr.WithCode(code.PermissionDenied))
+	ErrRoleCannotBeDeleted = apperr.New("role_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrRoleCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 )
 
 type IRoleService interface {

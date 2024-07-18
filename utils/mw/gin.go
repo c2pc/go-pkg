@@ -6,11 +6,11 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/c2pc/go-pkg/v2/utils/i18n"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"io"
 	"net/http"
 	"time"
@@ -19,13 +19,7 @@ import (
 )
 
 var (
-	ErrEmptyOperationID = apperr.New("empty_operation_id_header",
-		apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "Неверный запрос",
-			translator.EN: "Invalid request",
-		}),
-		apperr.WithCode(code.InvalidArgument),
-	)
+	ErrEmptyOperationID = apperr.New("empty_operation_id_header", apperr.WithTextTranslate(i18n.ErrEmptyOperationID), apperr.WithCode(code.InvalidArgument))
 )
 
 func CorsHandler() gin.HandlerFunc {

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/c2pc/go-pkg/v2/auth/cache"
+	"github.com/c2pc/go-pkg/v2/auth/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
@@ -10,27 +11,14 @@ import (
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrUserNotFound = apperr.New("user_not_found",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Пользователь не найден", translator.EN: "User not found"}),
-		apperr.WithCode(code.NotFound),
-	)
-	ErrUserExists = apperr.New("user_exists_error",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Пользователь с таким логином уже зарегистрирован", translator.EN: "A user with this login is already registered"}),
-		apperr.WithCode(code.InvalidArgument),
-	)
-	ErrUserRolesCannotBeChanged = apperr.New("user_roles_cannot_be_changed",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Нельзя назначать пользователю другие роли", translator.EN: "User roles cannot be changed"}),
-		apperr.WithCode(code.PermissionDenied),
-	)
-	ErrUserCannotBeDeleted = apperr.New("user_cannot_be_deleted",
-		apperr.WithTextTranslate(translator.Translate{translator.RU: "Пользователя нельзя удалять", translator.EN: "User cannot be deleted"}),
-		apperr.WithCode(code.PermissionDenied),
-	)
+	ErrUserNotFound             = apperr.New("user_not_found", apperr.WithTextTranslate(i18n.ErrUserNotFound), apperr.WithCode(code.NotFound))
+	ErrUserExists               = apperr.New("user_exists_error", apperr.WithTextTranslate(i18n.ErrUserExists), apperr.WithCode(code.InvalidArgument))
+	ErrUserRolesCannotBeChanged = apperr.New("user_roles_cannot_be_changed", apperr.WithTextTranslate(i18n.ErrUserRolesCannotBeChanged), apperr.WithCode(code.PermissionDenied))
+	ErrUserCannotBeDeleted      = apperr.New("user_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrUserCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 )
 
 type IUserService interface {
