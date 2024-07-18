@@ -6,6 +6,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/transformer"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
@@ -14,13 +15,16 @@ import (
 
 type UserHandler struct {
 	userService service.IUserService
+	tr          mw.ITransaction
 }
 
 func NewUserHandlers(
 	userService service.IUserService,
+	tr mw.ITransaction,
 ) *UserHandler {
 	return &UserHandler{
 		userService,
+		tr,
 	}
 }
 
@@ -29,9 +33,9 @@ func (h *UserHandler) Init(api *gin.RouterGroup) {
 	{
 		user.GET("", h.List)
 		user.GET("/:id", h.GetById)
-		user.POST("", h.Create)
-		user.PATCH("/:id", h.Update)
-		user.DELETE("/:id", h.Delete)
+		user.POST("", h.tr.DBTransaction, h.Create)
+		user.PATCH("/:id", h.tr.DBTransaction, h.Update)
+		user.DELETE("/:id", h.tr.DBTransaction, h.Delete)
 	}
 }
 

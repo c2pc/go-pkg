@@ -6,6 +6,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/transformer"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
@@ -14,13 +15,16 @@ import (
 
 type RoleHandler struct {
 	roleService service.IRoleService
+	tr          mw.ITransaction
 }
 
 func NewRoleHandlers(
 	roleService service.IRoleService,
+	tr mw.ITransaction,
 ) *RoleHandler {
 	return &RoleHandler{
 		roleService,
+		tr,
 	}
 }
 
@@ -29,9 +33,9 @@ func (h *RoleHandler) Init(api *gin.RouterGroup) {
 	{
 		role.GET("", h.List)
 		role.GET("/:id", h.GetById)
-		role.POST("", h.Create)
-		role.PATCH("/:id", h.Update)
-		role.DELETE("/:id", h.Delete)
+		role.POST("", h.tr.DBTransaction, h.Create)
+		role.PATCH("/:id", h.tr.DBTransaction, h.Update)
+		role.DELETE("/:id", h.tr.DBTransaction, h.Delete)
 	}
 }
 
