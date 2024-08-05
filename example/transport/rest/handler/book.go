@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 type BookHandler struct {
@@ -14,11 +15,11 @@ func NewBookHandlers() *BookHandler {
 func (h *BookHandler) Init(api *gin.RouterGroup) {
 	zone := api.Group("")
 	{
-		zone.GET("", func(c *gin.Context) {})
-		zone.POST("", func(c *gin.Context) {})
-		zone.GET("/:book_id", func(c *gin.Context) {})
-		zone.PATCH("/:book_id", func(c *gin.Context) {})
-		zone.PUT("/:book_id", func(c *gin.Context) {})
-		zone.DELETE("/:book_id", func(c *gin.Context) {})
+		zone.GET("", func(c *gin.Context) { c.Status(http.StatusOK) })
+		zone.POST("", func(c *gin.Context) { c.Status(http.StatusOK) })
+		zone.GET("/:book_id", func(c *gin.Context) { c.Status(http.StatusOK) })
+		zone.PATCH("/:book_id", func(c *gin.Context) { c.Status(http.StatusOK) })
+		zone.PUT("/:book_id", func(c *gin.Context) { c.Status(http.StatusOK) })
+		zone.DELETE("/:book_id", func(c *gin.Context) { c.Status(http.StatusOK) })
 	}
 }

@@ -65,9 +65,10 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 			book := secure.Group("/books")
 			{
 				NewBookHandlers().Init(book)
-				NewLikeHandlers().Init(book)
+				NewBookLikeHandlers().Init(book)
 			}
 
+			NewNewsHandlers().Init(secure)
 		}
 	}
 }
