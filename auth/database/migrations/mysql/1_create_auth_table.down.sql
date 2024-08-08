@@ -1,3 +1,4 @@
+drop table if exists auth_settings;
 drop table if exists auth_tokens;
 drop table if exists auth_user_roles;
 drop table if exists auth_users;
