@@ -61,10 +61,11 @@ func New(cfg Config) (IAuth, error) {
 	permissionService := service.NewPermissionService(repositories.PermissionRepository, permissionCache)
 	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
 	userService := service.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
+	settingService := service.NewSettingService(repositories.SettingRepository)
 
 	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
 	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
-	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
+	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, settingService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
 
 	return Auth{
 		handler:              handlers,
