@@ -59,6 +59,7 @@ func NewRoleService(
 
 func (s RoleService) Trx(db *gorm.DB) IRoleService {
 	s.roleRepository = s.roleRepository.Trx(db)
+	s.rolePermissionRepository = s.rolePermissionRepository.Trx(db)
 	return s
 }
 

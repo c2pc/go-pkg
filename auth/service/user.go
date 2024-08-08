@@ -59,6 +59,7 @@ func NewUserService(
 
 func (s UserService) Trx(db *gorm.DB) IUserService {
 	s.userRepository = s.userRepository.Trx(db)
+	s.userRoleRepository = s.userRoleRepository.Trx(db)
 	return s
 }
 
