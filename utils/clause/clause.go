@@ -21,12 +21,12 @@ func Returning(columns ...string) clause.Returning {
 	return clause.Returning{Columns: returningColumns}
 }
 
-func Where(query string, args ...interface{}) func(tx *gorm.DB) *gorm.DB {
+func Where(quoteTo func(string) string, query string, args ...interface{}) func(tx *gorm.DB) *gorm.DB {
 	return func(tx *gorm.DB) *gorm.DB {
 		if query == "" {
 			return tx
 		}
-		return tx.Where(upperModels(query), args...)
+		return tx.Where(quoteTo(upperModels(query)), args...)
 	}
 }
 
@@ -59,11 +59,11 @@ func upperModels(model string) string {
 	})
 }
 
-func OrderBy(orderBy map[string]string, tableName string) func(tx *gorm.DB) *gorm.DB {
+func OrderBy(quoteTo func(string) string, orderBy map[string]string, tableName string) func(tx *gorm.DB) *gorm.DB {
 	return func(tx *gorm.DB) *gorm.DB {
 		for k, v := range orderBy {
 			key := `"` + strings.ReplaceAll(k, ".", `"."`) + `"`
-			key = upperModels(key)
+			key = quoteTo(upperModels(key))
 			order := model.OrderByAsc
 			if strings.ToUpper(v) == model.OrderByDesc {
 				order = model.OrderByDesc

@@ -42,7 +42,7 @@ type Config struct {
 
 func New(cfg Config) (IAuth, error) {
 	model2.SetPermissions(cfg.Permissions)
-	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().Unix())))
+	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
 
 	repositories := repository.NewRepositories(cfg.DB)
 	err := database.SeedersRun(ctx, cfg.DB, repositories, cfg.Hasher, model2.GetPermissionsKeys())

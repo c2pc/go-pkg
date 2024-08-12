@@ -100,7 +100,7 @@ func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model.Aut
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	if time.Now().After(token.ExpiresAt) {
+	if time.Now().UTC().After(token.ExpiresAt) {
 		return nil, apperr.ErrUnauthenticated.WithErrorText("token is expired")
 	}
 
@@ -235,7 +235,7 @@ func (s AuthService) createSession(ctx context.Context, userID int, deviceID int
 	}
 
 	refreshToken := xid.New().String()
-	expiresAt := time.Now().Add(s.refreshExpire)
+	expiresAt := time.Now().UTC().Add(s.refreshExpire)
 
 	if _, err = s.tokenRepository.CreateOrUpdate(ctx, &model.RefreshToken{
 		UserID:    userID,

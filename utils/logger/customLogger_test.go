@@ -17,7 +17,7 @@ func TestWithOperationID(t *testing.T) {
 		t.Error("expected msg to be 'msg', got", msg)
 	}
 
-	operationID := time.Now().Unix()
+	operationID := time.Now().UTC().Unix()
 	ctx2 := context.WithValue(ctx, constant.OperationID, operationID)
 
 	msg2 := WithOperationID(ctx2, "msg2")

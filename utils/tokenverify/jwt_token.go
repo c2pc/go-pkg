@@ -27,7 +27,7 @@ type Claims struct {
 }
 
 func BuildClaims(userID int, DeviceID int, ttl time.Duration) Claims {
-	now := time.Now()
+	now := time.Now().UTC()
 	before := now.Add(-time.Minute * time.Duration(minutesBefore))
 	return Claims{
 		UserID:   userID,

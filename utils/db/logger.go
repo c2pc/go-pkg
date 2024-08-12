@@ -148,7 +148,7 @@ type traceRecorder struct {
 
 // New trace recorder
 func (l *traceRecorder) New() *traceRecorder {
-	return &traceRecorder{Interface: l.Interface, BeginAt: time.Now()}
+	return &traceRecorder{Interface: l.Interface, BeginAt: time.Now().UTC()}
 }
 
 // Trace implement logger interface
