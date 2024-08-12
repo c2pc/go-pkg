@@ -189,7 +189,7 @@ func (r Repo[C]) reformatModels(models ...string) []string {
 	return newModels
 }
 
-func (r Repo[C]) quoteTo(str string) string {
+func (r Repo[C]) QuoteTo(str string) string {
 	quote := `"`
 	switch r.DB().Dialector.Name() {
 	case "postgres":
@@ -207,7 +207,7 @@ func (r Repo[C]) Find(ctx context.Context, query string, args ...any) (*C, error
 	res := r.
 		DB().
 		WithContext(ctx).
-		Scopes(clause.Where(r.quoteTo, query, args...)).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		First(&row)
 	if err := res.Error; err != nil {
 		return nil, r.Error(err)
@@ -222,7 +222,7 @@ func (r Repo[C]) FindById(ctx context.Context, id int) (*C, error) {
 	res := r.
 		DB().
 		WithContext(ctx).
-		Scopes(clause.Where(r.quoteTo, query, id)).
+		Scopes(clause.Where(r.QuoteTo, query, id)).
 		First(&row)
 	if err := res.Error; err != nil {
 		return nil, r.Error(err)
@@ -237,7 +237,7 @@ func (r Repo[C]) Delete(ctx context.Context, query string, args ...any) error {
 	res := r.
 		DB().
 		WithContext(ctx).
-		Scopes(clause.Where(r.quoteTo, query, args...)).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Delete(&row)
 	if err := res.Error; err != nil {
 		return r.Error(err)
@@ -296,7 +296,7 @@ func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interfac
 func (r Repo[C]) FirstOrCreate(ctx context.Context, u *C, returning string, query string, args ...any) (*C, error) {
 	res := r.DB().
 		WithContext(ctx).
-		Scopes(clause.Where(r.quoteTo, query, args...)).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Clauses(clause.Returning(returning)).
 		FirstOrCreate(u)
 	if err := res.Error; err != nil {
@@ -311,7 +311,7 @@ func (r Repo[C]) Update(ctx context.Context, u *C, selects []interface{}, query 
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
-		Scopes(clause.Where(r.quoteTo, query, args...))
+		Scopes(clause.Where(r.QuoteTo, query, args...))
 
 	if selects != nil && len(selects) > 0 {
 		res = res.Select(selects[0], selects...)
@@ -330,7 +330,7 @@ func (r Repo[C]) Update2(ctx context.Context, u *[]C, selects []interface{}, que
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
-		Scopes(clause.Where(r.quoteTo, query, args...))
+		Scopes(clause.Where(r.QuoteTo, query, args...))
 
 	if selects != nil && len(selects) > 0 {
 		res = res.Select(selects[0], selects...)
@@ -349,7 +349,7 @@ func (r Repo[C]) UpdateMap(ctx context.Context, u map[string]interface{}, query 
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
-		Scopes(clause.Where(r.quoteTo, query, args...)).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Updates(u)
 	if err := res.Error; err != nil {
 		return r.Error(err)
@@ -364,7 +364,7 @@ func (r Repo[C]) Count(ctx context.Context, query string, args ...any) (int64, e
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
-		Scopes(clause.Where(r.quoteTo, query, args...)).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Count(&count)
 	if err := res.Error; err != nil {
 		return 0, r.Error(err)
@@ -380,7 +380,7 @@ func (r Repo[C]) List(ctx context.Context, f *model.Filter, query string, args .
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
-		Scopes(clause.Where(r.quoteTo, query, args...)).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Find(&rows)
 	if err := res.Error; err != nil {
 		return nil, r.Error(err)
@@ -394,7 +394,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
-		Scopes(clause.Where(r.quoteTo, query, args...))
+		Scopes(clause.Where(r.QuoteTo, query, args...))
 
 	if p.MustReturnTotalRows {
 		res := db.Session(&gorm.Session{}).Count(&p.TotalRows)
@@ -426,7 +426,7 @@ func (r Repo[C]) OrderBy(orderBy map[string]string) Repo[C] {
 				joins = append(joins, s[:strings.LastIndex(s, ".")])
 			}
 		}
-		r.db = r.Joins(joins...).DB().Scopes(clause.OrderBy(r.quoteTo, orderBy, r.Model().TableName()))
+		r.db = r.Joins(joins...).DB().Scopes(clause.OrderBy(r.QuoteTo, orderBy, r.Model().TableName()))
 	}
 	return r
 }
