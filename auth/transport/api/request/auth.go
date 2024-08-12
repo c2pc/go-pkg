@@ -12,7 +12,7 @@ type AuthRefreshRequest struct {
 }
 
 type AuthLogoutRequest struct {
-	Token string `json:"token" binding:"required"`
+	Token string `json:"accessToken" binding:"required"`
 }
 
 type AuthUpdateAccountDataRequest struct {
