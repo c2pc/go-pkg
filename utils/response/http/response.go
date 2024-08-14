@@ -49,6 +49,12 @@ func getNamespace(str string) string {
 		}
 		newStr += string(s)
 	}
+
+	touch := strings.LastIndex(newStr, "].")
+	if touch != -1 {
+		return newStr[touch+2:]
+	}
+
 	return newStr
 }
 

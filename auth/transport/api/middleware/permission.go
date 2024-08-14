@@ -60,10 +60,6 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
-	if level.Is(j.debug, level.TEST) {
-		logger.InfofLog(ctx, "PERMISSION", "[USER] %+v", user)
-	}
-
 	permissions, err := j.permissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model.Permission, error) {
 		return j.permissionRepository.List(ctx, &model2.Filter{}, ``)
 	})

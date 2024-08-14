@@ -5,6 +5,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/model"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
@@ -21,33 +22,37 @@ var (
 	ErrUserCannotBeDeleted      = apperr.New("user_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrUserCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 )
 
-type IUserService interface {
-	Trx(db *gorm.DB) IUserService
+type IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
+	Trx(db *gorm.DB) IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	List(ctx context.Context, m *model2.Meta[model.User]) error
 	GetById(ctx context.Context, id int) (*model.User, error)
-	Create(ctx context.Context, input UserCreateInput) (*model.User, error)
-	Update(ctx context.Context, id int, input UserUpdateInput) error
+	Create(ctx context.Context, input UserCreateInput, profileInput *CreateInput) (*model.User, error)
+	Update(ctx context.Context, id int, input UserUpdateInput, profileInput *UpdateInput) error
 	Delete(ctx context.Context, id int) error
 }
 
-type UserService struct {
+type UserService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+	profileService     profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	userRepository     repository.IUserRepository
 	roleRepository     repository.IRoleRepository
 	userRoleRepository repository.IUserRoleRepository
 	userCache          cache.IUserCache
 	tokenCache         cache.ITokenCache
 	hasher             secret.Hasher
+	db                 *gorm.DB
 }
 
-func NewUserService(
+func NewUserService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+	profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	userRepository repository.IUserRepository,
 	roleRepository repository.IRoleRepository,
 	userRoleRepository repository.IUserRoleRepository,
 	userCache cache.IUserCache,
 	tokenCache cache.ITokenCache,
 	hasher secret.Hasher,
-) UserService {
-	return UserService{
+) UserService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
+	return UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]{
+		profileService:     profileService,
 		userRepository:     userRepository,
 		roleRepository:     roleRepository,
 		userRoleRepository: userRoleRepository,
@@ -57,17 +62,18 @@ func NewUserService(
 	}
 }
 
-func (s UserService) Trx(db *gorm.DB) IUserService {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	s.userRepository = s.userRepository.Trx(db)
 	s.userRoleRepository = s.userRoleRepository.Trx(db)
+	s.db = db
 	return s
 }
 
-func (s UserService) List(ctx context.Context, m *model2.Meta[model.User]) error {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(ctx context.Context, m *model2.Meta[model.User]) error {
 	return s.userRepository.With("roles").Paginate(ctx, m, ``)
 }
 
-func (s UserService) GetById(ctx context.Context, id int) (*model.User, error) {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetById(ctx context.Context, id int) (*model.User, error) {
 	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -75,6 +81,16 @@ func (s UserService) GetById(ctx context.Context, id int) (*model.User, error) {
 		}
 		return nil, err
 	}
+
+	var prof *Model
+	if s.profileService != nil {
+		prof, err = s.profileService.GetById(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	user.Profile = prof
 
 	return user, nil
 }
@@ -90,7 +106,7 @@ type UserCreateInput struct {
 	Roles      []int
 }
 
-func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.User, error) {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(ctx context.Context, input UserCreateInput, profileInput *CreateInput) (*model.User, error) {
 	password := s.hasher.HashString(input.Password)
 
 	user, err := s.userRepository.Create(ctx, &model.User{
@@ -113,10 +129,20 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.
 		return nil, err
 	}
 
+	var prof *Model
+	if s.profileService != nil && profileInput != nil {
+		prof, err = s.profileService.Trx(s.db).Create(ctx, user.ID, *profileInput)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	user, err = s.userRepository.With("roles").Find(ctx, `id = ?`, user.ID)
 	if err != nil {
 		return nil, err
 	}
+
+	user.Profile = prof
 
 	return user, nil
 }
@@ -132,7 +158,7 @@ type UserUpdateInput struct {
 	Roles      *[]int
 }
 
-func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) error {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(ctx context.Context, id int, input UserUpdateInput, profileInput *UpdateInput) error {
 	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -226,7 +252,14 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 		}
 	}
 
-	if len(selects) > 0 || input.Roles != nil {
+	if s.profileService != nil && profileInput != nil {
+		err = s.profileService.Trx(s.db).Update(ctx, user.ID, *profileInput)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(selects) > 0 || input.Roles != nil || profileInput != nil {
 		if input.Roles != nil || (input.Password != nil && *input.Password != "") {
 			if err := s.tokenCache.DeleteAllUserTokens(ctx, user.ID); err != nil {
 				return apperr.ErrInternal.WithError(err)
@@ -240,7 +273,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 	return nil
 }
 
-func (s UserService) Delete(ctx context.Context, id int) error {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Delete(ctx context.Context, id int) error {
 	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -269,6 +302,13 @@ func (s UserService) Delete(ctx context.Context, id int) error {
 		}
 	}
 
+	if s.profileService != nil {
+		err = s.profileService.Trx(s.db).Delete(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := s.userRepository.Delete(ctx, `id = ?`, user.ID); err != nil {
 		return err
 	}
@@ -284,7 +324,7 @@ func (s UserService) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (s UserService) createRoles(ctx context.Context, user *model.User, rls []int) error {
+func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) createRoles(ctx context.Context, user *model.User, rls []int) error {
 	if len(rls) > 0 {
 		uniqueRoles := stringutil.RemoveDuplicate(rls)
 

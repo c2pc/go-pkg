@@ -8,8 +8,8 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 )
 
-func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, userRoleRepository repository.IUserRoleRepository, hasher secret.Hasher, roleID int) error {
-	_, err := userRoleRepository.Find(ctx, `role_id = ?`, roleID)
+func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, userRoleRepository repository.IUserRoleRepository, hasher secret.Hasher, roleID int) (*model.User, error) {
+	role, err := userRoleRepository.Find(ctx, `role_id = ?`, roleID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			login := "admin"
@@ -23,7 +23,7 @@ func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, 
 				Password:  pass,
 			}, "id", `login = ?`, login)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			_, err = userRoleRepository.FirstOrCreate(ctx, &model.UserRole{
@@ -31,13 +31,18 @@ func UserSeeder(ctx context.Context, userRepository repository.IUserRepository, 
 				RoleID: roleID,
 			}, "", `user_id = ? AND role_id = ?`, admin.ID, roleID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
-			return nil
+			return admin, nil
 		}
-		return err
+		return nil, err
 	}
 
-	return nil
+	admin, err := userRepository.Find(ctx, "id", role.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	return admin, nil
 }

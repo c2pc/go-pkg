@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/auth/service"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/middleware"
 	validator2 "github.com/c2pc/go-pkg/v2/auth/validator"
@@ -15,27 +16,31 @@ type IHandler interface {
 	Init(api *gin.RouterGroup)
 }
 
-type Handler struct {
-	authService          service.IAuthService
+type Handler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+	authService          service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	permissionService    service.IPermissionService
 	roleService          service.IRoleService
-	userService          service.IUserService
+	userService          service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	settingService       service.ISettingService
 	tr                   mw.ITransaction
 	tokenMiddleware      middleware.ITokenMiddleware
 	permissionMiddleware middleware.IPermissionMiddleware
+	profileTransformer   profile.ITransformer[Model]
+	profileRequest       profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 }
 
-func NewHandlers(
-	authService service.IAuthService,
+func NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+	authService service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	permissionService service.IPermissionService,
 	roleService service.IRoleService,
-	userService service.IUserService,
+	userService service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	settingService service.ISettingService,
 	tr mw.ITransaction,
 	tokenMiddleware middleware.ITokenMiddleware,
 	permissionMiddleware middleware.IPermissionMiddleware,
-) *Handler {
+	profileTransformer profile.ITransformer[Model],
+	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
+) *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		translator.SetValidateTranslators(v)
@@ -46,7 +51,7 @@ func NewHandlers(
 		_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.EN, "device_id", "{0] unknown device", true))
 	}
 
-	return &Handler{
+	return &Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
 		authService,
 		permissionService,
 		roleService,
@@ -55,14 +60,16 @@ func NewHandlers(
 		tr,
 		tokenMiddleware,
 		permissionMiddleware,
+		profileTransformer,
+		profileRequest,
 	}
 }
 
-func (h *Handler) Init(api *gin.RouterGroup) {
-	authHandler := NewAuthHandlers(h.authService, h.tr, h.tokenMiddleware)
+func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api *gin.RouterGroup) {
+	authHandler := NewAuthHandlers(h.authService, h.tr, h.tokenMiddleware, h.profileTransformer, h.profileRequest)
 	permissionHandler := NewPermissionHandlers(h.permissionService)
 	roleHandler := NewRoleHandlers(h.roleService, h.tr)
-	userHandler := NewUserHandlers(h.userService, h.tr)
+	userHandler := NewUserHandlers(h.userService, h.tr, h.profileTransformer, h.profileRequest)
 	settingHandler := NewSettingHandlers(h.settingService, h.tr)
 
 	handler := api.Group("/auth")

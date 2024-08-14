@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/auth/service"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/middleware"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
@@ -12,26 +13,31 @@ import (
 	"net/http"
 )
 
-type AuthHandler struct {
-	authService     service.IAuthService
-	tr              mw.ITransaction
-	tokenMiddleware middleware.ITokenMiddleware
+type AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+	authService        service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+	tr                 mw.ITransaction
+	tokenMiddleware    middleware.ITokenMiddleware
+	profileTransformer profile.ITransformer[Model]
+	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 }
 
-func NewAuthHandlers(
-	authService service.IAuthService,
+func NewAuthHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+	authService service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	tr mw.ITransaction,
 	tokenMiddleware middleware.ITokenMiddleware,
-
-) *AuthHandler {
-	return &AuthHandler{
+	profileTransformer profile.ITransformer[Model],
+	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
+) *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
+	return &AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
 		authService,
 		tr,
 		tokenMiddleware,
+		profileTransformer,
+		profileRequest,
 	}
 }
 
-func (h *AuthHandler) Init(api *gin.RouterGroup) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api *gin.RouterGroup) {
 	auth := api.Group("")
 	{
 		auth.POST("/login", h.tr.DBTransaction, h.login)
@@ -42,7 +48,7 @@ func (h *AuthHandler) Init(api *gin.RouterGroup) {
 	}
 }
 
-func (h *AuthHandler) login(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) login(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthLoginRequest](c)
 	if err != nil {
 		response.Response(c, err)
@@ -59,10 +65,10 @@ func (h *AuthHandler) login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, transformer.AuthTokenTransform(data))
+	c.JSON(http.StatusOK, transformer.AuthTokenTransform(data, h.profileTransformer))
 }
 
-func (h *AuthHandler) refresh(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) refresh(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthRefreshRequest](c)
 	if err != nil {
 		response.Response(c, err)
@@ -78,10 +84,10 @@ func (h *AuthHandler) refresh(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, transformer.AuthTokenTransform(data))
+	c.JSON(http.StatusOK, transformer.AuthTokenTransform(data, h.profileTransformer))
 }
 
-func (h *AuthHandler) logout(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) logout(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthLogoutRequest](c)
 	if err != nil {
 		response.Response(c, err)
@@ -99,21 +105,30 @@ func (h *AuthHandler) logout(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *AuthHandler) account(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) account(c *gin.Context) {
 	data, err := h.authService.Account(c.Request.Context())
 	if err != nil {
 		response.Response(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, transformer.AuthAccountTransform(data))
+	c.JSON(http.StatusOK, transformer.AuthAccountTransform(data, h.profileTransformer))
 }
 
-func (h *AuthHandler) updateAccountData(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) updateAccountData(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthUpdateAccountDataRequest](c)
 	if err != nil {
 		response.Response(c, err)
 		return
+	}
+
+	var profileCred *UpdateProfileInput
+	if h.profileRequest != nil {
+		profileCred, err = h.profileRequest.UpdateProfileRequest(c)
+		if err != nil {
+			response.Response(c, err)
+			return
+		}
 	}
 
 	if err := h.authService.Trx(request2.TxHandle(c)).UpdateAccountData(c.Request.Context(), service.AuthUpdateAccountData{
@@ -124,7 +139,7 @@ func (h *AuthHandler) updateAccountData(c *gin.Context) {
 		Password:   cred.Password,
 		Email:      cred.Email,
 		Phone:      cred.Phone,
-	}); err != nil {
+	}, profileCred); err != nil {
 		response.Response(c, err)
 		return
 	}

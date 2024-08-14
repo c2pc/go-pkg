@@ -11,7 +11,8 @@ type User struct {
 	Phone      *string `json:"phone"`
 	Blocked    bool    `json:"blocked"`
 
-	Roles []Role `json:"roles" gorm:"many2many:auth_user_roles;"`
+	Roles   []Role      `json:"roles" gorm:"many2many:auth_user_roles;"`
+	Profile interface{} `json:"profile" gorm:"-" db:"-"`
 }
 
 func (m User) TableName() string {
