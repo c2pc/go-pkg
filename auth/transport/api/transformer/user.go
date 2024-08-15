@@ -11,7 +11,7 @@ import (
 type UserTransformer struct {
 	ID         int     `json:"id"`
 	Login      string  `json:"login"`
-	FirstName  string  `json:"name"`
+	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
@@ -47,7 +47,7 @@ func UserTransform[Model any](m *model.User, profileTransformer profile.ITransfo
 type UserListTransformer struct {
 	ID         int     `json:"id"`
 	Login      string  `json:"login"`
-	FirstName  string  `json:"name"`
+	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`

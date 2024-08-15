@@ -30,7 +30,7 @@ func AuthTokenTransform[Model any](m *model.AuthToken, profileTransformer profil
 type AuthAccountTransformer struct {
 	ID         int     `json:"id"`
 	Login      string  `json:"login"`
-	FirstName  string  `json:"name"`
+	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
