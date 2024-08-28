@@ -3,23 +3,16 @@ package mw
 import (
 	"bytes"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/i18n"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-)
-
-var (
-	ErrEmptyOperationID = apperr.New("empty_operation_id_header", apperr.WithTextTranslate(i18n.ErrEmptyOperationID), apperr.WithCode(code.InvalidArgument))
 )
 
 func CorsHandler() gin.HandlerFunc {
@@ -100,9 +93,7 @@ func GinParseOperationID() gin.HandlerFunc {
 
 		operationID := c.Request.Header.Get(constant.OperationID)
 		if operationID == "" {
-			response.Response(c, ErrEmptyOperationID)
-			c.Abort()
-			return
+			operationID = strconv.FormatInt(time.Now().UnixMilli(), 10)
 		}
 
 		ctx := c.Request.Context()
