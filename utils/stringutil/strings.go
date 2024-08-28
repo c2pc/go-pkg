@@ -87,6 +87,19 @@ func RemoveDuplicateElement(idList []string) []string {
 	return result
 }
 
+func GetDuplicateElement(idList []string) []string {
+	result := make([]string, 0, len(idList))
+	temp := map[string]struct{}{}
+	for _, item := range idList {
+		if _, ok := temp[item]; !ok {
+			temp[item] = struct{}{}
+		} else {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
 func RemoveDuplicate[T comparable](arr []T) []T {
 	result := make([]T, 0, len(arr))
 	temp := map[T]struct{}{}
