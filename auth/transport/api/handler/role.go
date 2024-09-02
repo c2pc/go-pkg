@@ -113,28 +113,11 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var write, read, exec *[]int
-	if cred.Write != nil {
-		write = &[]int{}
-	} else {
-		write = nil
-	}
-	if cred.Read != nil {
-		read = &[]int{}
-	} else {
-		read = nil
-	}
-	if cred.Exec != nil {
-		exec = &[]int{}
-	} else {
-		exec = nil
-	}
-
 	if err := h.roleService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, service.RoleUpdateInput{
 		Name:  cred.Name,
-		Write: write,
-		Read:  read,
-		Exec:  exec,
+		Write: cred.Write,
+		Read:  cred.Read,
+		Exec:  cred.Exec,
 	}); err != nil {
 		response.Response(c, err)
 		return

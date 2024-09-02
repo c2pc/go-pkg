@@ -109,9 +109,9 @@ func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.
 
 type RoleUpdateInput struct {
 	Name  *string
-	Write *[]int
-	Read  *[]int
-	Exec  *[]int
+	Write []int
+	Read  []int
+	Exec  []int
 }
 
 func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) error {
@@ -153,13 +153,13 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 		}
 
 		if input.Write != nil {
-			write = *input.Write
+			write = input.Write
 		}
 		if input.Read != nil {
-			read = *input.Read
+			read = input.Read
 		}
 		if input.Exec != nil {
-			exec = *input.Exec
+			exec = input.Exec
 		}
 
 		if err = s.rolePermissionRepository.Delete(ctx, `role_id = ?`, role.ID); err != nil {
