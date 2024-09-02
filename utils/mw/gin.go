@@ -22,12 +22,8 @@ func CorsHandler() gin.HandlerFunc {
 		c.Header("Access-Control-Allow-Headers", "*")
 		c.Header(
 			"Access-Control-Expose-Headers",
-			"Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers,Cache-Control,Content-Language,Content-Type,Expires,Last-Modified,Pragma,FooBar",
+			"Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers,Cache-Control,Content-Language,Content-Type,Expires,Last-Modified,Pragma,FooBar,X-Operation-Id,X-Total-Count",
 		) // Cross-domain key settings allow browsers to resolve.
-		c.Header(
-			"Access-Control-Allow-Headers",
-			"X-Operation-Id, X-Total-Count",
-		) // Cache request information in seconds.
 		c.Header(
 			"Access-Control-Max-Age",
 			"172800",
