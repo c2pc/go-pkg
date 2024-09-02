@@ -7,6 +7,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -99,13 +100,18 @@ func (r Repo[C]) Error(err error) error {
 	if errors.As(err, &appError) {
 		return err
 	}
-	var duplicateEntryError = &pgconn.PgError{}
+	var pgError = &pgconn.PgError{}
+	var mysqlErr *mysql.MySQLError
 
 	switch {
 	case apperr.Is(err, gorm.ErrRecordNotFound):
 		return apperr.ErrDBRecordNotFound.WithError(err)
-	case errors.As(err, &duplicateEntryError):
-		if duplicateEntryError.Code == "23505" {
+	case errors.As(err, &pgError):
+		if pgError.Code == "23505" {
+			return apperr.ErrDBDuplicated.WithError(err)
+		}
+	case errors.As(err, &mysqlErr):
+		if mysqlErr.Number == 1062 {
 			return apperr.ErrDBDuplicated.WithError(err)
 		}
 	}
