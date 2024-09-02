@@ -79,15 +79,11 @@ func (s RoleService) GetById(ctx context.Context, id int) (*model.Role, error) {
 	return role, nil
 }
 
-type RolePermissions struct {
+type RoleCreateInput struct {
+	Name  string
 	Write []int
 	Read  []int
 	Exec  []int
-}
-
-type RoleCreateInput struct {
-	Name        string
-	Permissions RolePermissions
 }
 
 func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.Role, error) {
@@ -101,7 +97,7 @@ func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.
 		return nil, err
 	}
 
-	rolePermissions, err := s.createPermissions(ctx, role, input.Permissions)
+	rolePermissions, err := s.createPermissions(ctx, role, input.Write, input.Read, input.Exec)
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +108,14 @@ func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.
 }
 
 type RoleUpdateInput struct {
-	Name        *string
-	Permissions *RolePermissions
+	Name  *string
+	Write *[]int
+	Read  *[]int
+	Exec  *[]int
 }
 
 func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) error {
-	role, err := s.roleRepository.Find(ctx, `id = ?`, id)
+	role, err := s.roleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrRoleNotFound
@@ -140,12 +138,35 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 		}
 	}
 
-	if input.Permissions != nil {
+	if input.Write != nil || input.Read != nil || input.Exec != nil {
+		var write, read, exec []int
+		for _, perm := range role.RolePermissions {
+			if perm.Read {
+				read = append(read, perm.PermissionID)
+			}
+			if perm.Write {
+				write = append(write, perm.PermissionID)
+			}
+			if perm.Exec {
+				exec = append(exec, perm.PermissionID)
+			}
+		}
+
+		if input.Write != nil {
+			write = *input.Write
+		}
+		if input.Read != nil {
+			read = *input.Read
+		}
+		if input.Exec != nil {
+			exec = *input.Exec
+		}
+
 		if err = s.rolePermissionRepository.Delete(ctx, `role_id = ?`, role.ID); err != nil {
 			return err
 		}
 
-		_, err = s.createPermissions(ctx, role, *input.Permissions)
+		_, err = s.createPermissions(ctx, role, write, read, exec)
 		if err != nil {
 			return err
 		}
@@ -202,61 +223,59 @@ func (s RoleService) Delete(ctx context.Context, id int) error {
 	return nil
 }
 
-func (s RoleService) createPermissions(ctx context.Context, role *model.Role, perms RolePermissions) ([]model.RolePermission, error) {
+func (s RoleService) createPermissions(ctx context.Context, role *model.Role, write, read, exec []int) ([]model.RolePermission, error) {
 	var rolePermissions []model.RolePermission
 
-	if len(perms.Write) > 0 || len(perms.Read) > 0 || len(perms.Exec) > 0 {
-		write := stringutil.RemoveDuplicate(perms.Write)
-		read := stringutil.RemoveDuplicate(perms.Read)
-		exec := stringutil.RemoveDuplicate(perms.Exec)
+	write = stringutil.RemoveDuplicate(write)
+	read = stringutil.RemoveDuplicate(read)
+	exec = stringutil.RemoveDuplicate(exec)
 
-		uniquePerms := stringutil.RemoveDuplicate(slices.Concat(write, read, exec))
+	uniquePerms := stringutil.RemoveDuplicate(slices.Concat(write, read, exec))
 
-		permissions, err := s.permissionRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniquePerms)
-		if err != nil {
+	permissions, err := s.permissionRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniquePerms)
+	if err != nil {
+		return nil, err
+	}
+
+	permissionsToCreate := make(map[int]model.RolePermission)
+	for _, permission := range permissions {
+		permissionsToCreate[permission.ID] = model.RolePermission{
+			RoleID:       role.ID,
+			PermissionID: permission.ID,
+			Read:         false,
+			Write:        false,
+			Exec:         false,
+		}
+	}
+
+	for _, w := range write {
+		if v, ok := permissionsToCreate[w]; ok {
+			v.Write = true
+			permissionsToCreate[w] = v
+		}
+	}
+
+	for _, w := range read {
+		if v, ok := permissionsToCreate[w]; ok {
+			v.Read = true
+			permissionsToCreate[w] = v
+		}
+	}
+
+	for _, w := range exec {
+		if v, ok := permissionsToCreate[w]; ok {
+			v.Exec = true
+			permissionsToCreate[w] = v
+		}
+	}
+
+	for _, v := range permissionsToCreate {
+		rolePermissions = append(rolePermissions, v)
+	}
+
+	if len(rolePermissions) > 0 {
+		if _, err := s.rolePermissionRepository.Create2(ctx, &rolePermissions, ""); err != nil {
 			return nil, err
-		}
-
-		permissionsToCreate := make(map[int]model.RolePermission)
-		for _, permission := range permissions {
-			permissionsToCreate[permission.ID] = model.RolePermission{
-				RoleID:       role.ID,
-				PermissionID: permission.ID,
-				Read:         false,
-				Write:        false,
-				Exec:         false,
-			}
-		}
-
-		for _, w := range write {
-			if v, ok := permissionsToCreate[w]; ok {
-				v.Write = true
-				permissionsToCreate[w] = v
-			}
-		}
-
-		for _, w := range read {
-			if v, ok := permissionsToCreate[w]; ok {
-				v.Read = true
-				permissionsToCreate[w] = v
-			}
-		}
-
-		for _, w := range exec {
-			if v, ok := permissionsToCreate[w]; ok {
-				v.Exec = true
-				permissionsToCreate[w] = v
-			}
-		}
-
-		for _, v := range permissionsToCreate {
-			rolePermissions = append(rolePermissions, v)
-		}
-
-		if len(rolePermissions) > 0 {
-			if _, err := s.rolePermissionRepository.Create2(ctx, &rolePermissions, ""); err != nil {
-				return nil, err
-			}
 		}
 	}
 

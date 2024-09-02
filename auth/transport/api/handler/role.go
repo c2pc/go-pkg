@@ -87,8 +87,10 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	}
 
 	role, err := h.roleService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), service.RoleCreateInput{
-		Name:        cred.Name,
-		Permissions: service.RolePermissions(cred.Permissions),
+		Name:  cred.Name,
+		Write: cred.Write,
+		Read:  cred.Read,
+		Exec:  cred.Exec,
 	})
 	if err != nil {
 		response.Response(c, err)
@@ -111,18 +113,28 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var permissions *service.RolePermissions
-	if cred.Permissions != nil {
-		permissions = &service.RolePermissions{
-			Read:  cred.Permissions.Read,
-			Write: cred.Permissions.Write,
-			Exec:  cred.Permissions.Exec,
-		}
+	var write, read, exec *[]int
+	if cred.Write != nil {
+		write = &[]int{}
+	} else {
+		write = nil
+	}
+	if cred.Read != nil {
+		read = &[]int{}
+	} else {
+		read = nil
+	}
+	if cred.Exec != nil {
+		exec = &[]int{}
+	} else {
+		exec = nil
 	}
 
 	if err := h.roleService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, service.RoleUpdateInput{
-		Name:        cred.Name,
-		Permissions: permissions,
+		Name:  cred.Name,
+		Write: write,
+		Read:  read,
+		Exec:  exec,
 	}); err != nil {
 		response.Response(c, err)
 		return
