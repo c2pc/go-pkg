@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"github.com/c2pc/go-pkg/v2/example/database/seeders"
-	"github.com/c2pc/go-pkg/v2/example/repository"
+	"github.com/c2pc/go-pkg/v2/example/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"gorm.io/gorm"
 )
 
-func SeedersRun(ctx context.Context, db *gorm.DB, profileRepository repository.IProfileRepository, adminID int) error {
+func SeedersRun(ctx context.Context, db *gorm.DB, profileRepository profile.IRepository, adminID int) error {
 	txHandle := db.Session(&gorm.Session{NewDB: true}).WithContext(ctx).Begin(&sql.TxOptions{})
 
 	defer func() {

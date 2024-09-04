@@ -8,15 +8,12 @@ import (
 	config2 "github.com/c2pc/go-pkg/v2/example/config"
 	database2 "github.com/c2pc/go-pkg/v2/example/database"
 	"github.com/c2pc/go-pkg/v2/example/model"
-	"github.com/c2pc/go-pkg/v2/example/repository"
-	"github.com/c2pc/go-pkg/v2/example/service"
+	profile2 "github.com/c2pc/go-pkg/v2/example/profile"
 	"github.com/c2pc/go-pkg/v2/example/transport/rest"
 	restHandler "github.com/c2pc/go-pkg/v2/example/transport/rest/handler"
-	"github.com/c2pc/go-pkg/v2/example/transport/rest/request"
-	"github.com/c2pc/go-pkg/v2/example/transport/rest/transformer"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
 	database "github.com/c2pc/go-pkg/v2/utils/db"
-	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
@@ -41,11 +38,22 @@ func main() {
 		return
 	}
 
-	logger2.Initialize(false, "app.log", configs.APP.LogDir)
+	logger.Initialize(false, "app.log", configs.APP.LogDir)
 
 	db, err := database.ConnectPostgres(configs.PostgresUrl, configs.APP.Debug)
 	if err != nil {
-		logger2.Fatalf("[DB] %s", err.Error())
+		logger.Fatalf("[DB] %s", err.Error())
+		return
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		logger.Fatalf("[DB] %s", err.Error())
+		return
+	}
+
+	if err := database2.Migrate(sqlDB, "postgres"); err != nil {
+		logger.Fatalf("[DB_MIGRATE] %s", err.Error())
 		return
 	}
 
@@ -58,21 +66,21 @@ func main() {
 		DB:          configs.Redis.DB,
 	}, configs.APP.Debug)
 	if err != nil {
-		logger2.Fatalf("[REDIS] %s", err.Error())
+		logger.Fatalf("[REDIS] %s", err.Error())
 		return
 	}
 
 	hasher, err := secret.New(configs.PasswordSalt)
 	if err != nil {
-		logger2.Fatalf("[SECRET] %s", err.Error())
+		logger.Fatalf("[SECRET] %s", err.Error())
 		return
 	}
 
 	trx := mw.NewTransaction(db)
 
-	profileRepo := repository.NewProfileRepository(db)
+	profileRepo := profile2.NewProfileRepository(db)
 
-	authService, err := auth.New[model.Profile, service.ProfileCreateInput, service.ProfileUpdateInput, service.ProfileUpdateProfileInput](auth.Config{
+	authService, err := auth.New[profile2.Profile, profile2.ProfileCreateInput, profile2.ProfileUpdateInput, profile2.ProfileUpdateProfileInput](auth.Config{
 		Debug:         configs.APP.Debug,
 		DB:            db,
 		Rdb:           rdb,
@@ -82,19 +90,19 @@ func main() {
 		RefreshExpire: time.Duration(configs.AUTH.RefreshTokenTTL) * time.Minute,
 		AccessSecret:  configs.AUTH.Key,
 		Permissions:   model.Permissions,
-	}, &profile.Profile[model.Profile, service.ProfileCreateInput, service.ProfileUpdateInput, service.ProfileUpdateProfileInput]{
-		Service:     service.NewProfileService[model.Profile, service.ProfileCreateInput, service.ProfileUpdateInput](profileRepo),
-		Request:     request.NewProfileRequest[service.ProfileCreateInput, service.ProfileUpdateInput, service.ProfileUpdateProfileInput](),
-		Transformer: transformer.NewProfileTransformer[model.Profile](),
+	}, &profile.Profile[profile2.Profile, profile2.ProfileCreateInput, profile2.ProfileUpdateInput, profile2.ProfileUpdateProfileInput]{
+		Service:     profile2.NewService[profile2.Profile, profile2.ProfileCreateInput, profile2.ProfileUpdateInput](profileRepo),
+		Request:     profile2.NewRequest[profile2.ProfileCreateInput, profile2.ProfileUpdateInput, profile2.ProfileUpdateProfileInput](),
+		Transformer: profile2.NewTransformer[profile2.Profile](),
 	})
 	if err != nil {
-		logger2.Fatalf("[AUTH] %s", err.Error())
+		logger.Fatalf("[AUTH] %s", err.Error())
 		return
 	}
 
 	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
 	if err := database2.SeedersRun(ctx, db, profileRepo, authService.GetAdminID()); err != nil {
-		logger2.Fatalf("[DB] %s", err.Error())
+		logger.Fatalf("[DB] %s", err.Error())
 		return
 	}
 
@@ -105,9 +113,9 @@ func main() {
 	}, restHandlers.Init(configs.APP.Debug))
 
 	go func() {
-		logger2.Infof("Starting Rest Server")
+		logger.Infof("Starting Rest Server")
 		if err := restServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logger2.Infof("Rest ListenAndServe err: %s\n", err.Error())
+			logger.Infof("Rest ListenAndServe err: %s\n", err.Error())
 		}
 	}()
 
@@ -121,8 +129,8 @@ func main() {
 	defer shutdown()
 
 	if err := restServer.Stop(ctx); err != nil {
-		logger2.Infof("Failed to Stop Server: %v", err)
+		logger.Infof("Failed to Stop Server: %v", err)
 	}
 
-	logger2.Infof("Shutting Down Server")
+	logger.Infof("Shutting Down Server")
 }
