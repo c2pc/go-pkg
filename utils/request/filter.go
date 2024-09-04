@@ -15,7 +15,7 @@ type FilterRequest struct {
 func Filter(c *gin.Context) (*FilterRequest, error) {
 	type Filter struct {
 		OrderBy string `form:"sorters" binding:"omitempty"`
-		Where   string `form:"filter" binding:"omitempty"`
+		Where   string `form:"filters" binding:"omitempty"`
 	}
 
 	r, err := BindQuery[Filter](c)

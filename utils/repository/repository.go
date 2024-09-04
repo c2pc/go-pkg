@@ -449,7 +449,7 @@ func (r Repo[C]) OrderBy(orderBy map[string]string) (Repo[C], error) {
 		if err != nil {
 			return r, err
 		}
-		fmt.Println("queryqueryqueryqueryquery ", query)
+
 		r.db = r.Joins(joins...).DB().Order(query)
 	}
 	return r, nil
@@ -461,7 +461,6 @@ func (r Repo[C]) Where(where *clause.ExpressionWhere, searchable clause.FieldSea
 		if err != nil {
 			return r, err
 		}
-		fmt.Println("queryqueryqueryqueryquery ", query, args)
 
 		r.db = r.Joins(joins...).DB().Where(query, args...)
 	}
