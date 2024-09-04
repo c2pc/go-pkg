@@ -8,6 +8,7 @@ import (
 )
 
 var RolePermissionSearchable = clause.FieldSearchable{}
+var RolePermissionOrderBy = clause.FieldOrderBy{}
 
 type IRolePermissionRepository interface {
 	repository.Repository[IRolePermissionRepository, model.RolePermission]
@@ -19,7 +20,7 @@ type RolePermissionRepository struct {
 
 func NewRolePermissionRepository(db *gorm.DB) RolePermissionRepository {
 	return RolePermissionRepository{
-		Repo: repository.NewRepository[model.RolePermission](db, RolePermissionSearchable),
+		Repo: repository.NewRepository[model.RolePermission](db, RolePermissionSearchable, RolePermissionOrderBy),
 	}
 }
 
@@ -35,11 +36,6 @@ func (r RolePermissionRepository) With(models ...string) IRolePermissionReposito
 
 func (r RolePermissionRepository) Joins(models ...string) IRolePermissionRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r RolePermissionRepository) OrderBy(orderBy map[string]string) IRolePermissionRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

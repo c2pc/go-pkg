@@ -9,6 +9,7 @@ import (
 )
 
 var UserRoleSearchable = clause.FieldSearchable{}
+var UserRoleOrderBy = clause.FieldOrderBy{}
 
 type IUserRoleRepository interface {
 	repository.Repository[IUserRoleRepository, model.UserRole]
@@ -21,7 +22,7 @@ type UserRoleRepository struct {
 
 func NewUserRoleRepository(db *gorm.DB) UserRoleRepository {
 	return UserRoleRepository{
-		Repo: repository.NewRepository[model.UserRole](db, UserRoleSearchable),
+		Repo: repository.NewRepository[model.UserRole](db, UserRoleSearchable, UserRoleOrderBy),
 	}
 }
 
@@ -37,11 +38,6 @@ func (r UserRoleRepository) With(models ...string) IUserRoleRepository {
 
 func (r UserRoleRepository) Joins(models ...string) IUserRoleRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r UserRoleRepository) OrderBy(orderBy map[string]string) IUserRoleRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

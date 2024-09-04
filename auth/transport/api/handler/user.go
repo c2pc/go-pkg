@@ -55,7 +55,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(
 
 	m := model2.NewMeta(
 		model2.NewPagination[model.User](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy),
+		model2.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.userService.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)

@@ -21,7 +21,6 @@ type Repository[T any, C model.Model] interface {
 	With(models ...string) T
 	Joins(models ...string) T
 	Omit(columns ...string) T
-	OrderBy(orderBy map[string]string) T
 	Find(ctx context.Context, query string, args ...any) (*C, error)
 	FindById(ctx context.Context, id int) (*C, error)
 	Delete(ctx context.Context, query string, args ...any) error
@@ -38,15 +37,17 @@ type Repository[T any, C model.Model] interface {
 }
 
 type Repo[C model.Model] struct {
-	searchable clause.FieldSearchable
-	db         *gorm.DB
-	with       []string
+	searchable   clause.FieldSearchable
+	fieldOrderBy clause.FieldOrderBy
+	db           *gorm.DB
+	with         []string
 }
 
-func NewRepository[C model.Model](db *gorm.DB, fieldSearchable clause.FieldSearchable) Repo[C] {
+func NewRepository[C model.Model](db *gorm.DB, fieldSearchable clause.FieldSearchable, fieldOrderBy clause.FieldOrderBy) Repo[C] {
 	return Repo[C]{
-		searchable: fieldSearchable,
-		db:         db,
+		searchable:   fieldSearchable,
+		fieldOrderBy: fieldOrderBy,
+		db:           db,
 	}
 }
 
@@ -96,10 +97,11 @@ func (r Repo[C]) Exists(ctx context.Context, field string, value interface{}, ex
 }
 
 func (r Repo[C]) Error(err error) error {
-	var appError *apperr.Error
+	var appError apperr.Error
 	if errors.As(err, &appError) {
 		return err
 	}
+
 	var pgError = &pgconn.PgError{}
 	var mysqlErr *mysql.MySQLError
 
@@ -380,9 +382,18 @@ func (r Repo[C]) Count(ctx context.Context, query string, args ...any) (int64, e
 }
 
 func (r Repo[C]) List(ctx context.Context, f *model.Filter, query string, args ...any) ([]C, error) {
+	repo, err := r.Where(f.Where, r.FieldSearchable())
+	if err != nil {
+		return nil, r.Error(err)
+	}
+
+	repo, err = repo.OrderBy(f.OrderBy)
+	if err != nil {
+		return nil, r.Error(err)
+	}
+
 	var rows []C
-	res := r.
-		OrderBy(f.OrderBy).
+	res := repo.
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
@@ -396,7 +407,12 @@ func (r Repo[C]) List(ctx context.Context, f *model.Filter, query string, args .
 }
 
 func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, args ...any) error {
-	db := r.
+	repo, err := r.Where(p.Where, r.FieldSearchable())
+	if err != nil {
+		return r.Error(err)
+	}
+
+	db := repo.
 		DB().
 		WithContext(ctx).
 		Model(r.Model()).
@@ -409,10 +425,13 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 		}
 	}
 
+	repo, err = repo.SetDB(db).OrderBy(p.OrderBy)
+	if err != nil {
+		return r.Error(err)
+	}
+
 	var rows []C
-	res2 := r.
-		SetDB(db).
-		OrderBy(p.OrderBy).
+	res2 := repo.
 		DB().
 		Scopes(clause.Limit(p.GetLimit(), p.GetOffset())).
 		Find(&rows)
@@ -424,49 +443,27 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 	return nil
 }
 
-func (r Repo[C]) OrderBy(orderBy map[string]string) Repo[C] {
+func (r Repo[C]) OrderBy(orderBy map[string]string) (Repo[C], error) {
 	if len(orderBy) > 0 {
-		joins := []string{}
-		for s := range orderBy {
-			if strings.Index(s, ".") != -1 {
-				joins = append(joins, s[:strings.LastIndex(s, ".")])
-			}
+		query, joins, err := clause.OrderByFilter(r.QuoteTo, orderBy, r.fieldOrderBy)
+		if err != nil {
+			return r, err
 		}
-		r.db = r.Joins(joins...).DB().Scopes(clause.OrderBy(r.QuoteTo, orderBy, r.Model().TableName()))
+		fmt.Println("queryqueryqueryqueryquery ", query)
+		r.db = r.Joins(joins...).DB().Order(query)
 	}
-	return r
+	return r, nil
 }
 
-func (r Repo[C]) Search(search map[string]interface{}, searchable clause.FieldSearchable) Repo[C] {
-	if len(search) > 0 {
-		joins, search := r.parseMap(search, searchable, clause.SearchCtx)
-		r.db = r.Joins(joins...).DB().Scopes(clause.SearchFilter(search, searchable))
-	}
-	return r
-}
-
-func (r Repo[C]) Where(where map[string]interface{}, searchable clause.FieldSearchable) Repo[C] {
-	if len(where) > 0 {
-		joins, where := r.parseMap(where, searchable, clause.WhereCtx)
-		r.db = r.Joins(joins...).DB().Scopes(clause.WhereFilter(where, searchable))
-	}
-	return r
-}
-
-func (r Repo[C]) parseMap(m map[string]interface{}, searchable clause.FieldSearchable, searchContext clause.SearchContext) ([]string, map[string]interface{}) {
-	joins := []string{}
-	newM := map[string]interface{}{}
-	for s, v := range m {
-		if searchable[s] != nil {
-			if searchable[s].Context == searchContext || searchable[s].Context == clause.AllCtx {
-				if strings.Index(s, ".") != -1 {
-					joins = append(joins, s[:strings.LastIndex(s, ".")])
-				}
-			}
-
-			newM[s] = v
+func (r Repo[C]) Where(where *clause.ExpressionWhere, searchable clause.FieldSearchable) (Repo[C], error) {
+	if where != nil {
+		query, args, joins, err := clause.WhereFilter(r.QuoteTo, where, searchable)
+		if err != nil {
+			return r, err
 		}
-	}
+		fmt.Println("queryqueryqueryqueryquery ", query, args)
 
-	return joins, newM
+		r.db = r.Joins(joins...).DB().Where(query, args...)
+	}
+	return r, nil
 }

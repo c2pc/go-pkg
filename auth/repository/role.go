@@ -7,7 +7,14 @@ import (
 	"gorm.io/gorm"
 )
 
-var RoleSearchable = clause.FieldSearchable{}
+var RoleSearchable = clause.FieldSearchable{
+	"id":   {`auth_roles."id"`, clause.Int, ""},
+	"name": {`auth_roles."name"`, clause.String, ""},
+}
+var RoleOrderBy = clause.FieldOrderBy{
+	"id":   {`auth_roles."id"`, ""},
+	"name": {`auth_roles."name"`, ""},
+}
 
 type IRoleRepository interface {
 	repository.Repository[IRoleRepository, model.Role]
@@ -19,7 +26,7 @@ type RoleRepository struct {
 
 func NewRoleRepository(db *gorm.DB) RoleRepository {
 	return RoleRepository{
-		Repo: repository.NewRepository[model.Role](db, RoleSearchable),
+		Repo: repository.NewRepository[model.Role](db, RoleSearchable, RoleOrderBy),
 	}
 }
 
@@ -35,11 +42,6 @@ func (r RoleRepository) With(models ...string) IRoleRepository {
 
 func (r RoleRepository) Joins(models ...string) IRoleRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r RoleRepository) OrderBy(orderBy map[string]string) IRoleRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

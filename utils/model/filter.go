@@ -1,18 +1,15 @@
 package model
 
-type OrderBy = string
-
-const (
-	OrderByAsc  OrderBy = "ASC"
-	OrderByDesc OrderBy = "DESC"
-)
+import "github.com/c2pc/go-pkg/v2/utils/clause"
 
 type Filter struct {
-	OrderBy map[string]OrderBy
+	OrderBy map[string]string
+	Where   *clause.ExpressionWhere
 }
 
-func NewFilter(orderBy map[string]OrderBy) Filter {
+func NewFilter(orderBy map[string]string, where *clause.ExpressionWhere) Filter {
 	return Filter{
 		OrderBy: orderBy,
+		Where:   where,
 	}
 }

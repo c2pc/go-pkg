@@ -63,8 +63,10 @@ type RoleListTransformer struct {
 	Exec  []interface{} `json:"exec"`
 }
 
-func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) (r []RoleListTransformer) {
+func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) []RoleListTransformer {
 	transformer.PaginationTransform(c, p)
+
+	r := make([]RoleListTransformer, 0)
 
 	for _, m := range p.Rows {
 		t := RoleListTransformer{

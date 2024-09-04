@@ -8,6 +8,7 @@ import (
 )
 
 var SettingSearchable = clause.FieldSearchable{}
+var SettingOrderBy = clause.FieldOrderBy{}
 
 type ISettingRepository interface {
 	repository.Repository[ISettingRepository, model.Setting]
@@ -19,7 +20,7 @@ type SettingRepository struct {
 
 func NewSettingRepository(db *gorm.DB) SettingRepository {
 	return SettingRepository{
-		Repo: repository.NewRepository[model.Setting](db, SettingSearchable),
+		Repo: repository.NewRepository[model.Setting](db, SettingSearchable, SettingOrderBy),
 	}
 }
 
@@ -35,11 +36,6 @@ func (r SettingRepository) With(models ...string) ISettingRepository {
 
 func (r SettingRepository) Joins(models ...string) ISettingRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r SettingRepository) OrderBy(orderBy map[string]string) ISettingRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

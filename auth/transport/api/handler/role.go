@@ -48,7 +48,7 @@ func (h *RoleHandler) List(c *gin.Context) {
 
 	m := model2.NewMeta(
 		model2.NewPagination[model.Role](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy),
+		model2.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.roleService.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)

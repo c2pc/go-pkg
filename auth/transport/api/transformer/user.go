@@ -58,8 +58,10 @@ type UserListTransformer struct {
 	Profile interface{}              `json:"profile,omitempty"`
 }
 
-func UserListTransform[Model any](c *gin.Context, p *model2.Pagination[model.User], profileTransformer profile.ITransformer[Model]) (r []UserListTransformer) {
+func UserListTransform[Model any](c *gin.Context, p *model2.Pagination[model.User], profileTransformer profile.ITransformer[Model]) []UserListTransformer {
 	transformer.PaginationTransform(c, p)
+
+	r := make([]UserListTransformer, 0)
 
 	for _, m := range p.Rows {
 		user := UserListTransformer{

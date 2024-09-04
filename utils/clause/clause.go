@@ -1,13 +1,17 @@
 package clause
 
 import (
-	"github.com/c2pc/go-pkg/v2/utils/model"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"regexp"
 	"strings"
+)
+
+const (
+	OrderByAsc  string = "ASC"
+	OrderByDesc string = "DESC"
 )
 
 func Returning(columns ...string) clause.Returning {
@@ -64,9 +68,9 @@ func OrderBy(quoteTo func(string) string, orderBy map[string]string, tableName s
 		for k, v := range orderBy {
 			key := `"` + strings.ReplaceAll(k, ".", `"."`) + `"`
 			key = quoteTo(upperModels(key))
-			order := model.OrderByAsc
-			if strings.ToUpper(v) == model.OrderByDesc {
-				order = model.OrderByDesc
+			order := OrderByAsc
+			if strings.ToUpper(v) == OrderByDesc {
+				order = OrderByDesc
 			}
 			if strings.Index(key, ".") == -1 {
 				key = tableName + "." + key

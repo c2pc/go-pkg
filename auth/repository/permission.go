@@ -8,6 +8,7 @@ import (
 )
 
 var PermissionSearchable = clause.FieldSearchable{}
+var PermissionOrderBy = clause.FieldOrderBy{}
 
 type IPermissionRepository interface {
 	repository.Repository[IPermissionRepository, model.Permission]
@@ -19,7 +20,7 @@ type PermissionRepository struct {
 
 func NewPermissionRepository(db *gorm.DB) PermissionRepository {
 	return PermissionRepository{
-		Repo: repository.NewRepository[model.Permission](db, PermissionSearchable),
+		Repo: repository.NewRepository[model.Permission](db, PermissionSearchable, PermissionOrderBy),
 	}
 }
 
@@ -35,11 +36,6 @@ func (r PermissionRepository) With(models ...string) IPermissionRepository {
 
 func (r PermissionRepository) Joins(models ...string) IPermissionRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r PermissionRepository) OrderBy(orderBy map[string]string) IPermissionRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

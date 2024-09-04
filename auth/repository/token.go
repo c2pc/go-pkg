@@ -8,6 +8,7 @@ import (
 )
 
 var TokenSearchable = clause.FieldSearchable{}
+var TokenOrderBy = clause.FieldOrderBy{}
 
 type ITokenRepository interface {
 	repository.Repository[ITokenRepository, model.RefreshToken]
@@ -19,7 +20,7 @@ type TokenRepository struct {
 
 func NewTokenRepository(db *gorm.DB) TokenRepository {
 	return TokenRepository{
-		Repo: repository.NewRepository[model.RefreshToken](db, TokenSearchable),
+		Repo: repository.NewRepository[model.RefreshToken](db, TokenSearchable, TokenOrderBy),
 	}
 }
 
@@ -35,11 +36,6 @@ func (r TokenRepository) With(models ...string) ITokenRepository {
 
 func (r TokenRepository) Joins(models ...string) ITokenRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r TokenRepository) OrderBy(orderBy map[string]string) ITokenRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

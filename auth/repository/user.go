@@ -8,7 +8,27 @@ import (
 	"gorm.io/gorm"
 )
 
-var UserSearchable = clause.FieldSearchable{}
+var userSearchable = clause.FieldSearchable{
+	"id":          {`auth_users."id"`, clause.Int, ""},
+	"login":       {`auth_users."login"`, clause.String, ""},
+	"first_name":  {`auth_users."first_name"`, clause.String, ""},
+	"second_name": {`auth_users."second_name"`, clause.String, ""},
+	"last_name":   {`auth_users."last_name"`, clause.String, ""},
+	"email":       {`auth_users."email"`, clause.String, ""},
+	"phone":       {`auth_users."phone"`, clause.String, ""},
+	"blocked":     {`auth_users."blocked"`, clause.Bool, ""},
+}
+
+var userOrderBy = clause.FieldOrderBy{
+	"id":          {`auth_users."id"`, ""},
+	"login":       {`auth_users."login"`, ""},
+	"first_name":  {`auth_users."first_name"`, ""},
+	"second_name": {`auth_users."second_name"`, ""},
+	"last_name":   {`auth_users."last_name"`, ""},
+	"email":       {`auth_users."email"`, ""},
+	"phone":       {`auth_users."phone"`, ""},
+	"blocked":     {`auth_users."blocked"`, ""},
+}
 
 type IUserRepository interface {
 	repository.Repository[IUserRepository, model.User]
@@ -21,7 +41,7 @@ type UserRepository struct {
 
 func NewUserRepository(db *gorm.DB) UserRepository {
 	return UserRepository{
-		Repo: repository.NewRepository[model.User](db, UserSearchable),
+		Repo: repository.NewRepository[model.User](db, userSearchable, userOrderBy),
 	}
 }
 
@@ -37,11 +57,6 @@ func (r UserRepository) With(models ...string) IUserRepository {
 
 func (r UserRepository) Joins(models ...string) IUserRepository {
 	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r UserRepository) OrderBy(orderBy map[string]string) IUserRepository {
-	r.Repo = r.Repo.OrderBy(orderBy)
 	return r
 }
 

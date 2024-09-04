@@ -35,4 +35,10 @@ var (
 	ErrDBRecordNotFound = translator.Translate{translator.RU: "Не найдено", translator.EN: "Not found error"}
 	ErrDBDuplicated     = translator.Translate{translator.RU: "Запись с такими данными уже добавлена", translator.EN: "Column with this data already exists"}
 	ErrDBInternal       = translator.Translate{translator.RU: "Ошибка базы данных", translator.EN: "Database internal error"}
+
+	ErrFilterUnknownOperator = translator.Translate{translator.RU: "Неизвестный оператор (%s) для столбца (%s)", translator.EN: "Unknown operator (%s) for column (%s)"}
+	ErrFilterInvalidOperator = translator.Translate{translator.RU: "Неправильный оператор (%s)", translator.EN: "Invalid operator (%s)"}
+	ErrFilterUnknownColumn   = translator.Translate{translator.RU: "Неизвестный столбец (%s)", translator.EN: "Unknown column (%s)"}
+	ErrFilterInvalidValue    = translator.Translate{translator.RU: "Неправильное значение (%s) для столбца (%s)", translator.EN: "Invalid operator (%s) for column (%s)"}
+	ErrOrderByUnknownColumn  = translator.Translate{translator.RU: "Неизвестный столбец (%s)", translator.EN: "Unknown column (%s)"}
 )
