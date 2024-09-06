@@ -2,6 +2,12 @@ package model
 
 import "sync"
 
+type MultipleCreateInput[T any] []T
+type MultipleUpdateInput struct {
+	ID int
+}
+type MultipleDeleteInput []int
+
 type IMultiple interface {
 	IDs() []int
 }
