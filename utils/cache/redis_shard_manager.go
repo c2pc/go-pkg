@@ -7,31 +7,32 @@ import (
 )
 
 const (
-	defaultBatchSize       = 50
-	defaultConcurrentLimit = 3
+	defaultBatchSize       = 50 // Default batch size for processing keys
+	defaultConcurrentLimit = 3  // Default concurrency limit for processing
 )
 
-// ShardManager is a class for sharding and processing keys
+// ShardManager управляет шардированием и обработкой ключей
 type ShardManager struct {
 	redisClient redis.UniversalClient
 	config      *RedisShardManagerConfig
 }
 
+// RedisShardManagerConfig конфигурация для ShardManager
 type RedisShardManagerConfig struct {
-	batchSize       int
-	continueOnError bool
-	concurrentLimit int
+	batchSize       int  // Размер пакета для обработки ключей
+	continueOnError bool // Продолжать ли обработку при возникновении ошибок
+	concurrentLimit int  // Лимит конкурентных операций
 }
 
-// Option is a function type for configuring Config
+// Option это функция-конфигуратор для RedisShardManagerConfig
 type Option func(c *RedisShardManagerConfig)
 
-// NewRedisShardManager creates a new RedisShardManager instance
+// NewRedisShardManager создает новый экземпляр ShardManager
 func NewRedisShardManager(redisClient redis.UniversalClient, opts ...Option) *ShardManager {
 	config := &RedisShardManagerConfig{
-		batchSize:       defaultBatchSize, // Default batch size is 50 keys
-		continueOnError: false,
-		concurrentLimit: defaultConcurrentLimit, // Default concurrent limit is 3
+		batchSize:       defaultBatchSize,       // Установка размера пакета по умолчанию
+		continueOnError: false,                  // Не продолжать обработку при ошибках по умолчанию
+		concurrentLimit: defaultConcurrentLimit, // Лимит конкурентных операций по умолчанию
 	}
 	for _, opt := range opts {
 		opt(config)
@@ -43,35 +44,35 @@ func NewRedisShardManager(redisClient redis.UniversalClient, opts ...Option) *Sh
 	return rsm
 }
 
-// WithBatchSize sets the number of keys to process per batch
+// WithBatchSize устанавливает количество ключей для обработки за раз
 func WithBatchSize(size int) Option {
 	return func(c *RedisShardManagerConfig) {
 		c.batchSize = size
 	}
 }
 
-// WithContinueOnError sets whether to continue processing on error
+// WithContinueOnError устанавливает, следует ли продолжать обработку при ошибках
 func WithContinueOnError(continueOnError bool) Option {
 	return func(c *RedisShardManagerConfig) {
 		c.continueOnError = continueOnError
 	}
 }
 
-// WithConcurrentLimit sets the concurrency limit
+// WithConcurrentLimit устанавливает лимит конкурентных операций
 func WithConcurrentLimit(limit int) Option {
 	return func(c *RedisShardManagerConfig) {
 		c.concurrentLimit = limit
 	}
 }
 
-// ProcessKeysBySlot groups keys by their Redis cluster hash slots and processes them using the provided function.
+// ProcessKeysBySlot группирует ключи по хэш-слотам Redis и обрабатывает их с использованием предоставленной функции.
 func (rsm *ShardManager) ProcessKeysBySlot(
 	ctx context.Context,
 	keys []string,
 	processFunc func(ctx context.Context, slot int64, keys []string) error,
 ) error {
 
-	// Group keys by slot
+	// Группировка ключей по слотам
 	slots, err := groupKeysBySlot(ctx, rsm.redisClient, keys)
 	if err != nil {
 		return err
@@ -80,11 +81,11 @@ func (rsm *ShardManager) ProcessKeysBySlot(
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(rsm.config.concurrentLimit)
 
-	// Process keys in each slot using the provided function
+	// Обработка ключей в каждом слоте с использованием предоставленной функции
 	for slot, singleSlotKeys := range slots {
 		batches := splitIntoBatches(singleSlotKeys, rsm.config.batchSize)
 		for _, batch := range batches {
-			slot, batch := slot, batch // Avoid closure capture issue
+			slot, batch := slot, batch // Избежание захвата переменных в замыкание
 			g.Go(func() error {
 				err := processFunc(ctx, slot, batch)
 				if err != nil {
@@ -103,7 +104,7 @@ func (rsm *ShardManager) ProcessKeysBySlot(
 	return nil
 }
 
-// groupKeysBySlot groups keys by their Redis cluster hash slots.
+// groupKeysBySlot группирует ключи по хэш-слотам Redis.
 func groupKeysBySlot(ctx context.Context, redisClient redis.UniversalClient, keys []string) (map[int64][]string, error) {
 	slots := make(map[int64][]string)
 	clusterClient, isCluster := redisClient.(*redis.ClusterClient)
@@ -126,14 +127,14 @@ func groupKeysBySlot(ctx context.Context, redisClient redis.UniversalClient, key
 			slots[slot] = append(slots[slot], keys[i])
 		}
 	} else {
-		// If not a cluster client, put all keys in the same slot (0)
+		// Если это не кластерный клиент, все ключи помещаются в один слот (0)
 		slots[0] = keys
 	}
 
 	return slots, nil
 }
 
-// splitIntoBatches splits keys into batches of the specified size
+// splitIntoBatches делит ключи на пакеты заданного размера
 func splitIntoBatches(keys []string, batchSize int) [][]string {
 	var batches [][]string
 	for batchSize < len(keys) {
@@ -142,7 +143,7 @@ func splitIntoBatches(keys []string, batchSize int) [][]string {
 	return append(batches, keys)
 }
 
-// ProcessKeysBySlot groups keys by their Redis cluster hash slots and processes them using the provided function.
+// ProcessKeysBySlot группирует ключи по хэш-слотам Redis и обрабатывает их с использованием предоставленной функции.
 func ProcessKeysBySlot(
 	ctx context.Context,
 	redisClient redis.UniversalClient,
@@ -160,7 +161,7 @@ func ProcessKeysBySlot(
 		opt(config)
 	}
 
-	// Group keys by slot
+	// Группировка ключей по слотам
 	slots, err := groupKeysBySlot(ctx, redisClient, keys)
 	if err != nil {
 		return err
@@ -169,11 +170,11 @@ func ProcessKeysBySlot(
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(config.concurrentLimit)
 
-	// Process keys in each slot using the provided function
+	// Обработка ключей в каждом слоте с использованием предоставленной функции
 	for slot, singleSlotKeys := range slots {
 		batches := splitIntoBatches(singleSlotKeys, config.batchSize)
 		for _, batch := range batches {
-			slot, batch := slot, batch // Avoid closure capture issue
+			slot, batch := slot, batch // Избежание захвата переменных в замыкание
 			g.Go(func() error {
 				err := processFunc(ctx, slot, batch)
 				if err != nil {

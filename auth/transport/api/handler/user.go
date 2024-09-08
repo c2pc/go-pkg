@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/c2pc/go-pkg/v2/auth/model"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/auth/service"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/transformer"
@@ -14,28 +13,22 @@ import (
 	"net/http"
 )
 
-type UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
-	userService        service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
-	tr                 mw.ITransaction
-	profileTransformer profile.ITransformer[Model]
-	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
+type UserHandler struct {
+	userService service.IUserService
+	tr          mw.ITransaction
 }
 
-func NewUserHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput any](
-	userService service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput],
+func NewUserHandlers(
+	userService service.IUserService,
 	tr mw.ITransaction,
-	profileTransformer profile.ITransformer[Model],
-	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
-) *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	return &UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
+) *UserHandler {
+	return &UserHandler{
 		userService,
 		tr,
-		profileTransformer,
-		profileRequest,
 	}
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api *gin.RouterGroup) {
+func (h *UserHandler) Init(api *gin.RouterGroup) {
 	user := api.Group("users")
 	{
 		user.GET("", h.List)
@@ -46,7 +39,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(
 	}
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c *gin.Context) {
+func (h *UserHandler) List(c *gin.Context) {
 	cred, err := request2.Meta(c)
 	if err != nil {
 		response.Response(c, err)
@@ -62,10 +55,10 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(
 		return
 	}
 
-	c.JSON(http.StatusOK, transformer.UserListTransform(c, m.Pagination, h.profileTransformer))
+	c.JSON(http.StatusOK, transformer.UserListTransform(c, m.Pagination))
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetById(c *gin.Context) {
+func (h *UserHandler) GetById(c *gin.Context) {
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
@@ -78,23 +71,14 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetBy
 		return
 	}
 
-	c.JSON(http.StatusOK, transformer.UserTransform(data, h.profileTransformer))
+	c.JSON(http.StatusOK, transformer.UserTransform(data))
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(c *gin.Context) {
+func (h *UserHandler) Create(c *gin.Context) {
 	cred, err := request2.BindJSON[request.UserCreateRequest](c)
 	if err != nil {
 		response.Response(c, err)
 		return
-	}
-
-	var profileCred *CreateInput
-	if h.profileRequest != nil {
-		profileCred, err = h.profileRequest.CreateRequest(c)
-		if err != nil {
-			response.Response(c, err)
-			return
-		}
 	}
 
 	user, err := h.userService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), service.UserCreateInput{
@@ -106,16 +90,16 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Creat
 		Email:      cred.Email,
 		Phone:      cred.Phone,
 		Roles:      cred.Roles,
-	}, profileCred)
+	})
 	if err != nil {
 		response.Response(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, transformer.UserTransform(user, h.profileTransformer))
+	c.JSON(http.StatusCreated, transformer.UserTransform(user))
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(c *gin.Context) {
+func (h *UserHandler) Update(c *gin.Context) {
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
@@ -128,15 +112,6 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 		return
 	}
 
-	var profileCred *UpdateInput
-	if h.profileRequest != nil {
-		profileCred, err = h.profileRequest.UpdateRequest(c)
-		if err != nil {
-			response.Response(c, err)
-			return
-		}
-	}
-
 	if err := h.userService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, service.UserUpdateInput{
 		Login:      cred.Login,
 		FirstName:  cred.FirstName,
@@ -146,7 +121,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 		Email:      cred.Email,
 		Phone:      cred.Phone,
 		Roles:      cred.Roles,
-	}, profileCred); err != nil {
+	}); err != nil {
 		response.Response(c, err)
 		return
 	}
@@ -154,7 +129,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 	c.Status(http.StatusOK)
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Delete(c *gin.Context) {
+func (h *UserHandler) Delete(c *gin.Context) {
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)

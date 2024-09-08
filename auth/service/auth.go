@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/model"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
@@ -20,17 +18,16 @@ import (
 	"time"
 )
 
-type IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
-	Trx(db *gorm.DB) IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+type IAuthService interface {
+	Trx(db *gorm.DB) IAuthService
 	Login(ctx context.Context, input AuthLogin) (*model.AuthToken, error)
 	Refresh(ctx context.Context, input AuthRefresh) (*model.AuthToken, error)
 	Logout(ctx context.Context, input AuthLogout) error
 	Account(ctx context.Context) (*model.User, error)
-	UpdateAccountData(ctx context.Context, input AuthUpdateAccountData, profileInput *UpdateProfileInput) error
+	UpdateAccountData(ctx context.Context, input AuthUpdateAccountData) error
 }
 
-type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
-	profileService  profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+type AuthService struct {
 	userRepository  repository.IUserRepository
 	tokenRepository repository.ITokenRepository
 	tokenCache      cache.ITokenCache
@@ -42,8 +39,7 @@ type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct
 	db              *gorm.DB
 }
 
-func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
-	profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput],
+func NewAuthService(
 	userRepository repository.IUserRepository,
 	tokenRepository repository.ITokenRepository,
 	tokenCache cache.ITokenCache,
@@ -52,9 +48,8 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 	accessExpire time.Duration,
 	refreshExpire time.Duration,
 	accessSecret string,
-) AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	return AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]{
-		profileService:  profileService,
+) AuthService {
+	return AuthService{
 		userRepository:  userRepository,
 		tokenRepository: tokenRepository,
 		tokenCache:      tokenCache,
@@ -66,7 +61,7 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 	}
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
+func (s AuthService) Trx(db *gorm.DB) IAuthService {
 	s.userRepository = s.userRepository.Trx(db)
 	s.tokenRepository = s.tokenRepository.Trx(db)
 	s.db = db
@@ -79,7 +74,7 @@ type AuthLogin struct {
 	DeviceID int
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(ctx context.Context, input AuthLogin) (*model.AuthToken, error) {
+func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model.AuthToken, error) {
 	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -101,7 +96,7 @@ type AuthRefresh struct {
 	DeviceID int
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refresh(ctx context.Context, input AuthRefresh) (*model.AuthToken, error) {
+func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model.AuthToken, error) {
 	token, err := s.tokenRepository.Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -118,7 +113,7 @@ type AuthLogout struct {
 	Token string
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Logout(ctx context.Context, input AuthLogout) error {
+func (s AuthService) Logout(ctx context.Context, input AuthLogout) error {
 	claims, err := tokenverify.GetClaimFromToken(input.Token, tokenverify.Secret(s.accessSecret))
 	if err != nil {
 		return apperr.ErrUnauthenticated.WithErrorText("invalid token")
@@ -127,7 +122,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Logout
 	return s.clearSession(ctx, claims.UserID, claims.DeviceID)
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Account(ctx context.Context) (*model.User, error) {
+func (s AuthService) Account(ctx context.Context) (*model.User, error) {
 	userID, ok := mcontext.GetOpUserID(ctx)
 	if !ok {
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -139,30 +134,10 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Accoun
 			return nil, err
 		}
 
-		var prof *Model
-		if s.profileService != nil {
-			prof, err = s.profileService.GetById(ctx, userID)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		user.Profile = prof
-
 		return user, nil
 	})
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
-	}
-
-	if user.Profile != nil {
-		var mp Model
-		jsonData, _ := json.Marshal(user.Profile)
-		err = json.Unmarshal(jsonData, &mp)
-		if err != nil {
-			return nil, err
-		}
-		user.Profile = &mp
 	}
 
 	return user, nil
@@ -178,7 +153,7 @@ type AuthUpdateAccountData struct {
 	Phone      *string
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateAccountData(ctx context.Context, input AuthUpdateAccountData, profileInput *UpdateProfileInput) error {
+func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAccountData) error {
 	userID, ok := mcontext.GetOpUserID(ctx)
 	if !ok {
 		return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -248,14 +223,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 		}
 	}
 
-	if s.profileService != nil && profileInput != nil {
-		err := s.profileService.Trx(s.db).UpdateProfile(ctx, userID, *profileInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(selects) > 0 || (s.profileService != nil && profileInput != nil) {
+	if len(selects) > 0 {
 		if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
 			return apperr.ErrInternal.WithError(err)
 		}
@@ -264,7 +232,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 	return nil
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) createSession(ctx context.Context, userID int, deviceID int) (*model.AuthToken, error) {
+func (s AuthService) createSession(ctx context.Context, userID int, deviceID int) (*model.AuthToken, error) {
 	claims := tokenverify.BuildClaims(userID, deviceID, s.accessExpire)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.accessSecret))
@@ -318,16 +286,6 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 			return nil, err
 		}
 
-		var prof *Model
-		if s.profileService != nil {
-			prof, err = s.profileService.GetById(ctx, userID)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		user.Profile = prof
-
 		return user, nil
 	})
 	if err != nil {
@@ -346,7 +304,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	}, nil
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) clearSession(ctx context.Context, userID, deviceID int) error {
+func (s AuthService) clearSession(ctx context.Context, userID, deviceID int) error {
 	if err := s.tokenRepository.Delete(ctx, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
 		if !apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return apperr.ErrUnauthenticated.WithError(err)

@@ -2,6 +2,10 @@ package translator
 
 import "fmt"
 
+type Translator interface {
+	Translate(acceptLang string, args ...any) string
+}
+
 type Language string
 
 const (

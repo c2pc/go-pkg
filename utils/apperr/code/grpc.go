@@ -4,6 +4,7 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+// GrpcToCode преобразует коды ошибок gRPC в коды ошибок вашего приложения.
 func GrpcToCode(c codes.Code) Code {
 	switch c {
 	case codes.Canceled:
@@ -39,6 +40,6 @@ func GrpcToCode(c codes.Code) Code {
 	case codes.Unauthenticated:
 		return Unauthenticated
 	default:
-		return GrpcToCode(codes.Unknown)
+		return Unknown // Возвращаем Unknown вместо рекурсии
 	}
 }

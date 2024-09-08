@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"github.com/c2pc/go-pkg/v2/auth"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	config2 "github.com/c2pc/go-pkg/v2/example/config"
 	database2 "github.com/c2pc/go-pkg/v2/example/database"
 	"github.com/c2pc/go-pkg/v2/example/model"
-	profile2 "github.com/c2pc/go-pkg/v2/example/profile"
 	"github.com/c2pc/go-pkg/v2/example/transport/rest"
 	restHandler "github.com/c2pc/go-pkg/v2/example/transport/rest/handler"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
@@ -78,9 +76,7 @@ func main() {
 
 	trx := mw.NewTransaction(db)
 
-	profileRepo := profile2.NewProfileRepository(db)
-
-	authService, err := auth.New[profile2.Profile, profile2.ProfileCreateInput, profile2.ProfileUpdateInput, profile2.ProfileUpdateProfileInput](auth.Config{
+	authService, err := auth.New(auth.Config{
 		Debug:         configs.APP.Debug,
 		DB:            db,
 		Rdb:           rdb,
@@ -90,10 +86,6 @@ func main() {
 		RefreshExpire: time.Duration(configs.AUTH.RefreshTokenTTL) * time.Minute,
 		AccessSecret:  configs.AUTH.Key,
 		Permissions:   model.Permissions,
-	}, &profile.Profile[profile2.Profile, profile2.ProfileCreateInput, profile2.ProfileUpdateInput, profile2.ProfileUpdateProfileInput]{
-		Service:     profile2.NewService[profile2.Profile, profile2.ProfileCreateInput, profile2.ProfileUpdateInput](profileRepo),
-		Request:     profile2.NewRequest[profile2.ProfileCreateInput, profile2.ProfileUpdateInput, profile2.ProfileUpdateProfileInput](),
-		Transformer: profile2.NewTransformer[profile2.Profile](),
 	})
 	if err != nil {
 		logger.Fatalf("[AUTH] %s", err.Error())
@@ -101,7 +93,7 @@ func main() {
 	}
 
 	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
-	if err := database2.SeedersRun(ctx, db, profileRepo, authService.GetAdminID()); err != nil {
+	if err := database2.SeedersRun(ctx, db, authService.GetAdminID()); err != nil {
 		logger.Fatalf("[DB] %s", err.Error())
 		return
 	}

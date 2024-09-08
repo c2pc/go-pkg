@@ -3,14 +3,12 @@ package database
 import (
 	"context"
 	"database/sql"
-	"github.com/c2pc/go-pkg/v2/example/database/seeders"
-	"github.com/c2pc/go-pkg/v2/example/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"gorm.io/gorm"
 )
 
-func SeedersRun(ctx context.Context, db *gorm.DB, profileRepository profile.IRepository, adminID int) error {
+func SeedersRun(ctx context.Context, db *gorm.DB, adminID int) error {
 	txHandle := db.Session(&gorm.Session{NewDB: true}).WithContext(ctx).Begin(&sql.TxOptions{})
 
 	defer func() {
@@ -22,10 +20,6 @@ func SeedersRun(ctx context.Context, db *gorm.DB, profileRepository profile.IRep
 	}()
 
 	err := func() error {
-		_, err := seeders.ProfileSeeder(ctx, profileRepository.Trx(txHandle), adminID)
-		if err != nil {
-			return err
-		}
 
 		return nil
 	}()

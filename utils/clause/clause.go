@@ -6,14 +6,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"regexp"
-	"strings"
 )
 
-const (
-	OrderByAsc  string = "ASC"
-	OrderByDesc string = "DESC"
-)
-
+// Returning создает конструкцию для возврата указанных столбцов после выполнения операции
 func Returning(columns ...string) clause.Returning {
 	var returningColumns []clause.Column
 	for _, c := range columns {
@@ -25,25 +20,30 @@ func Returning(columns ...string) clause.Returning {
 	return clause.Returning{Columns: returningColumns}
 }
 
+// Where создает функцию-замыкание для добавления условия WHERE в запрос GORM
 func Where(quoteTo func(string) string, query string, args ...interface{}) func(tx *gorm.DB) *gorm.DB {
 	return func(tx *gorm.DB) *gorm.DB {
 		if query == "" {
 			return tx
 		}
+		// Применяем условие WHERE с указанным запросом и аргументами
 		return tx.Where(quoteTo(upperModels(query)), args...)
 	}
 }
 
+// OnConflict создает конструкцию для обработки конфликтов в запросах GORM
 func OnConflict(onConflict []interface{}, doUpdates []interface{}) clause.OnConflict {
 	var clmns []clause.Column
 	var upds []string
 
+	// Добавляем столбцы, по которым нужно проверять конфликты
 	for _, col := range onConflict {
 		if v, ok := col.(string); ok {
 			clmns = append(clmns, clause.Column{Name: v})
 		}
 	}
 
+	// Добавляем столбцы и значения, которые нужно обновить при конфликте
 	for _, upd := range doUpdates {
 		if v, ok := upd.(string); ok {
 			upds = append(upds, v)
@@ -56,6 +56,7 @@ func OnConflict(onConflict []interface{}, doUpdates []interface{}) clause.OnConf
 	}
 }
 
+// upperModels преобразует модель в формат заголовка, используя TitleCase
 func upperModels(model string) string {
 	reg := regexp.MustCompile(`"(.)[a-zA-Z]*"[^ ]`)
 	return reg.ReplaceAllStringFunc(model, func(w string) string {
@@ -63,24 +64,7 @@ func upperModels(model string) string {
 	})
 }
 
-func OrderBy(quoteTo func(string) string, orderBy map[string]string, tableName string) func(tx *gorm.DB) *gorm.DB {
-	return func(tx *gorm.DB) *gorm.DB {
-		for k, v := range orderBy {
-			key := `"` + strings.ReplaceAll(k, ".", `"."`) + `"`
-			key = quoteTo(upperModels(key))
-			order := OrderByAsc
-			if strings.ToUpper(v) == OrderByDesc {
-				order = OrderByDesc
-			}
-			if strings.Index(key, ".") == -1 {
-				key = tableName + "." + key
-			}
-			tx = tx.Order(key + " " + order)
-		}
-		return tx
-	}
-}
-
+// Limit создает функцию-замыкание для ограничения количества записей и смещения
 func Limit(limit, offset int) func(tx *gorm.DB) *gorm.DB {
 	return func(tx *gorm.DB) *gorm.DB {
 		if limit > 0 {

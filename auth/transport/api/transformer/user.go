@@ -2,7 +2,6 @@ package transformer
 
 import (
 	"github.com/c2pc/go-pkg/v2/auth/model"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
@@ -18,11 +17,10 @@ type UserTransformer struct {
 	Phone      *string `json:"phone"`
 	Blocked    bool    `json:"blocked"`
 
-	Roles   []*SimpleRoleTransformer `json:"roles"`
-	Profile interface{}              `json:"profile,omitempty"`
+	Roles []*SimpleRoleTransformer `json:"roles"`
 }
 
-func UserTransform[Model any](m *model.User, profileTransformer profile.ITransformer[Model]) *UserTransformer {
+func UserTransform(m *model.User) *UserTransformer {
 	r := &UserTransformer{
 		ID:         m.ID,
 		Login:      m.Login,
@@ -33,12 +31,6 @@ func UserTransform[Model any](m *model.User, profileTransformer profile.ITransfo
 		Phone:      m.Phone,
 		Blocked:    m.Blocked,
 		Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
-	}
-
-	if profileTransformer != nil && m.Profile != nil {
-		if prof, ok := m.Profile.(*Model); ok {
-			r.Profile = profileTransformer.TransformProfile(prof)
-		}
 	}
 
 	return r
@@ -54,11 +46,10 @@ type UserListTransformer struct {
 	Phone      *string `json:"phone"`
 	Blocked    bool    `json:"blocked"`
 
-	Roles   []*SimpleRoleTransformer `json:"roles"`
-	Profile interface{}              `json:"profile,omitempty"`
+	Roles []*SimpleRoleTransformer `json:"roles"`
 }
 
-func UserListTransform[Model any](c *gin.Context, p *model2.Pagination[model.User], profileTransformer profile.ITransformer[Model]) []UserListTransformer {
+func UserListTransform(c *gin.Context, p *model2.Pagination[model.User]) []UserListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]UserListTransformer, 0)
@@ -74,12 +65,6 @@ func UserListTransform[Model any](c *gin.Context, p *model2.Pagination[model.Use
 			Phone:      m.Phone,
 			Blocked:    m.Blocked,
 			Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
-		}
-
-		if profileTransformer != nil && m.Profile != nil {
-			if prof, ok := m.Profile.(*Model); ok {
-				user.Profile = profileTransformer.TransformProfile(prof)
-			}
 		}
 
 		r = append(r, user)

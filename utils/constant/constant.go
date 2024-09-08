@@ -1,23 +1,24 @@
 package constant
 
-const ()
-
+// Константы для заголовков
 const (
-	OperationID = "X-Operation-Id"
-	TxValue     = "dbTx"
-	OpUserID    = "opUserID"
-	OpDeviceID  = "opDeviceID"
+	OperationID = "X-Operation-Id" // Заголовок HTTP для отслеживания операций
+	TxValue     = "dbTx"           // Ключ контекста для базы данных
+	OpUserID    = "opUserID"       // Ключ контекста для идентификатора пользователя операции
+	OpDeviceID  = "opDeviceID"     // Ключ контекста для идентификатора устройства операции
 )
 
+// Константы для идентификаторов
 const (
-	APP_ID   = "APP"
-	DB_ID    = "DB"
-	REDIS_ID = "REDIS"
+	APP_ID   = "APP"   // Идентификатор приложения
+	DB_ID    = "DB"    // Идентификатор базы данных
+	REDIS_ID = "REDIS" // Идентификатор Redis
 )
 
+// Код состояния токена
 const (
-	NormalToken  = 0
-	InValidToken = 1
-	KickedToken  = 2
-	ExpiredToken = 3
+	NormalToken  = 0 // Токен действителен и нормален
+	InValidToken = 1 // Токен недействителен
+	KickedToken  = 2 // Токен был аннулирован
+	ExpiredToken = 3 // Токен просрочен
 )

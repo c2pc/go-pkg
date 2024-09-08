@@ -5,7 +5,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/database"
 	model2 "github.com/c2pc/go-pkg/v2/auth/model"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/auth/service"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/handler"
@@ -42,7 +41,7 @@ type Config struct {
 	Permissions   []model.Permission
 }
 
-func New[Model, CreateInput, UpdateInput, UpdateProfileInput any](cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
+func New(cfg Config) (IAuth, error) {
 	model2.SetPermissions(cfg.Permissions)
 	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
 
@@ -59,42 +58,15 @@ func New[Model, CreateInput, UpdateInput, UpdateProfileInput any](cfg Config, pr
 	userCache := cache.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
 	permissionCache := cache.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
 
-	var profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
-	if prof != nil {
-		profileService = prof.Service
-	} else {
-		profileService = nil
-	}
-
-	var profileTransformer profile.ITransformer[Model]
-	if prof != nil {
-		profileTransformer = prof.Transformer
-	} else {
-		profileTransformer = nil
-	}
-
-	var profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
-	if prof != nil {
-		profileRequest = prof.Request
-	} else {
-		profileRequest = nil
-	}
-
-	if profileService == nil || profileTransformer == nil || profileRequest == nil {
-		profileService = nil
-		profileTransformer = nil
-		profileRequest = nil
-	}
-
-	authService := service.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
+	authService := service.NewAuthService(repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
 	permissionService := service.NewPermissionService(repositories.PermissionRepository, permissionCache)
 	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
-	userService := service.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
+	userService := service.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
 	settingService := service.NewSettingService(repositories.SettingRepository)
 
 	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
 	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
-	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](authService, permissionService, roleService, userService, settingService, cfg.Transaction, tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest)
+	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, settingService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
 
 	return Auth{
 		handler:              handlers,

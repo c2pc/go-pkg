@@ -4,6 +4,7 @@ import (
 	"net/http"
 )
 
+// HttpToCode преобразует коды ошибок HTTP в коды ошибок вашего приложения.
 func HttpToCode(c int) Code {
 	switch c {
 	case 499:
@@ -29,6 +30,6 @@ func HttpToCode(c int) Code {
 	case http.StatusUnauthorized:
 		return Unauthenticated
 	default:
-		return HttpToCode(http.StatusInternalServerError)
+		return Internal // Возвращаем Internal для неизвестных кодов
 	}
 }

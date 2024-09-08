@@ -1,17 +1,3 @@
-// Copyright © 2023 OpenIM. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package cache
 
 import (
@@ -26,25 +12,26 @@ import (
 	"time"
 )
 
+// BatchDeleter интерфейс для выполнения пакетного удаления ключей из кэша
 type BatchDeleter interface {
-	//ChainExecDel method is used for chain calls and must call Clone to prevent memory pollution.
+	// ChainExecDel метод используется для цепочечных вызовов и должен вызывать Clone для предотвращения загрязнения памяти.
 	ChainExecDel(ctx context.Context) error
-	//ExecDelWithKeys method directly takes keys for deletion.
+	// ExecDelWithKeys метод принимает ключи для удаления.
 	ExecDelWithKeys(ctx context.Context, keys []string) error
-	//Clone method creates a copy of the BatchDeleter to avoid modifying the original object.
+	// Clone метод создает копию BatchDeleter, чтобы избежать модификации исходного объекта.
 	Clone() BatchDeleter
-	//AddKeys method adds keys to be deleted.
+	// AddKeys метод добавляет ключи для удаления.
 	AddKeys(keys ...string)
 }
 
-// BatchDeleterRedis is a concrete implementation of the BatchDeleter interface based on Redis and RocksCache.
+// BatchDeleterRedis конкретная реализация интерфейса BatchDeleter, основанная на Redis и RocksCache.
 type BatchDeleterRedis struct {
 	redisClient redis.UniversalClient
 	keys        []string
 	rocksClient *rockscache.Client
 }
 
-// NewBatchDeleterRedis creates a new BatchDeleterRedis instance.
+// NewBatchDeleterRedis создает новый экземпляр BatchDeleterRedis.
 func NewBatchDeleterRedis(redisClient redis.UniversalClient, options rockscache.Options) *BatchDeleterRedis {
 	return &BatchDeleterRedis{
 		redisClient: redisClient,
@@ -52,22 +39,24 @@ func NewBatchDeleterRedis(redisClient redis.UniversalClient, options rockscache.
 	}
 }
 
-// ExecDelWithKeys directly takes keys for batch deletion and publishes deletion information.
+// ExecDelWithKeys напрямую принимает ключи для пакетного удаления и публикует информацию об удалении.
 func (c *BatchDeleterRedis) ExecDelWithKeys(ctx context.Context, keys []string) error {
+	// Убираем дубликаты из ключей
 	distinctKeys := datautil.Distinct(keys)
 	return c.execDel(ctx, distinctKeys)
 }
 
-// ChainExecDel is used for chain calls for batch deletion. It must call Clone to prevent memory pollution.
+// ChainExecDel используется для цепочечных вызовов для пакетного удаления. Необходимо вызвать Clone для предотвращения загрязнения памяти.
 func (c *BatchDeleterRedis) ChainExecDel(ctx context.Context) error {
+	// Убираем дубликаты из ключей
 	distinctKeys := datautil.Distinct(c.keys)
 	return c.execDel(ctx, distinctKeys)
 }
 
-// execDel performs batch deletion and publishes the keys that have been deleted to update the local cache information of other nodes.
+// execDel выполняет пакетное удаление и публикует удаленные ключи для обновления информации о локальном кэше других узлов.
 func (c *BatchDeleterRedis) execDel(ctx context.Context, keys []string) error {
 	if len(keys) > 0 {
-		// Batch delete keys
+		// Пакетное удаление ключей
 		err := ProcessKeysBySlot(ctx, c.redisClient, keys, func(ctx context.Context, slot int64, keys []string) error {
 			return c.rocksClient.TagAsDeletedBatch2(ctx, keys)
 		})
@@ -78,7 +67,7 @@ func (c *BatchDeleterRedis) execDel(ctx context.Context, keys []string) error {
 	return nil
 }
 
-// Clone creates a copy of BatchDeleterRedis for chain calls to prevent memory pollution.
+// Clone создает копию BatchDeleterRedis для цепочечных вызовов, чтобы предотвратить загрязнение памяти.
 func (c *BatchDeleterRedis) Clone() BatchDeleter {
 	return &BatchDeleterRedis{
 		redisClient: c.redisClient,
@@ -87,12 +76,12 @@ func (c *BatchDeleterRedis) Clone() BatchDeleter {
 	}
 }
 
-// AddKeys adds keys to be deleted.
+// AddKeys добавляет ключи для удаления.
 func (c *BatchDeleterRedis) AddKeys(keys ...string) {
 	c.keys = append(c.keys, keys...)
 }
 
-// GetRocksCacheOptions returns the default configuration options for RocksCache.
+// GetRocksCacheOptions возвращает конфигурационные опции по умолчанию для RocksCache.
 func GetRocksCacheOptions() rockscache.Options {
 	opts := rockscache.NewDefaultOptions()
 	opts.StrongConsistency = true
@@ -101,9 +90,11 @@ func GetRocksCacheOptions() rockscache.Options {
 	return opts
 }
 
+// GetCache получает данные из кэша RocksCache или вызывает функцию для получения данных, если их нет в кэше.
 func GetCache[T any](ctx context.Context, rcClient *rockscache.Client, key string, expire time.Duration, fn func(ctx context.Context) (T, error)) (T, error) {
 	var t T
 	var write bool
+	// Пытаемся получить данные из кэша
 	v, err := rcClient.Fetch2(ctx, key, expire, func() (s string, err error) {
 		t, err = fn(ctx)
 		if err != nil {
@@ -114,7 +105,6 @@ func GetCache[T any](ctx context.Context, rcClient *rockscache.Client, key strin
 			return "", err
 		}
 		write = true
-
 		return string(bs), nil
 	})
 	if err != nil {
@@ -134,6 +124,7 @@ func GetCache[T any](ctx context.Context, rcClient *rockscache.Client, key strin
 	return t, nil
 }
 
+// BatchGetCache получает данные из кэша RocksCache для нескольких ключей или вызывает функцию для получения данных, если их нет в кэше.
 func BatchGetCache[T any, K comparable](
 	ctx context.Context,
 	rcClient *rockscache.Client,

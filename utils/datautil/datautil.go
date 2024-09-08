@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-// SliceSub returns elements in slice a that are not present in slice b (a - b).
+// SliceSub возвращает элементы в срезе a, которые отсутствуют в срезе b (a - b).
 func SliceSub[E comparable](a, b []E) []E {
 	if len(b) == 0 {
 		return a
@@ -34,14 +34,14 @@ func SliceSub[E comparable](a, b []E) []E {
 	return rs
 }
 
-// SliceSubAny returns elements in slice a that are not present in slice b (a - b).
-// fn is a function that converts elements of slice b to elements comparable with those in slice a.
+// SliceSubAny возвращает элементы в срезе a, которые отсутствуют в срезе b (a - b).
+// fn - функция, которая конвертирует элементы среза b в элементы, сравнимые с элементами среза a.
 func SliceSubAny[E comparable, T any](a []E, b []T, fn func(t T) E) []E {
 	return SliceSub(a, Slice(b, fn))
 }
 
-// SliceAnySub returns elements in slice a that are not present in slice b (a - b).
-// fn is a function that extracts a comparable value from elements of slice a.
+// SliceAnySub возвращает элементы в срезе a, которые отсутствуют в срезе b (a - b).
+// fn - функция, которая извлекает сравнимое значение из элементов среза a.
 func SliceAnySub[E any, T comparable](a, b []E, fn func(t E) T) []E {
 	m := make(map[T]E)
 	for i := 0; i < len(b); i++ {
@@ -58,7 +58,7 @@ func SliceAnySub[E any, T comparable](a, b []E, fn func(t E) T) []E {
 	return es
 }
 
-// DistinctAny duplicate removal.
+// DistinctAny удаляет дубликаты из среза.
 func DistinctAny[E any, K comparable](es []E, fn func(e E) K) []E {
 	v := make([]E, 0, len(es))
 	tmp := map[K]struct{}{}
@@ -73,6 +73,7 @@ func DistinctAny[E any, K comparable](es []E, fn func(e E) K) []E {
 	return v
 }
 
+// DistinctAnyGetComparable возвращает уникальные значения из среза на основе функции fn.
 func DistinctAnyGetComparable[E any, K comparable](es []E, fn func(e E) K) []K {
 	v := make([]K, 0, len(es))
 	tmp := map[K]struct{}{}
@@ -87,6 +88,7 @@ func DistinctAnyGetComparable[E any, K comparable](es []E, fn func(e E) K) []K {
 	return v
 }
 
+// Distinct удаляет дубликаты из среза.
 func Distinct[T comparable](ts []T) []T {
 	if len(ts) < 2 {
 		return ts
@@ -102,7 +104,7 @@ func Distinct[T comparable](ts []T) []T {
 	})
 }
 
-// Delete Delete slice elements, support negative number to delete the reciprocal number
+// Delete удаляет элементы из среза, поддерживает отрицательные числа для удаления элементов с конца.
 func Delete[E any](es []E, index ...int) []E {
 	switch len(index) {
 	case 0:
@@ -134,14 +136,14 @@ func Delete[E any](es []E, index ...int) []E {
 	}
 }
 
-// DeleteAt Delete slice elements, support negative number to delete the reciprocal number
+// DeleteAt удаляет элементы из среза, поддерживает отрицательные числа для удаления элемента с конца.
 func DeleteAt[E any](es *[]E, index ...int) []E {
 	v := Delete(*es, index...)
 	*es = v
 	return v
 }
 
-// IndexAny get the index of the element
+// IndexAny получает индекс элемента в срезе по сравнению с fn.
 func IndexAny[E any, K comparable](e E, es []E, fn func(e E) K) int {
 	k := fn(e)
 	for i := 0; i < len(es); i++ {
@@ -152,19 +154,19 @@ func IndexAny[E any, K comparable](e E, es []E, fn func(e E) K) int {
 	return -1
 }
 
-// IndexOf get the index of the element
+// IndexOf получает индекс элемента в срезе es.
 func IndexOf[E comparable](e E, es ...E) int {
 	return IndexAny(e, es, func(t E) E {
 		return t
 	})
 }
 
-// Contain Whether to include
+// Contain проверяет, содержится ли элемент в срезе.
 func Contain[E comparable](e E, es ...E) bool {
 	return IndexOf(e, es...) >= 0
 }
 
-// DuplicateAny Whether there are duplicates
+// DuplicateAny проверяет, есть ли дубликаты через fn.
 func DuplicateAny[E any, K comparable](es []E, fn func(e E) K) bool {
 	t := make(map[K]struct{})
 	for _, e := range es {
@@ -177,14 +179,14 @@ func DuplicateAny[E any, K comparable](es []E, fn func(e E) K) bool {
 	return false
 }
 
-// Duplicate Whether there are duplicates
+// Duplicate проверяет, есть ли дубликаты в срезе.
 func Duplicate[E comparable](es []E) bool {
 	return DuplicateAny(es, func(e E) E {
 		return e
 	})
 }
 
-// SliceToMapOkAny slice to map (Custom type, filter)
+// SliceToMapOkAny преобразует срез в мапу.
 func SliceToMapOkAny[E any, K comparable, V any](es []E, fn func(e E) (K, V, bool)) map[K]V {
 	kv := make(map[K]V)
 	for i := 0; i < len(es); i++ {
@@ -196,7 +198,7 @@ func SliceToMapOkAny[E any, K comparable, V any](es []E, fn func(e E) (K, V, boo
 	return kv
 }
 
-// SliceToMapAny slice to map (Custom type)
+// SliceToMapAny преобразует срез в мапу.
 func SliceToMapAny[E any, K comparable, V any](es []E, fn func(e E) (K, V)) map[K]V {
 	return SliceToMapOkAny(es, func(e E) (K, V, bool) {
 		k, v := fn(e)
@@ -204,7 +206,7 @@ func SliceToMapAny[E any, K comparable, V any](es []E, fn func(e E) (K, V)) map[
 	})
 }
 
-// SliceToMap slice to map
+// SliceToMap преобразует срез в мапу.
 func SliceToMap[E any, K comparable](es []E, fn func(e E) K) map[K]E {
 	return SliceToMapOkAny(es, func(e E) (K, E, bool) {
 		k := fn(e)
@@ -212,13 +214,14 @@ func SliceToMap[E any, K comparable](es []E, fn func(e E) K) map[K]E {
 	})
 }
 
-// SliceSetAny slice to map[K]struct{}
+// SliceSetAny преобразует срез в мапу[K]struct{}.
 func SliceSetAny[E any, K comparable](es []E, fn func(e E) K) map[K]struct{} {
 	return SliceToMapAny(es, func(e E) (K, struct{}) {
 		return fn(e), struct{}{}
 	})
 }
 
+// Filter фильтрует элементы с помощью заданной функции.
 func Filter[E, T any](es []E, fn func(e E) (T, bool)) []T {
 	rs := make([]T, 0, len(es))
 	for i := 0; i < len(es); i++ {
@@ -230,7 +233,7 @@ func Filter[E, T any](es []E, fn func(e E) (T, bool)) []T {
 	return rs
 }
 
-// Slice Converts slice types in batches
+// Slice преобразует типы срезов батчами.
 func Slice[E any, T any](es []E, fn func(e E) T) []T {
 	v := make([]T, len(es))
 	for i := 0; i < len(es); i++ {
@@ -239,14 +242,14 @@ func Slice[E any, T any](es []E, fn func(e E) T) []T {
 	return v
 }
 
-// SliceSet slice to map[E]struct{}
+// SliceSet преобразует срез в мапу[E]struct{}.
 func SliceSet[E comparable](es []E) map[E]struct{} {
 	return SliceSetAny(es, func(e E) E {
 		return e
 	})
 }
 
-// HasKey get whether the map contains key
+// HasKey проверяет, содержит ли мапа ключ.
 func HasKey[K comparable, V any](m map[K]V, k K) bool {
 	if m == nil {
 		return false
@@ -255,7 +258,7 @@ func HasKey[K comparable, V any](m map[K]V, k K) bool {
 	return ok
 }
 
-// Min get minimum value
+// Min возвращает минимальное значение из нескольких.
 func Min[E Ordered](e ...E) E {
 	v := e[0]
 	for _, t := range e[1:] {
@@ -266,7 +269,7 @@ func Min[E Ordered](e ...E) E {
 	return v
 }
 
-// Max get maximum value
+// Max возвращает максимальное значение из нескольких.
 func Max[E Ordered](e ...E) E {
 	v := e[0]
 	for _, t := range e[1:] {
@@ -277,6 +280,7 @@ func Max[E Ordered](e ...E) E {
 	return v
 }
 
+// Paginate выполняет пагинацию среза.
 func Paginate[E any](es []E, pageNumber int, showNumber int) []E {
 	if pageNumber <= 0 {
 		return []E{}
@@ -295,7 +299,7 @@ func Paginate[E any](es []E, pageNumber int, showNumber int) []E {
 	return es[start:end]
 }
 
-// BothExistAny gets elements that are common in the slice (intersection)
+// BothExistAny получает элементы, которые есть в нескольких срезах.
 func BothExistAny[E any, K comparable](es [][]E, fn func(e E) K) []E {
 	if len(es) == 0 {
 		return []E{}
@@ -338,38 +342,19 @@ func BothExistAny[E any, K comparable](es [][]E, fn func(e E) K) []E {
 	return v
 }
 
-// BothExist Gets the common elements in the slice (intersection)
+// BothExist находит общие элементы в срезах.
 func BothExist[E comparable](es ...[]E) []E {
 	return BothExistAny(es, func(e E) E {
 		return e
 	})
 }
 
-//func CompleteAny[K comparable, E any](ks []K, es []E, fn func(e E) K) bool {
-//	if len(ks) == 0 && len(es) == 0 {
-//		return true
-//	}
-//	kn := make(map[K]uint8)
-//	for _, e := range Distinct(ks) {
-//		kn[e]++
-//	}
-//	for k := range SliceSetAny(es, fn) {
-//		kn[k]++
-//	}
-//	for _, n := range kn {
-//		if n != 2 {
-//			return false
-//		}
-//	}
-//	return true
-//}
-
-// Complete whether a and b are equal after deduplication (ignore order)
+// Complete проверяет, равны ли a и b после удаления дубликатов (игнорируя порядок).
 func Complete[E comparable](a []E, b []E) bool {
 	return len(Single(a, b)) == 0
 }
 
-// Keys get map keys
+// Keys возвращает ключи из мапы.
 func Keys[K comparable, V any](kv map[K]V) []K {
 	ks := make([]K, 0, len(kv))
 	for k := range kv {
@@ -378,7 +363,7 @@ func Keys[K comparable, V any](kv map[K]V) []K {
 	return ks
 }
 
-// Values get map values
+// Values возвращает значения из мапы.
 func Values[K comparable, V any](kv map[K]V) []V {
 	vs := make([]V, 0, len(kv))
 	for k := range kv {
@@ -387,7 +372,7 @@ func Values[K comparable, V any](kv map[K]V) []V {
 	return vs
 }
 
-// Sort basic type sorting
+// Sort базовая сортировка типов.
 func Sort[E Ordered](es []E, asc bool) []E {
 	SortAny(es, func(a, b E) bool {
 		if asc {
@@ -399,7 +384,7 @@ func Sort[E Ordered](es []E, asc bool) []E {
 	return es
 }
 
-// SortAny custom sort method
+// SortAny настраиваемый метод сортировки.
 func SortAny[E any](es []E, fn func(a, b E) bool) {
 	sort.Sort(&sortSlice[E]{
 		ts: es,
@@ -407,7 +392,7 @@ func SortAny[E any](es []E, fn func(a, b E) bool) {
 	})
 }
 
-// If true -> a, false -> b
+// If возвращает a, если true, иначе b.
 func If[T any](isa bool, a, b T) T {
 	if isa {
 		return a
@@ -415,11 +400,12 @@ func If[T any](isa bool, a, b T) T {
 	return b
 }
 
+// ToPtr возвращает указатель на t.
 func ToPtr[T any](t T) *T {
 	return &t
 }
 
-// Equal Compares slices to each other (including element order)
+// Equal сравнивает два среза, включая порядок элементов.
 func Equal[E comparable](a []E, b []E) bool {
 	if len(a) != len(b) {
 		return false
@@ -432,7 +418,20 @@ func Equal[E comparable](a []E, b []E) bool {
 	return true
 }
 
-// Single exists in a and does not exist in b or exists in b and does not exist in a
+// EqualMaps Функция для сравнения карт
+func EqualMaps(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
+}
+
+// Single возвращает элементы, которые присутствуют в a и отсутствуют в b, или наоборот.
 func Single[E comparable](a, b []E) []E {
 	kn := make(map[E]uint8)
 	for _, e := range Distinct(a) {
@@ -450,7 +449,7 @@ func Single[E comparable](a, b []E) []E {
 	return v
 }
 
-// Order sorts ts by es
+// Order сортирует ts по es.
 func Order[E comparable, T any](es []E, ts []T, fn func(t T) E) []T {
 	if len(es) == 0 || len(ts) == 0 {
 		return ts
@@ -473,39 +472,45 @@ func Order[E comparable, T any](es []E, ts []T, fn func(t T) E) []T {
 	return rs
 }
 
+// OrderPtr сортирует ts по es и обновляет указатель на ts.
 func OrderPtr[E comparable, T any](es []E, ts *[]T, fn func(t T) E) []T {
 	*ts = Order(es, *ts, fn)
 	return *ts
 }
 
+// UniqueJoin объединяет уникальные строки в одну с помощью JSON.
 func UniqueJoin(s ...string) string {
 	data, _ := jsonutil.JsonMarshal(s)
 	return string(data)
 }
 
+// sortSlice реализует интерфейс sort.Interface для кастомной сортировки.
 type sortSlice[E any] struct {
 	ts []E
 	fn func(a, b E) bool
 }
 
+// Len возвращает длину среза.
 func (o *sortSlice[E]) Len() int {
 	return len(o.ts)
 }
 
+// Less сравнивает элементы для сортировки.
 func (o *sortSlice[E]) Less(i, j int) bool {
 	return o.fn(o.ts[i], o.ts[j])
 }
 
+// Swap меняет местами элементы в срезе.
 func (o *sortSlice[E]) Swap(i, j int) {
 	o.ts[i], o.ts[j] = o.ts[j], o.ts[i]
 }
 
-// Ordered types that can be sorted
+// Ordered определяет типы, которые могут быть отсортированы.
 type Ordered interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr | ~float32 | ~float64 | ~string
 }
 
-// NotNilReplace sets old to new_ when new_ is not null
+// NotNilReplace заменяет old на new_, если new_ не nil.
 func NotNilReplace[T any](old, new_ *T) {
 	if new_ == nil {
 		return
@@ -513,6 +518,7 @@ func NotNilReplace[T any](old, new_ *T) {
 	*old = *new_
 }
 
+// StructFieldNotNilReplace копирует значения полей из src в dest, если они не нулевые.
 func StructFieldNotNilReplace(dest, src any) {
 	destVal := reflect.ValueOf(dest).Elem()
 	srcVal := reflect.ValueOf(src).Elem()
@@ -559,6 +565,7 @@ func StructFieldNotNilReplace(dest, src any) {
 	}
 }
 
+// Batch применяет функцию fn к каждому элементу ts.
 func Batch[T any, V any](fn func(T) V, ts []T) []V {
 	if ts == nil {
 		return nil
@@ -570,18 +577,21 @@ func Batch[T any, V any](fn func(T) V, ts []T) []V {
 	return res
 }
 
+// InitSlice инициализирует срез, если он nil.
 func InitSlice[T any](val *[]T) {
 	if val != nil && *val == nil {
 		*val = []T{}
 	}
 }
 
+// InitMap инициализирует мапу, если она nil.
 func InitMap[K comparable, V any](val *map[K]V) {
 	if val != nil && *val == nil {
 		*val = map[K]V{}
 	}
 }
 
+// GetSwitchFromOptions извлекает значение ключа из настроек.
 func GetSwitchFromOptions(Options map[string]bool, key string) (result bool) {
 	if Options == nil {
 		return true
@@ -592,6 +602,7 @@ func GetSwitchFromOptions(Options map[string]bool, key string) (result bool) {
 	return false
 }
 
+// SetSwitchFromOptions устанавливает значение ключа в настройках.
 func SetSwitchFromOptions(options map[string]bool, key string, value bool) {
 	if options == nil {
 		options = make(map[string]bool, 5)
@@ -599,11 +610,12 @@ func SetSwitchFromOptions(options map[string]bool, key string, value bool) {
 	options[key] = value
 }
 
-// copy a by b  b->a
+// CopyStructFields копирует поля из b в a.
 func CopyStructFields(a any, b any, fields ...string) (err error) {
 	return copier.Copy(a, b)
 }
 
+// GetElemByIndex возвращает элемент из массива по индексу.
 func GetElemByIndex(array []int, index int) (int, error) {
 	if index < 0 || index >= len(array) {
 		return 0, errors.New(fmt.Sprintf("index out of range %s - %d %s - %v", "index", index, "array", array))
