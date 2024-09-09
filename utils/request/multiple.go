@@ -1,7 +1,13 @@
 package request
 
-type MultipleCreateRequest[T any] []T
-type MultipleUpdateRequest struct {
-	ID int `json:"id" binding:"required,gt=0"`
+type MultipleCreateRequest[T any] struct {
+	Data []T `json:"data" binding:"required,min=1,max=100"`
 }
-type MultipleDeleteRequest []int
+
+type MultipleUpdateRequest[T any] struct {
+	Data []T `json:"data" binding:"required,min=1,max=100"`
+}
+
+type MultipleDeleteRequest struct {
+	Data []int `json:"data" binding:"required,min=1,max=100"`
+}
