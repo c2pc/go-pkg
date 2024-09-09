@@ -6,9 +6,11 @@ import (
 	validator2 "github.com/c2pc/go-pkg/v2/auth/validator"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
+	validator3 "github.com/c2pc/go-pkg/v2/utils/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"regexp"
 )
 
 type IHandler interface {
@@ -41,6 +43,8 @@ func NewHandlers(
 		translator.SetValidateTranslators(v)
 
 		_ = v.RegisterValidation("device_id", validator2.ValidateDeviceID, true)
+		_ = v.RegisterValidation("dot_underscore_hyphen", validator3.ValidateRegex(regexp.MustCompile("^[a-zA-Z0-9а-яА-Я_.-]*$")), false)
+		_ = v.RegisterValidation("spec_chars", validator3.ValidateRegex(regexp.MustCompile("^[a-zA-Z0-9а-яА-Я`~!@#$%^&*()_+={}\\[\\]\\\\|:;\"/'<>,.?-]*$")), false)
 
 		_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.RU, "device_id", "{0} неизвестное устройство", true))
 		_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.EN, "device_id", "{0] unknown device", true))

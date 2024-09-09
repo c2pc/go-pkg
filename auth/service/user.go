@@ -131,7 +131,7 @@ type UserUpdateInput struct {
 	Password   *string
 	Email      *string
 	Phone      *string
-	Roles      *[]int
+	Roles      []int
 }
 
 func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) error {
@@ -223,7 +223,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 			return err
 		}
 
-		if err := s.createRoles(ctx, user, *input.Roles); err != nil {
+		if err := s.createRoles(ctx, user, input.Roles); err != nil {
 			return err
 		}
 	}
