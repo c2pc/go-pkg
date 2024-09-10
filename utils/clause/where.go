@@ -225,7 +225,7 @@ func formatIntWhere(expr ExpressionWhere, column string, join string) (string, i
 		return fmt.Sprintf("%s >= ?", column), values[0], join, nil
 	case OpLte:
 		return fmt.Sprintf("%s <= ?", column), values[0], join, nil
-	case OpEq:
+	case OpEq, OpNe:
 		return fmt.Sprintf("%s = ?", column), values[0], join, nil
 	case OpPt:
 		return fmt.Sprintf("(%s IS NULL OR %s = 0)", column, column), nil, join, nil
