@@ -297,18 +297,10 @@ func (s UserService) createRoles(ctx context.Context, user *model.User, rls []in
 
 		var rolesToCreate []model.UserRole
 		for _, role := range roles {
-			if role.Name == model.SuperAdmin {
-				rolesToCreate = []model.UserRole{{
-					UserID: user.ID,
-					RoleID: role.ID,
-				}}
-				break
-			} else {
-				rolesToCreate = append(rolesToCreate, model.UserRole{
-					UserID: user.ID,
-					RoleID: role.ID,
-				})
-			}
+			rolesToCreate = append(rolesToCreate, model.UserRole{
+				UserID: user.ID,
+				RoleID: role.ID,
+			})
 		}
 
 		if len(rolesToCreate) > 0 {
