@@ -36,18 +36,20 @@ func NewJWT(signingKey string, accessTokenTTL time.Duration, signingAlgorithm st
 }
 
 type TokenClaims struct {
-	Id           int    `json:"id"`
-	Role         string `json:"role"`
-	Login        string `json:"login"`
-	DepartmentId *int   `json:"department_id"`
+	Id           int     `json:"id"`
+	Role         string  `json:"role"`
+	Login        string  `json:"login"`
+	DepartmentId *int    `json:"department_id"`
+	DeviceId     *string `json:"device_id"`
 	jwt.RegisteredClaims
 }
 
 type User struct {
-	Id           int    `json:"id"`
-	Role         string `json:"role"`
-	Login        string `json:"login"`
-	DepartmentId *int   `json:"department_id"`
+	Id           int     `json:"id"`
+	Role         string  `json:"role"`
+	Login        string  `json:"login"`
+	DepartmentId *int    `json:"department_id"`
+	DeviceId     *string `json:"device_id"`
 }
 
 func ParseAuthHeader(c *gin.Context) (string, error) {
@@ -84,6 +86,7 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 			Role:         claims.Role,
 			Login:        claims.Login,
 			DepartmentId: claims.DepartmentId,
+			DeviceId:     claims.DeviceId,
 		}, nil
 	} else {
 		return nil, ErrInvalidToken
@@ -96,6 +99,7 @@ func (j *JWT) GenerateToken(u User) (string, float64, error) {
 		u.Role,
 		u.Login,
 		u.DepartmentId,
+		u.DeviceId,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
 			ID:        strconv.FormatInt(time.Now().Unix(), 10),
