@@ -43,8 +43,8 @@ const (
 	OpNp  = "np" // Операция "IS NOT NULL AND <> ''"
 	OpCo  = "co" // Операция "LIKE %...%"
 	OpEq  = "eq" // Операция "="
-	OpSw  = "sw" // Операция "LIKE %..."
-	OpEw  = "ew" // Операция "LIKE ...%"
+	OpSw  = "sw" // Операция "LIKE ...%"
+	OpEw  = "ew" // Операция "LIKE %..."
 	OpGt  = ">"  // Операция ">"
 	OpLt  = "<"  // Операция "<"
 	OpGte = ">=" // Операция ">="
@@ -178,9 +178,9 @@ func formatStringWhere(expr ExpressionWhere, column string, join string) (string
 	case OpCo:
 		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0] + "%", join, nil
 	case OpSw:
-		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0], join, nil
-	case OpEw:
 		return fmt.Sprintf("%s LIKE ?", column), values[0] + "%", join, nil
+	case OpEw:
+		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0], join, nil
 	case OpPt:
 		return fmt.Sprintf("(%s IS NULL OR %s = '')", column, column), nil, join, nil
 	case OpNp:

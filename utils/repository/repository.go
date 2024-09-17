@@ -462,7 +462,6 @@ func (r Repo[C]) Where(where *clause.ExpressionWhere, searchable clause.FieldSea
 			return r, err
 		}
 
-		fmt.Println(query, args, joins, err)
 		r.db = r.Joins(joins...).DB().Where(query, args...)
 	}
 	return r, nil

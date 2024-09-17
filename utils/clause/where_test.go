@@ -192,7 +192,7 @@ func TestFormatWhereString(t *testing.T) {
 		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable)
 		assert.NoError(t, err)
 		assert.Equal(t, "user_name LIKE ?", query)
-		assert.Equal(t, "%John", args)
+		assert.Equal(t, "John%", args)
 		assert.Empty(t, joins)
 	})
 	t.Run(OpEw, func(t *testing.T) {
@@ -200,7 +200,7 @@ func TestFormatWhereString(t *testing.T) {
 		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable)
 		assert.NoError(t, err)
 		assert.Equal(t, "user_name LIKE ?", query)
-		assert.Equal(t, "John%", args)
+		assert.Equal(t, "%John", args)
 		assert.Empty(t, joins)
 	})
 	t.Run(OpPt, func(t *testing.T) {
