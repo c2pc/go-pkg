@@ -90,6 +90,7 @@ type UserCreateInput struct {
 	Email      *string
 	Phone      *string
 	Roles      []int
+	Blocked    bool
 }
 
 func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.User, error) {
@@ -103,6 +104,7 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.
 		Password:   password,
 		Email:      input.Email,
 		Phone:      input.Phone,
+		Blocked:    input.Blocked,
 	}, "id")
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBDuplicated) {
@@ -132,6 +134,7 @@ type UserUpdateInput struct {
 	Email      *string
 	Phone      *string
 	Roles      []int
+	Blocked    *bool
 }
 
 func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) error {
@@ -188,6 +191,10 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 			user.Phone = input.Phone
 		}
 		selects = append(selects, "phone")
+	}
+	if input.Blocked != nil {
+		user.Blocked = *input.Blocked
+		selects = append(selects, "blocked")
 	}
 
 	if len(selects) > 0 {

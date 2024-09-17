@@ -9,6 +9,7 @@ type UserCreateRequest struct {
 	Email      *string `json:"email" binding:"omitempty,email,max=255"`
 	Phone      *string `json:"phone" binding:"omitempty,max=255,min=1"`
 	Roles      []int   `json:"roles" binding:"required,dive,gte=1"`
+	Blocked    bool    `json:"blocked" binding:"omitempty"`
 }
 
 type UserUpdateRequest struct {
@@ -20,4 +21,5 @@ type UserUpdateRequest struct {
 	Email      *string `json:"email" binding:"omitempty,len=0|email,max=255"`
 	Phone      *string `json:"phone" binding:"omitempty,len=0|min=1,max=255"`
 	Roles      []int   `json:"roles" binding:"omitempty,dive,gte=1"`
+	Blocked    *bool   `json:"blocked" binding:"omitempty"`
 }

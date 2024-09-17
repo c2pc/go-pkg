@@ -173,10 +173,10 @@ func formatStringWhere(expr ExpressionWhere, column string, join string) (string
 	}
 
 	switch expr.Operation {
-	case OpCo:
-		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0] + "%", join, nil
 	case OpEq:
 		return fmt.Sprintf("%s = ?", column), values[0], join, nil
+	case OpCo:
+		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0] + "%", join, nil
 	case OpSw:
 		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0], join, nil
 	case OpEw:
