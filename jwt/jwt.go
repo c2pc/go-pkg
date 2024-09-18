@@ -36,20 +36,20 @@ func NewJWT(signingKey string, accessTokenTTL time.Duration, signingAlgorithm st
 }
 
 type TokenClaims struct {
-	Id           int     `json:"id"`
-	Role         string  `json:"role"`
-	Login        string  `json:"login"`
-	DepartmentId *int    `json:"department_id"`
-	DeviceId     *string `json:"device_id"`
+	Id           int    `json:"id"`
+	Role         string `json:"role"`
+	Login        string `json:"login"`
+	DepartmentId *int   `json:"department_id"`
+	DeviceId     string `json:"device_id"`
 	jwt.RegisteredClaims
 }
 
 type User struct {
-	Id           int     `json:"id"`
-	Role         string  `json:"role"`
-	Login        string  `json:"login"`
-	DepartmentId *int    `json:"department_id"`
-	DeviceId     *string `json:"device_id"`
+	Id           int    `json:"id"`
+	Role         string `json:"role"`
+	Login        string `json:"login"`
+	DepartmentId *int   `json:"department_id"`
+	DeviceId     string `json:"device_id"`
 }
 
 func ParseAuthHeader(c *gin.Context) (string, error) {
