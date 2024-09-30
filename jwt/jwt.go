@@ -41,6 +41,7 @@ type TokenClaims struct {
 	Login        string `json:"login"`
 	DepartmentId *int   `json:"department_id"`
 	DeviceId     string `json:"device_id"`
+	PlatformId   int    `json:"platform_id"`
 	jwt.RegisteredClaims
 }
 
@@ -50,6 +51,7 @@ type User struct {
 	Login        string `json:"login"`
 	DepartmentId *int   `json:"department_id"`
 	DeviceId     string `json:"device_id"`
+	PlatformId   int    `json:"platform_id"`
 }
 
 func ParseAuthHeader(c *gin.Context) (string, error) {
@@ -87,6 +89,7 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 			Login:        claims.Login,
 			DepartmentId: claims.DepartmentId,
 			DeviceId:     claims.DeviceId,
+			PlatformId:   claims.PlatformId,
 		}, nil
 	} else {
 		return nil, ErrInvalidToken

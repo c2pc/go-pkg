@@ -30,6 +30,7 @@ type AuthUser struct {
 	Login        string
 	DepartmentID *int
 	DeviceId     string
+	PlatformId   int
 }
 
 func User(ctx context.Context) (*AuthUser, error) {
@@ -44,6 +45,7 @@ func User(ctx context.Context) (*AuthUser, error) {
 		Login:        u.Login,
 		DepartmentID: u.DepartmentId,
 		DeviceId:     u.DeviceId,
+		PlatformId:   u.PlatformId,
 	}, nil
 }
 
