@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/service"
+	"github.com/c2pc/go-pkg/v2/auth/transport/api/dto"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/transformer"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
@@ -10,7 +13,8 @@ import (
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 )
 
 type UserHandler struct {
@@ -31,6 +35,9 @@ func NewUserHandlers(
 func (h *UserHandler) Init(api *gin.RouterGroup) {
 	user := api.Group("users")
 	{
+		user.POST("/mass-delete", h.DeleteMultiple)
+		user.POST("/mass-add", h.CreateMultiple)
+		user.POST("/mass-update", h.UpdateMultiple)
 		user.GET("", h.List)
 		user.GET("/:id", h.GetById)
 		user.POST("", h.tr.DBTransaction, h.Create)
@@ -81,16 +88,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), service.UserCreateInput{
-		Login:      cred.Login,
-		FirstName:  cred.FirstName,
-		SecondName: cred.SecondName,
-		LastName:   cred.LastName,
-		Password:   cred.Password,
-		Email:      cred.Email,
-		Phone:      cred.Phone,
-		Roles:      cred.Roles,
-	})
+	user, err := h.userService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), dto.UserCreate(cred))
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -112,16 +110,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := h.userService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, service.UserUpdateInput{
-		Login:      cred.Login,
-		FirstName:  cred.FirstName,
-		SecondName: cred.SecondName,
-		LastName:   cred.LastName,
-		Password:   cred.Password,
-		Email:      cred.Email,
-		Phone:      cred.Phone,
-		Roles:      cred.Roles,
-	}); err != nil {
+	if err := h.userService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.UserUpdate(cred)); err != nil {
 		response.Response(c, err)
 		return
 	}
@@ -143,4 +132,91 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (h *UserHandler) CreateMultiple(c *gin.Context) {
+	cred, err := request2.BindJSON[request2.MultipleCreateRequest[request.UserCreateRequest]](c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	if cred == nil {
+		c.JSON(http.StatusOK, []int{})
+		return
+	}
+
+	multiple := model2.NewMultiple()
+	for _, input := range cred.Data {
+		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+			err := v.StructCtx(c.Request.Context(), input)
+			if err == nil {
+				data, err := h.userService.Create(c.Request.Context(), dto.UserCreate(&input))
+				if err == nil {
+					multiple.AddID(data.ID)
+				}
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, multiple.IDs())
+}
+
+func (h *UserHandler) UpdateMultiple(c *gin.Context) {
+	type UpdateRequest struct {
+		ID int `json:"id" binding:"required,gte=1"`
+		request.UserUpdateRequest
+	}
+
+	cred, err := request2.BindJSON[request2.MultipleUpdateRequest[UpdateRequest]](c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	if cred == nil {
+		c.JSON(http.StatusOK, []int{})
+		return
+	}
+
+	multiple := model2.NewMultiple()
+	for _, input := range cred.Data {
+		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+			err := v.StructCtx(c.Request.Context(), input)
+			if err == nil {
+				err = h.userService.Update(c.Request.Context(), input.ID, dto.UserUpdate(&input.UserUpdateRequest))
+				if err == nil {
+					multiple.AddID(input.ID)
+				}
+			}
+		}
+
+	}
+
+	c.JSON(http.StatusOK, multiple.IDs())
+}
+
+func (h *UserHandler) DeleteMultiple(c *gin.Context) {
+	cred, err := request2.BindJSON[request2.MultipleDeleteRequest](c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	if cred == nil {
+		c.JSON(http.StatusOK, []int{})
+		return
+	}
+
+	multiple := model2.NewMultiple()
+	for _, id := range cred.Data {
+		if id > 0 {
+			err = h.userService.Delete(c.Request.Context(), id)
+			if err == nil {
+				multiple.AddID(id)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, multiple.IDs())
 }
