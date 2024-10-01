@@ -103,6 +103,7 @@ func (j *JWT) GenerateToken(u User) (string, float64, error) {
 		u.Login,
 		u.DepartmentId,
 		u.DeviceId,
+		u.PlatformId,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
 			ID:        strconv.FormatInt(time.Now().Unix(), 10),
