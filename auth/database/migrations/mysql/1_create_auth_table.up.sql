@@ -19,10 +19,13 @@ create table if not exists auth_roles
 create table if not exists auth_role_permissions
 (
     role_id       bigint unsigned      not null,
-    permission_id bigint unsigned      not null,
-    `read`        tinyint(1) default 0 null,
-    `write`       tinyint(1) default 0 null,
-    exec          tinyint(1) default 0 null,
+    permission_id bigint unsigned      not null, `
+    read
+    `
+    tinyint
+(
+    1
+) default 0 null, `write`       tinyint(1) default 0 null, exec tinyint(1) default 0 null,
     constraint role_id
         unique (role_id, permission_id),
     constraint auth_role_permissions_ibfk_1
@@ -31,7 +34,7 @@ create table if not exists auth_role_permissions
     constraint auth_role_permissions_ibfk_2
         foreign key (permission_id) references auth_permissions (id)
             on update cascade on delete cascade
-);
+    );
 
 create index permission_id
     on auth_role_permissions (permission_id);
@@ -56,8 +59,8 @@ create table if not exists auth_users
 create table if not exists auth_settings
 (
     user_id   bigint unsigned not null,
-    device_id int             not null,
-    settings  text            null,
+    device_id int  not null,
+    settings  text null,
     constraint user_id
         unique (user_id, device_id),
     constraint auth_settings_ibfk_1

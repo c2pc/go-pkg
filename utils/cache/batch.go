@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
 	"github.com/dtm-labs/rockscache"
 	"github.com/redis/go-redis/v9"
-	"time"
 )
 
 // BatchDeleter интерфейс для выполнения пакетного удаления ключей из кэша

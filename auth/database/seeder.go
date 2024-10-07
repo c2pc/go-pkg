@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+
 	"github.com/c2pc/go-pkg/v2/auth/database/seeders"
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"

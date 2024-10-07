@@ -1,8 +1,9 @@
 package tokenverify
 
 import (
-	"github.com/golang-jwt/jwt/v4"
 	"testing"
+
+	"github.com/golang-jwt/jwt/v4"
 )
 
 var secret = "OpenIM_server"

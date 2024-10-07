@@ -1,10 +1,11 @@
 package clause
 
 import (
-	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/stretchr/testify/assert"
 )
 
 var quoteTo = func(s string) string { return strings.ReplaceAll(s, `"`, "`") }

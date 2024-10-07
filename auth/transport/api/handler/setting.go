@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/c2pc/go-pkg/v2/auth/service"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/transformer"
@@ -8,7 +10,6 @@ import (
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 type SettingHandler struct {

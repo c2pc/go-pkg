@@ -2,9 +2,10 @@ package request
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
-	"strings"
 )
 
 func isAndOR(token string) bool {

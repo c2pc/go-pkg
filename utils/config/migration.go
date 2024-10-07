@@ -3,11 +3,12 @@ package config
 import (
 	"embed"
 	"errors"
+	"os"
+	"strings"
+
 	"github.com/c2pc/go-pkg/v2/utils/migrate"
 	_ "github.com/c2pc/go-pkg/v2/utils/migration/config"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"os"
-	"strings"
 )
 
 // Migrate выполняет миграции на основе предоставленных файлов миграций и пути к миграции.

@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/utils"
-	"log"
-	"time"
 )
 
 func defaultLogger(debug string) (gormLogger.Writer, gormLogger.Config) {

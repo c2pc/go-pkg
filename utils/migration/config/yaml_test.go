@@ -1,10 +1,11 @@
 package config
 
 import (
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"os"
 	"testing"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func TestYaml_Up(t *testing.T) {

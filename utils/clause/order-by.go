@@ -2,10 +2,11 @@ package clause
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
-	"strings"
 )
 
 var (

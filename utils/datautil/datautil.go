@@ -3,10 +3,11 @@ package datautil
 import (
 	"errors"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
-	"github.com/jinzhu/copier"
 	"reflect"
 	"sort"
+
+	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
+	"github.com/jinzhu/copier"
 )
 
 // SliceSub возвращает элементы в срезе a, которые отсутствуют в срезе b (a - b).

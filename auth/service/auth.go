@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
@@ -15,7 +17,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/xid"
 	"gorm.io/gorm"
-	"time"
 )
 
 type IAuthService interface {

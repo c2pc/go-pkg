@@ -3,14 +3,15 @@ package mw
 import (
 	"bytes"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
-	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 
 	"github.com/gin-gonic/gin"
 )

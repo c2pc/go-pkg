@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"regexp"
+
 	"github.com/c2pc/go-pkg/v2/auth/service"
 	"github.com/c2pc/go-pkg/v2/auth/transport/api/middleware"
 	validator2 "github.com/c2pc/go-pkg/v2/auth/validator"
@@ -10,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
-	"regexp"
 )
 
 type IHandler interface {

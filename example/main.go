@@ -3,6 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/auth"
 	config2 "github.com/c2pc/go-pkg/v2/example/config"
 	database2 "github.com/c2pc/go-pkg/v2/example/database"
@@ -15,13 +23,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
-	"log"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
 )
 
 func main() {

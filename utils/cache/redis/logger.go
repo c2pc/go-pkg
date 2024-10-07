@@ -3,9 +3,10 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
-	"log"
 )
 
 // logger - структура, использующая стандартный логгер для вывода логов

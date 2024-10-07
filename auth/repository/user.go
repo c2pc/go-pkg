@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/repository"

@@ -1,11 +1,12 @@
 package request
 
 import (
+	"strings"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
 	"github.com/gin-gonic/gin"
-	"strings"
 )
 
 var (

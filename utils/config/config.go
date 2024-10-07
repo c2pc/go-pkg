@@ -1,8 +1,9 @@
 package config
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 // NewConfig создает и возвращает конфигурацию типа T, считывая данные из файла YAML.

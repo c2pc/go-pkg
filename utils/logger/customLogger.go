@@ -3,8 +3,9 @@ package logger
 import (
 	"context"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"os"
+
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 )
 
 func WithOperationID(ctx context.Context, msg string) string {

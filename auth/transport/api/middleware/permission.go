@@ -2,6 +2,10 @@ package middleware
 
 import (
 	"context"
+	"net/http"
+	"regexp"
+	"strings"
+
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
@@ -13,9 +17,6 @@ import (
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"regexp"
-	"strings"
 )
 
 type IPermissionMiddleware interface {

@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
@@ -9,7 +11,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/gin-gonic/gin"
-	"strings"
 )
 
 const authorizationHeader = "Authorization"

@@ -3,12 +3,13 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang-migrate/migrate/v4/database"
-	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	"os"
 	"sync"
+
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/pkg/errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
 func init() {

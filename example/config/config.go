@@ -1,9 +1,10 @@
 package config
 
 import (
-	"github.com/c2pc/go-pkg/v2/utils/config"
 	"os"
 	"strings"
+
+	"github.com/c2pc/go-pkg/v2/utils/config"
 )
 
 type Config struct {

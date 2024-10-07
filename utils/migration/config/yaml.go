@@ -2,14 +2,15 @@ package config
 
 import (
 	"fmt"
-	"github.com/golang-migrate/migrate/v4/database"
-	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
-	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/pkg/errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {

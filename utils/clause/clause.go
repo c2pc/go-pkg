@@ -1,11 +1,12 @@
 package clause
 
 import (
+	"regexp"
+
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"regexp"
 )
 
 // Returning создает конструкцию для возврата указанных столбцов после выполнения операции

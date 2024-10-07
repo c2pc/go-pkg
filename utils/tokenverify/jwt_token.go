@@ -2,11 +2,12 @@ package tokenverify
 
 import (
 	"errors"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
 	"github.com/golang-jwt/jwt/v4"
-	"time"
 )
 
 var (

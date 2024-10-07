@@ -2,6 +2,7 @@ package seeders
 
 import (
 	"context"
+
 	model2 "github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/c2pc/go-pkg/v2/auth/repository"
 	"github.com/c2pc/go-pkg/v2/utils/model"

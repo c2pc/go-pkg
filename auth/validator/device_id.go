@@ -2,9 +2,10 @@ package validator
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/c2pc/go-pkg/v2/auth/model"
 	"github.com/go-playground/validator/v10"
-	"reflect"
 )
 
 var ValidateDeviceID validator.Func = func(fl validator.FieldLevel) bool {

@@ -1,10 +1,11 @@
 package request
 
 import (
-	"github.com/c2pc/go-pkg/v2/utils/clause"
-	"github.com/gin-gonic/gin"
 	"regexp"
 	"strings"
+
+	"github.com/c2pc/go-pkg/v2/utils/clause"
+	"github.com/gin-gonic/gin"
 )
 
 type FilterRequest struct {

@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"gorm.io/gorm"

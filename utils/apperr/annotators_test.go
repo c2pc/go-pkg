@@ -1,8 +1,9 @@
 package apperr
 
 import (
-	translator2 "github.com/c2pc/go-pkg/v2/utils/translator/mock"
 	"testing"
+
+	translator2 "github.com/c2pc/go-pkg/v2/utils/translator/mock"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/translator"

@@ -2,6 +2,9 @@ package auth
 
 import (
 	"context"
+	"strconv"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/database"
 	model2 "github.com/c2pc/go-pkg/v2/auth/model"
@@ -18,8 +21,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
-	"strconv"
-	"time"
 )
 
 type IAuth interface {

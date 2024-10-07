@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
+
 	"github.com/c2pc/go-pkg/v2/utils/migrate"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"

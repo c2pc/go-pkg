@@ -1,9 +1,10 @@
 package validator
 
 import (
-	"github.com/go-playground/validator/v10"
 	"reflect"
 	"regexp"
+
+	"github.com/go-playground/validator/v10"
 )
 
 func ValidateRegex(regexp *regexp.Regexp) func(fl validator.FieldLevel) bool {

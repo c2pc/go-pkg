@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"slices"
+
 	"github.com/c2pc/go-pkg/v2/auth/cache"
 	"github.com/c2pc/go-pkg/v2/auth/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/model"
@@ -11,7 +13,6 @@ import (
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
 	"gorm.io/gorm"
-	"slices"
 )
 
 var (

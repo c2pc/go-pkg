@@ -2,10 +2,11 @@ package apperr
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestNew(t *testing.T) {

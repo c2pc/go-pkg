@@ -3,8 +3,9 @@ package request
 import (
 	"errors"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"testing"
+
+	"github.com/c2pc/go-pkg/v2/utils/clause"
 )
 
 func TestParseWhere(t *testing.T) {

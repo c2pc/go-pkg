@@ -2,9 +2,10 @@ package translator
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestSetValidateTranslators(t *testing.T) {
