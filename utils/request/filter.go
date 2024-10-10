@@ -1,6 +1,7 @@
 package request
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -24,7 +25,12 @@ func Filter(c *gin.Context) (*FilterRequest, error) {
 		return nil, err
 	}
 
-	where, err := ParseWhere(r.Where)
+	decodedWhere, err := url.QueryUnescape(r.Where)
+	if err != nil {
+		return nil, err
+	}
+
+	where, err := ParseWhere(decodedWhere)
 	if err != nil {
 		return nil, err
 	}
