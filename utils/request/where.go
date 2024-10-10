@@ -121,24 +121,25 @@ func ParseWhere(input string) (*clause.ExpressionWhere, error) {
 func addSpaces(input string) string {
 	newInput := ""
 	isQuote := false
-	for i := 0; i < len(input); i++ {
-		if input[i] == '`' {
+
+	for _, r := range input {
+		if r == '`' {
 			if isQuote {
 				isQuote = false
-				newInput += string(input[i]) + " "
+				newInput += string(r) + " "
 			} else {
 				isQuote = true
-				newInput += " " + string(input[i])
+				newInput += " " + string(r)
 			}
 			continue
 		} else if isQuote {
-			newInput += string(input[i])
+			newInput += string(r)
 			continue
 		} else {
-			if strings.ContainsRune(",[]()", rune(input[i])) {
-				newInput += " " + string(input[i]) + " "
+			if strings.ContainsRune(",[]()", rune(r)) {
+				newInput += " " + string(r) + " "
 			} else {
-				newInput += string(input[i])
+				newInput += string(r)
 			}
 		}
 	}
@@ -149,12 +150,12 @@ func addSpaces(input string) string {
 func makeFields(input string) []string {
 	var quotes []string
 	isQuote := false
-	for i := 0; i < len(input); i++ {
-		if !isQuote && input[i] == ' ' {
+	for _, r := range input {
+		if !isQuote && r == ' ' {
 			continue
 		}
 
-		if input[i] == '`' {
+		if r == '`' {
 			if isQuote {
 				isQuote = false
 				continue
@@ -164,7 +165,7 @@ func makeFields(input string) []string {
 			}
 			continue
 		} else if isQuote {
-			quotes[len(quotes)-1] += string(input[i])
+			quotes[len(quotes)-1] += string(r)
 			continue
 		} else {
 			continue
