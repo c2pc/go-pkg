@@ -2,10 +2,11 @@ package interceptors
 
 import (
 	"context"
-	"github.com/c2pc/go-pkg/logger"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"log"
 	"strings"
+
+	"github.com/c2pc/go-pkg/logger"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 )
 
 func Logger(loggerID string, newLine bool) logging.Logger {

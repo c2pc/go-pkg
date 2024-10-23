@@ -2,11 +2,12 @@ package gin
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/c2pc/go-pkg/logger"
 	"github.com/c2pc/go-pkg/rbac"
 	"github.com/gin-gonic/gin"
-	"strconv"
-	"time"
 )
 
 func LoggerWithConfig(loggerID string, newLine bool) gin.LoggerConfig {

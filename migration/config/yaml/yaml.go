@@ -2,17 +2,18 @@ package yaml
 
 import (
 	"fmt"
-	"github.com/c2pc/go-pkg/migration/config"
-	"github.com/golang-migrate/migrate/v4/database"
-	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
-	"gopkg.in/yaml.v3"
 	"io"
 	nurl "net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/c2pc/go-pkg/migration/config"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/pkg/errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {

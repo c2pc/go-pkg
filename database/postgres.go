@@ -1,13 +1,14 @@
 package database
 
 import (
+	"log"
+	"time"
+
 	"github.com/c2pc/go-pkg/logger"
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
-	"log"
-	"time"
 )
 
 func ConnectPostgres(url, loggerID string, logInfo bool) (*gorm.DB, error) {

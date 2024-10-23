@@ -1,12 +1,13 @@
 package jwt
 
 import (
-	"github.com/c2pc/go-pkg/apperr"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/c2pc/go-pkg/apperr"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const AuthUserKey = "authUser"
@@ -36,22 +37,16 @@ func NewJWT(signingKey string, accessTokenTTL time.Duration, signingAlgorithm st
 }
 
 type TokenClaims struct {
-	Id           int    `json:"id"`
-	Role         string `json:"role"`
-	Login        string `json:"login"`
-	DepartmentId *int   `json:"department_id"`
-	DeviceId     string `json:"device_id"`
-	PlatformId   int    `json:"platform_id"`
+	Id    int    `json:"id"`
+	Role  string `json:"role"`
+	Login string `json:"login"`
 	jwt.RegisteredClaims
 }
 
 type User struct {
-	Id           int    `json:"id"`
-	Role         string `json:"role"`
-	Login        string `json:"login"`
-	DepartmentId *int   `json:"department_id"`
-	DeviceId     string `json:"device_id"`
-	PlatformId   int    `json:"platform_id"`
+	Id    int    `json:"id"`
+	Role  string `json:"role"`
+	Login string `json:"login"`
 }
 
 func ParseAuthHeader(c *gin.Context) (string, error) {
@@ -84,12 +79,9 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 
 	if claims, ok := bearerToken.Claims.(*TokenClaims); ok && bearerToken.Valid {
 		return &User{
-			Id:           claims.Id,
-			Role:         claims.Role,
-			Login:        claims.Login,
-			DepartmentId: claims.DepartmentId,
-			DeviceId:     claims.DeviceId,
-			PlatformId:   claims.PlatformId,
+			Id:    claims.Id,
+			Role:  claims.Role,
+			Login: claims.Login,
 		}, nil
 	} else {
 		return nil, ErrInvalidToken
@@ -101,9 +93,6 @@ func (j *JWT) GenerateToken(u User) (string, float64, error) {
 		u.Id,
 		u.Role,
 		u.Login,
-		u.DepartmentId,
-		u.DeviceId,
-		u.PlatformId,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.Duration)),
 			ID:        strconv.FormatInt(time.Now().Unix(), 10),

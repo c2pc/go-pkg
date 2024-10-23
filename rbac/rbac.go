@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"context"
+
 	"github.com/c2pc/go-pkg/apperr"
 	"github.com/c2pc/go-pkg/apperr/utils/appErrors"
 	"github.com/c2pc/go-pkg/apperr/utils/translate"
@@ -25,12 +26,9 @@ var (
 )
 
 type AuthUser struct {
-	ID           int
-	Role         string
-	Login        string
-	DepartmentID *int
-	DeviceId     string
-	PlatformId   int
+	ID    int
+	Role  string
+	Login string
 }
 
 func User(ctx context.Context) (*AuthUser, error) {
@@ -40,12 +38,9 @@ func User(ctx context.Context) (*AuthUser, error) {
 	}
 
 	return &AuthUser{
-		ID:           u.Id,
-		Role:         u.Role,
-		Login:        u.Login,
-		DepartmentID: u.DepartmentId,
-		DeviceId:     u.DeviceId,
-		PlatformId:   u.PlatformId,
+		ID:    u.Id,
+		Role:  u.Role,
+		Login: u.Login,
 	}, nil
 }
 

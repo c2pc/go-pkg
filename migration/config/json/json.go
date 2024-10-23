@@ -3,15 +3,16 @@ package json
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/c2pc/go-pkg/migration/config"
-	"github.com/golang-migrate/migrate/v4/database"
-	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	nurl "net/url"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/c2pc/go-pkg/migration/config"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/pkg/errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
 func init() {

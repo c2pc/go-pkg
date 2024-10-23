@@ -3,13 +3,14 @@ package middleware
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
+
 	"github.com/c2pc/go-pkg/apperr"
 	"github.com/c2pc/go-pkg/apperr/utils/appErrors"
 	"github.com/c2pc/go-pkg/apperr/utils/translate"
 	"github.com/c2pc/go-pkg/apperr/x/httperr"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"net/http"
 )
 
 var (

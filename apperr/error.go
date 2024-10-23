@@ -3,9 +3,10 @@ package apperr
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/c2pc/go-pkg/apperr/utils/code"
 	"github.com/c2pc/go-pkg/apperr/utils/translate"
-	"strings"
 )
 
 type Error struct {

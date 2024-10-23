@@ -2,9 +2,10 @@ package validator
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/c2pc/go-pkg/platform"
 	"github.com/go-playground/validator/v10"
-	"reflect"
 )
 
 var ValidatePlatformID validator.Func = func(fl validator.FieldLevel) bool {

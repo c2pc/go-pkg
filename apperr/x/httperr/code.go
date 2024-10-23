@@ -1,8 +1,9 @@
 package httperr
 
 import (
-	"github.com/c2pc/go-pkg/apperr/utils/code"
 	"net/http"
+
+	"github.com/c2pc/go-pkg/apperr/utils/code"
 )
 
 func codeToHttp(c code.Code) int {

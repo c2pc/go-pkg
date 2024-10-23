@@ -3,16 +3,17 @@ package httperr
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"reflect"
+	"strings"
+	"unicode"
+
 	"github.com/c2pc/go-pkg/apperr"
 	"github.com/c2pc/go-pkg/apperr/utils/appErrors"
 	"github.com/c2pc/go-pkg/apperr/utils/translator"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
-	"io"
-	"reflect"
-	"strings"
-	"unicode"
 )
 
 func init() {

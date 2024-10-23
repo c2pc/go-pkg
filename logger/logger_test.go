@@ -1,12 +1,13 @@
 package logger
 
 import (
-	"github.com/op/go-logging"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/op/go-logging"
 )
 
 func TestMain(m *testing.M) {

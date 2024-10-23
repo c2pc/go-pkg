@@ -1,12 +1,13 @@
 package validator
 
 import (
-	"github.com/go-playground/validator/v10"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/go-playground/validator/v10"
 )
 
 var (

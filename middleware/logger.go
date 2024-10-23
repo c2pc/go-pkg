@@ -2,9 +2,10 @@ package middleware
 
 import (
 	"bytes"
+	"io"
+
 	"github.com/c2pc/go-pkg/logger"
 	"github.com/gin-gonic/gin"
-	"io"
 )
 
 type bodyLogWriter struct {
