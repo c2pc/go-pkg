@@ -26,9 +26,12 @@ var (
 )
 
 type AuthUser struct {
-	ID    int
-	Role  string
-	Login string
+	ID           int
+	Role         string
+	Login        string
+	DepartmentID *int
+	DeviceId     string
+	PlatformId   int
 }
 
 func User(ctx context.Context) (*AuthUser, error) {
@@ -38,9 +41,12 @@ func User(ctx context.Context) (*AuthUser, error) {
 	}
 
 	return &AuthUser{
-		ID:    u.Id,
-		Role:  u.Role,
-		Login: u.Login,
+		ID:           u.Id,
+		Role:         u.Role,
+		Login:        u.Login,
+		DepartmentID: u.DepartmentId,
+		DeviceId:     u.DeviceId,
+		PlatformId:   u.PlatformId,
 	}, nil
 }
 

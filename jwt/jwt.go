@@ -44,9 +44,12 @@ type TokenClaims struct {
 }
 
 type User struct {
-	Id    int    `json:"id"`
-	Role  string `json:"role"`
-	Login string `json:"login"`
+	Id           int    `json:"id"`
+	Role         string `json:"role"`
+	Login        string `json:"login"`
+	DepartmentId *int   `json:"department_id"`
+	DeviceId     string `json:"device_id"`
+	PlatformId   int    `json:"platform_id"`
 }
 
 func ParseAuthHeader(c *gin.Context) (string, error) {
@@ -66,7 +69,7 @@ func ParseAuthHeader(c *gin.Context) (string, error) {
 	return headerParts[1], nil
 }
 
-func (j *JWT) ParseToken(token string) (*User, error) {
+func (j *JWT) ParseToken(token string) (*Token, error) {
 	bearerToken, err := jwt.ParseWithClaims(token, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if jwt.GetSigningMethod(j.Algo) != token.Method {
 			return nil, jwt.ErrTokenSignatureInvalid
@@ -78,7 +81,7 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 	}
 
 	if claims, ok := bearerToken.Claims.(*TokenClaims); ok && bearerToken.Valid {
-		return &User{
+		return &Token{
 			Id:    claims.Id,
 			Role:  claims.Role,
 			Login: claims.Login,
@@ -88,7 +91,13 @@ func (j *JWT) ParseToken(token string) (*User, error) {
 	}
 }
 
-func (j *JWT) GenerateToken(u User) (string, float64, error) {
+type Token struct {
+	Id    int    `json:"id"`
+	Role  string `json:"role"`
+	Login string `json:"login"`
+}
+
+func (j *JWT) GenerateToken(u Token) (string, float64, error) {
 	claims := TokenClaims{
 		u.Id,
 		u.Role,
