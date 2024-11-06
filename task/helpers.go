@@ -8,12 +8,11 @@ import (
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/jszwec/csvutil"
 )
 
-func MassDelete[T any](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []int, pluckIDsFn func(context.Context, []int) ([]int, error), actionFn func(context.Context, int) error) (*model.Message, error) {
+func MassDelete[T any](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []int, pluckIDsFn func(context.Context, []int) ([]int, error), actionFn func(context.Context, T, int) error) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -45,7 +44,7 @@ func MassDelete[T any](ctx context.Context, data []byte, notFoundError error, id
 			return msg, nil
 		}
 
-		err = actionFn(ctx, id)
+		err = actionFn(ctx, input, id)
 		if err != nil {
 			msg.AddError(strconv.Itoa(id), apperr.Translate(err, translator.EN.String()))
 			continue
@@ -134,16 +133,16 @@ func Import[T, C any](ctx context.Context, data []byte, dataFn func(T) []C, acti
 	return msg, nil
 }
 
-func Export[T, C any](ctx context.Context, data []byte, emptyListError error, listFn func(context.Context, model2.Filter) ([]T, error), actionFn func(T) (C, error)) (*model.Message, error) {
+func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error, listFn func(context.Context, N) ([]T, error), actionFn func(T) (C, error)) (*model.Message, error) {
 	msg := model.NewMessage()
 
-	var filter model2.Filter
-	err := json.Unmarshal(data, &filter)
+	var input N
+	err := json.Unmarshal(data, &input)
 	if err != nil {
 		return nil, err
 	}
 
-	list, err := listFn(ctx, filter)
+	list, err := listFn(ctx, input)
 	if err != nil {
 		return nil, err
 	}

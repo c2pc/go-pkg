@@ -159,13 +159,17 @@ type NewsExport struct {
 	UserID  int     `json:"user_id" csv:"user_id"`
 }
 
+type NewsExportInput struct {
+	Filter model2.Filter `json:"filter"`
+}
+
 func (s NewsService) Export(ctx context.Context, data []byte) (*model3.Message, error) {
-	return task.Export[model.News, NewsExport](
+	return task.Export[model.News, NewsExport, NewsExportInput](
 		ctx,
 		data,
 		ErrNewsListIsEmpty,
-		func(ctx context.Context, f model2.Filter) ([]model.News, error) {
-			list, err := s.newsRepository.List(ctx, &f, "")
+		func(ctx context.Context, input NewsExportInput) ([]model.News, error) {
+			list, err := s.newsRepository.List(ctx, &input.Filter, "")
 			if err != nil {
 				return nil, err
 			}
@@ -275,7 +279,7 @@ func (s NewsService) MassDelete(ctx context.Context, data []byte) (*model3.Messa
 			}
 			return pluckedIDs, nil
 		},
-		func(ctx context.Context, id int) error {
+		func(ctx context.Context, input NewsMassDeleteInput, id int) error {
 			return s.newsRepository.DB().Transaction(func(tx *gorm.DB) error {
 				err := s.Trx(tx).Delete(ctx, id)
 				if err != nil {

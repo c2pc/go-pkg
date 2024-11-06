@@ -41,10 +41,10 @@ func NewNewsHandlers(
 func (h *NewsHandler) Init(api *gin.RouterGroup) {
 	news := api.Group("/news")
 	{
-		news.POST(model3.MassDelete, h.taskService.MassDeleteHandler("news"))
-		news.POST(model3.MassUpdate, h.taskService.MassUpdateHandler("news", h.MassUpdate))
+		news.POST(model3.Export, h.taskService.ExportHandler("news", h.Export))
 		news.POST(model3.Import, h.taskService.ImportHandler("news", h.Import))
-		news.POST(model3.Export, h.taskService.ExportHandler("news"))
+		news.POST(model3.MassUpdate, h.taskService.MassUpdateHandler("news", h.MassUpdate))
+		news.POST(model3.MassDelete, h.taskService.MassDeleteHandler("news", h.MassDelete))
 
 		news.GET("", h.List)
 		news.GET("/:id", h.GetById)
@@ -142,19 +142,19 @@ func (h *NewsHandler) Delete(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func (h *NewsHandler) MassUpdate(c *gin.Context) ([]byte, error) {
-	cred, err := request2.BindJSON[request2.MultipleUpdateRequest[request.NewsMassUpdateRequest]](c)
+func (h *NewsHandler) Export(c *gin.Context) ([]byte, error) {
+	filter, err := request2.FilterJSON(c)
 	if err != nil {
 		return nil, err
 	}
 
-	if cred == nil {
-		return nil, apperr.ErrEmptyData
+	f := model2.NewFilter(filter.OrderBy, filter.Where)
+
+	cred := service.NewsExportInput{
+		Filter: f,
 	}
 
-	input := dto.NewsMassUpdate(*cred)
-
-	return json.Marshal(input)
+	return json.Marshal(cred)
 }
 
 func (h *NewsHandler) Import(c *gin.Context) ([]byte, error) {
@@ -176,4 +176,32 @@ func (h *NewsHandler) Import(c *gin.Context) ([]byte, error) {
 	}
 
 	return m, nil
+}
+
+func (h *NewsHandler) MassUpdate(c *gin.Context) ([]byte, error) {
+	cred, err := request2.BindJSON[request2.MultipleUpdateRequest[request.NewsMassUpdateRequest]](c)
+	if err != nil {
+		return nil, err
+	}
+
+	if cred == nil {
+		return nil, apperr.ErrEmptyData
+	}
+
+	input := dto.NewsMassUpdate(*cred)
+
+	return json.Marshal(input)
+}
+
+func (h *NewsHandler) MassDelete(c *gin.Context) ([]byte, error) {
+	cred, err := request2.BindJSON[request2.MultipleDeleteRequest](c)
+	if err != nil {
+		return nil, err
+	}
+
+	if cred == nil {
+		return nil, apperr.ErrEmptyData
+	}
+
+	return json.Marshal(cred)
 }

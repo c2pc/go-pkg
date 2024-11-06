@@ -2,12 +2,10 @@ package task
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	model3 "github.com/c2pc/go-pkg/v2/task/model"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -22,7 +20,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
-	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 )
@@ -41,10 +38,10 @@ type Queue interface {
 
 type Tasker interface {
 	InitHandler(api *gin.RouterGroup)
-	ExportHandler(name string) gin.HandlerFunc
+	ExportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	ImportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
-	MassDeleteHandler(name string) gin.HandlerFunc
+	MassDeleteHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 }
 
 type Task struct {
@@ -197,23 +194,15 @@ func (e *Task) getStatus(status string) string {
 	return model.StatusPending
 }
 
-func (e *Task) ExportHandler(name string) gin.HandlerFunc {
+func (e *Task) ExportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		filter, err := request2.FilterJSON(c)
+		cred, err := bind(c)
 		if err != nil {
 			response.Response(c, err)
 			return
 		}
 
-		f := model2.NewFilter(filter.OrderBy, filter.Where)
-
-		data, err := json.Marshal(f)
-		if err != nil {
-			response.Response(c, err)
-			return
-		}
-
-		task, err := e.NewTask(c, model3.Export, name, data)
+		task, err := e.NewTask(c, model3.Export, name, cred)
 		if err != nil {
 			response.Response(c, err)
 			return
@@ -259,21 +248,15 @@ func (e *Task) MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte,
 	}
 }
 
-func (e *Task) MassDeleteHandler(name string) gin.HandlerFunc {
+func (e *Task) MassDeleteHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		mass, err := request2.BindJSON[request2.MultipleDeleteRequest](c)
+		cred, err := bind(c)
 		if err != nil {
 			response.Response(c, err)
 			return
 		}
 
-		d, err := json.Marshal(mass)
-		if err != nil {
-			response.Response(c, err)
-			return
-		}
-
-		task, err := e.NewTask(c, model3.MassDelete, name, d)
+		task, err := e.NewTask(c, model3.MassDelete, name, cred)
 		if err != nil {
 			response.Response(c, err)
 			return
