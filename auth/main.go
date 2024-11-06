@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/auth/cache"
-	"github.com/c2pc/go-pkg/v2/auth/database"
-	model2 "github.com/c2pc/go-pkg/v2/auth/model"
-	"github.com/c2pc/go-pkg/v2/auth/repository"
-	"github.com/c2pc/go-pkg/v2/auth/service"
-	"github.com/c2pc/go-pkg/v2/auth/transport/api/handler"
-	"github.com/c2pc/go-pkg/v2/auth/transport/api/middleware"
+	cache3 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/internal/database"
+	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	service2 "github.com/c2pc/go-pkg/v2/auth/internal/service"
+	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/handler"
+	middleware2 "github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
 	cache2 "github.com/c2pc/go-pkg/v2/utils/cache"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/model"
@@ -55,18 +55,18 @@ func New(cfg Config) (IAuth, error) {
 	rcClient := rockscache.NewClient(cfg.Rdb, cache2.GetRocksCacheOptions())
 	batchHandler := cache2.NewBatchDeleterRedis(cfg.Rdb, cache2.GetRocksCacheOptions())
 
-	tokenCache := cache.NewTokenCache(cfg.Rdb, cfg.AccessExpire)
-	userCache := cache.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
-	permissionCache := cache.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
+	tokenCache := cache3.NewTokenCache(cfg.Rdb, cfg.AccessExpire)
+	userCache := cache3.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
+	permissionCache := cache3.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
 
-	authService := service.NewAuthService(repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
-	permissionService := service.NewPermissionService(repositories.PermissionRepository, permissionCache)
-	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
-	userService := service.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
-	settingService := service.NewSettingService(repositories.SettingRepository)
+	authService := service2.NewAuthService(repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
+	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
+	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
+	userService := service2.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
+	settingService := service2.NewSettingService(repositories.SettingRepository)
 
-	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
-	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
+	tokenMiddleware := middleware2.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
+	permissionMiddleware := middleware2.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
 	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, settingService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
 
 	return Auth{
@@ -79,8 +79,8 @@ func New(cfg Config) (IAuth, error) {
 
 type Auth struct {
 	handler              handler.IHandler
-	tokenMiddleware      middleware.ITokenMiddleware
-	permissionMiddleware middleware.IPermissionMiddleware
+	tokenMiddleware      middleware2.ITokenMiddleware
+	permissionMiddleware middleware2.IPermissionMiddleware
 	adminID              int
 }
 

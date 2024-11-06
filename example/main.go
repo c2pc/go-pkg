@@ -12,11 +12,14 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/auth"
-	config2 "github.com/c2pc/go-pkg/v2/example/config"
-	database2 "github.com/c2pc/go-pkg/v2/example/database"
-	"github.com/c2pc/go-pkg/v2/example/model"
-	"github.com/c2pc/go-pkg/v2/example/transport/rest"
-	restHandler "github.com/c2pc/go-pkg/v2/example/transport/rest/handler"
+	"github.com/c2pc/go-pkg/v2/example/internal/config"
+	database3 "github.com/c2pc/go-pkg/v2/example/internal/database"
+	"github.com/c2pc/go-pkg/v2/example/internal/model"
+	"github.com/c2pc/go-pkg/v2/example/internal/repository"
+	"github.com/c2pc/go-pkg/v2/example/internal/service"
+	"github.com/c2pc/go-pkg/v2/example/internal/transport/api"
+	restHandler "github.com/c2pc/go-pkg/v2/example/internal/transport/api/handler"
+	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
 	database "github.com/c2pc/go-pkg/v2/utils/db"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
@@ -26,20 +29,31 @@ import (
 )
 
 func main() {
-	if err := config2.Migrate("config.yml"); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := config.Migrate("config.yml"); err != nil {
 		log.Fatal("[Migrate] ", err)
 		return
 	}
 
-	configs, err := config2.NewConfig("config.yml")
+	configs, err := config.NewConfig("config.yml")
 	if err != nil {
 		log.Fatal("[CONFIG]", err)
 		return
 	}
 
-	logger.Initialize(false, "app.log", configs.APP.LogDir)
+	logger.Initialize(logger.Config{
+		MachineReadable: false,
+		Filename:        "app.log",
+		Dir:             configs.LOG.Dir,
+		MaxSize:         configs.LOG.MaxSize,
+		MaxBackups:      configs.LOG.MaxBackups,
+		MaxAge:          configs.LOG.MaxAge,
+		Compress:        configs.LOG.Compress,
+	})
 
-	db, err := database.ConnectPostgres(configs.PostgresUrl, configs.APP.Debug)
+	db, err := database.ConnectPostgres(configs.PostgresUrl, configs.LOG.Debug, 10, 100)
 	if err != nil {
 		logger.Fatalf("[DB] %s", err.Error())
 		return
@@ -51,7 +65,7 @@ func main() {
 		return
 	}
 
-	if err := database2.Migrate(sqlDB, "postgres"); err != nil {
+	if err := database3.Migrate(sqlDB, "postgres"); err != nil {
 		logger.Fatalf("[DB_MIGRATE] %s", err.Error())
 		return
 	}
@@ -63,7 +77,7 @@ func main() {
 		Password:    configs.Redis.Password,
 		MaxRetry:    configs.Redis.MaxRetry,
 		DB:          configs.Redis.DB,
-	}, configs.APP.Debug)
+	}, configs.LOG.Debug)
 	if err != nil {
 		logger.Fatalf("[REDIS] %s", err.Error())
 		return
@@ -78,7 +92,7 @@ func main() {
 	trx := mw.NewTransaction(db)
 
 	authService, err := auth.New(auth.Config{
-		Debug:         configs.APP.Debug,
+		Debug:         configs.LOG.Debug,
 		DB:            db,
 		Rdb:           rdb,
 		Transaction:   trx,
@@ -93,17 +107,33 @@ func main() {
 		return
 	}
 
-	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
-	if err := database2.SeedersRun(ctx, db, authService.GetAdminID()); err != nil {
+	ctx2 := mcontext.WithOperationIDContext(ctx, strconv.Itoa(int(time.Now().UTC().Unix())))
+	if err := database3.SeedersRun(ctx, db, authService.GetAdminID()); err != nil {
 		logger.Fatalf("[DB] %s", err.Error())
 		return
 	}
 
-	restHandlers := restHandler.NewHandlers(authService)
-	restServer := rest.NewServer(rest.Input{
+	repositories := repository.NewRepositories(db)
+	services := service.NewServices(service.Deps{Repositories: repositories})
+
+	taskService, err := task.NewTask(ctx2, task.Config{
+		DB:          db,
+		Transaction: trx,
+		Debug:       configs.LOG.Debug,
+		Services: task.Consumers{
+			"news": services.NewsService,
+		},
+	})
+	if err != nil {
+		logger.Fatalf("[TASK] %s", err.Error())
+		return
+	}
+
+	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService)
+	restServer := api.NewServer(api.Input{
 		Host: configs.HTTP.Host,
 		Port: configs.HTTP.Port,
-	}, restHandlers.Init(configs.APP.Debug))
+	}, restHandlers.Init(configs.LOG.Debug))
 
 	go func() {
 		logger.Infof("Starting Rest Server")
@@ -118,10 +148,10 @@ func main() {
 	<-quit
 
 	const timeout = 5 * time.Second
-	ctx, shutdown := context.WithTimeout(context.Background(), timeout)
+	ctx3, shutdown := context.WithTimeout(ctx2, timeout)
 	defer shutdown()
 
-	if err := restServer.Stop(ctx); err != nil {
+	if err := restServer.Stop(ctx3); err != nil {
 		logger.Infof("Failed to Stop Server: %v", err)
 	}
 

@@ -8,10 +8,7 @@ import (
 )
 
 func ConnectMysql(url, debug string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
-	db, err := gorm.Open(mysql.Open(url), &gorm.Config{
-		PrepareStmt:            true,
-		SkipDefaultTransaction: true,
-	})
+	db, err := gorm.Open(mysql.Open(url), gormConfig)
 	if err != nil {
 		return nil, err
 	}

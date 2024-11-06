@@ -7,7 +7,7 @@ import (
 
 // Info logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
 func Info(msg string) {
-	logInfo(loggersMap.getLogger(ModuleID), true, msg)
+	logInfo(loggersMap.getLogger(ModuleID), false, msg)
 }
 
 // Infof logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
@@ -17,7 +17,7 @@ func Infof(msg string, args ...interface{}) {
 
 // Error logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
 func Error(msg string) {
-	logError(loggersMap.getLogger(ModuleID), true, msg)
+	logError(loggersMap.getLogger(ModuleID), false, msg)
 }
 
 // Errorf logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
@@ -27,7 +27,7 @@ func Errorf(msg string, args ...interface{}) {
 
 // Warning logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
 func Warning(msg string) {
-	logWarning(loggersMap.getLogger(ModuleID), true, msg)
+	logWarning(loggersMap.getLogger(ModuleID), false, msg)
 }
 
 // Warningf logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
@@ -39,7 +39,7 @@ func Warningf(msg string, args ...interface{}) {
 func Fatal(msg string) {
 	logCritical(loggersMap.getLogger(ModuleID), msg)
 	addFatalError(ModuleID, msg)
-	write(true, getFatalErrorMsg(), os.Stdout)
+	write(false, getFatalErrorMsg(), os.Stdout)
 	os.Exit(1)
 }
 
@@ -50,7 +50,7 @@ func Fatalf(msg string, args ...interface{}) {
 
 // Debug logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
 func Debug(msg string) {
-	logDebug(loggersMap.getLogger(ModuleID), true, msg)
+	logDebug(loggersMap.getLogger(ModuleID), false, msg)
 }
 
 // Debugf logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.

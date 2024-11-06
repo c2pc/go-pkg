@@ -11,6 +11,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -65,12 +66,24 @@ type ValidateError struct {
 }
 
 func Response(c *gin.Context, err error) {
+	_ = c.Error(err).SetType(gin.ErrorTypePrivate)
+
+	response := UnwrapError(c, err, "")
+	c.AbortWithStatusJSON(response.Code, response)
+}
+
+type ErrorResponse struct {
+	Code   int             `json:"-"`
+	ID     string          `json:"id"`
+	Text   string          `json:"text"`
+	Errors []ValidateError `json:"errors,omitempty"`
+}
+
+func UnwrapError(c *gin.Context, err error, lang string) ErrorResponse {
 	var syntaxError *json.SyntaxError
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
-
-	_ = c.Error(err).SetType(gin.ErrorTypePrivate)
 
 	var appError apperr.Error
 	if !errors.As(err, &appError) {
@@ -90,10 +103,23 @@ func Response(c *gin.Context, err error) {
 		case errors.As(lastError, &validationError):
 			err = appError.WithError(apperr.ErrValidation.WithError(lastError))
 
-			text := apperr.Translate(appError, GetTranslate(c))
+			var text string
+			if lang != "" {
+				text = apperr.Translate(appError, lang)
+			} else {
+				text = apperr.Translate(appError, GetTranslate(c))
+			}
 
 			errs := []ValidateError{}
-			for s, v := range validationError.Translate(getTranslator(c)) {
+
+			var tr ut.Translator
+			if lang != "" {
+				tr = getTranslatorByLang(lang)
+			} else {
+				tr = getTranslator(c)
+			}
+
+			for s, v := range validationError.Translate(tr) {
 				str := removePrefix(s)
 				ers := strings.Split(v, "failed on")
 				columnError := strings.ReplaceAll(ers[len(ers)-1], str+" ", "")
@@ -107,20 +133,25 @@ func Response(c *gin.Context, err error) {
 				errs = append(errs, ValidateError{Column: column, Error: columnError})
 			}
 
-			c.AbortWithStatusJSON(CodeToHttp(appError.Code), gin.H{
-				"id":     appError.ID,
-				"text":   text,
-				"errors": errs,
-			})
-
-			return
+			return ErrorResponse{
+				Code:   CodeToHttp(appError.Code),
+				ID:     appError.ID,
+				Text:   text,
+				Errors: errs,
+			}
 		}
 	}
 
-	text := apperr.Translate(appError, GetTranslate(c))
+	var text string
+	if lang != "" {
+		text = apperr.Translate(appError, lang)
+	} else {
+		text = apperr.Translate(appError, GetTranslate(c))
+	}
 
-	c.AbortWithStatusJSON(CodeToHttp(appError.Code), gin.H{
-		"id":   appError.ID,
-		"text": text,
-	})
+	return ErrorResponse{
+		Code: CodeToHttp(appError.Code),
+		ID:   appError.ID,
+		Text: text,
+	}
 }

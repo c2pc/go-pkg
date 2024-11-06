@@ -102,10 +102,20 @@ func (e Error) GetIDPrefix() string {
 }
 
 // Translate возвращает переведенное сообщение ошибки или исходное сообщение, если перевод не найден.
-func Translate(err Error, lang string) string {
-	text := err.TextTranslate.Translate(lang, err.TextTranslateArgs...)
-	if text == "" {
-		text = err.Text
+func Translate(err error, lang string) string {
+	if err == nil {
+		err = ErrInternal
 	}
+
+	var appError Error
+	if !errors.As(err, &appError) {
+		err = ErrInternal.WithError(err)
+	}
+
+	text := appError.TextTranslate.Translate(lang, appError.TextTranslateArgs...)
+	if text == "" {
+		text = appError.Text
+	}
+
 	return text
 }

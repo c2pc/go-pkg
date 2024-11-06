@@ -21,10 +21,10 @@ var (
 
 // ExpressionWhere описывает одно выражение для фильтрации
 type ExpressionWhere struct {
-	Expressions []ExpressionWhere // Вложенные выражения для составных условий
-	Column      string            // Имя столбца для фильтрации
-	Operation   string            // Операция фильтрации
-	Value       string            // Значение для фильтрации
+	Expressions []ExpressionWhere `json:"expressions"` // Вложенные выражения для составных условий
+	Column      string            `json:"column"`      // Имя столбца для фильтрации
+	Operation   string            `json:"operation"`   // Операция фильтрации
+	Value       string            `json:"value"`       // Значение для фильтрации
 }
 
 // Type представляет тип данных для столбца

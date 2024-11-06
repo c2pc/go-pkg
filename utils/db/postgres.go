@@ -9,10 +9,7 @@ import (
 )
 
 func ConnectPostgres(url, debug string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open("postgres://"+url), &gorm.Config{
-		PrepareStmt:            true,
-		SkipDefaultTransaction: true,
-	})
+	db, err := gorm.Open(postgres.Open("postgres://"+url), gormConfig)
 	if err != nil {
 		return nil, err
 	}

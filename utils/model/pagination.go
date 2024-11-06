@@ -1,6 +1,7 @@
 package model
 
 const LIMIT = 10
+const NO_LIMIT = -1
 
 type Pagination[C any] struct {
 	Limit               int
@@ -11,7 +12,7 @@ type Pagination[C any] struct {
 }
 
 func NewPagination[C any](limit, offset int, mustReturnTotalRows bool) *Pagination[C] {
-	if limit <= 0 {
+	if limit <= 0 && limit != NO_LIMIT {
 		limit = LIMIT
 	}
 

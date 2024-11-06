@@ -29,6 +29,7 @@ var (
 	ErrUnauthenticated      = translator.Translate{translator.RU: "Ошибка аутентификации", translator.EN: "Unauthenticated error"}
 	ErrNotFound             = translator.Translate{translator.RU: "Не найдено", translator.EN: "Not found error"}
 	ErrServerIsNotAvailable = translator.Translate{translator.RU: "Сервер недоступен", translator.EN: "Server is not available"}
+	ErrContextCanceled      = translator.Translate{translator.RU: "Запрос отменен", translator.EN: "Request canceled"}
 )
 
 var (

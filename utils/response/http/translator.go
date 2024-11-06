@@ -24,3 +24,7 @@ func GetTranslate(c *gin.Context) string {
 func getTranslator(c *gin.Context) ut.Translator {
 	return translator.GetTranslator(GetTranslate(c))
 }
+
+func getTranslatorByLang(lang string) ut.Translator {
+	return translator.GetTranslator(lang)
+}

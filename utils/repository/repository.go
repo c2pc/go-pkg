@@ -35,6 +35,8 @@ type Repository[T any, C model.Model] interface {
 	Count(ctx context.Context, query string, args ...any) (int64, error)
 	List(ctx context.Context, f *model.Filter, query string, args ...any) ([]C, error)
 	Paginate(ctx context.Context, p *model.Meta[C], query string, args ...any) error
+	PluckIDs(ctx context.Context, query string, args ...any) ([]int, error)
+	DB() *gorm.DB
 }
 
 type Repo[C model.Model] struct {
@@ -77,6 +79,10 @@ func (r Repo[C]) FieldSearchable() clause.FieldSearchable {
 	return r.searchable
 }
 
+func (r Repo[C]) FieldOrderBy() clause.FieldOrderBy {
+	return r.fieldOrderBy
+}
+
 func (r Repo[C]) Exists(ctx context.Context, field string, value interface{}, excludeField string, excludeValue interface{}) error {
 	row := r.Model()
 	res := r.DB().
@@ -91,13 +97,13 @@ func (r Repo[C]) Exists(ctx context.Context, field string, value interface{}, ex
 		Where(field+" = ?", value).
 		First(&row)
 	if err := res.Error; err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	return nil
 }
 
-func (r Repo[C]) Error(err error) error {
+func (r Repo[C]) Error(ctx context.Context, err error) error {
 	var appError apperr.Error
 	if errors.As(err, &appError) {
 		return err
@@ -117,6 +123,8 @@ func (r Repo[C]) Error(err error) error {
 		if mysqlErr.Number == 1062 {
 			return apperr.ErrDBDuplicated.WithError(err)
 		}
+	case ctx.Err() != nil:
+		return apperr.ErrContextCanceled.WithError(err)
 	}
 
 	return apperr.ErrDBInternal.WithError(err)
@@ -219,7 +227,7 @@ func (r Repo[C]) Find(ctx context.Context, query string, args ...any) (*C, error
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		First(&row)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	return &row, nil
@@ -234,7 +242,7 @@ func (r Repo[C]) FindById(ctx context.Context, id int) (*C, error) {
 		Scopes(clause.Where(r.QuoteTo, query, id)).
 		First(&row)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	return &row, nil
@@ -249,7 +257,7 @@ func (r Repo[C]) Delete(ctx context.Context, query string, args ...any) error {
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Delete(&row)
 	if err := res.Error; err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	return nil
@@ -261,7 +269,7 @@ func (r Repo[C]) Create(ctx context.Context, u *C, returning ...string) (*C, err
 		Clauses(clause.Returning(returning...)).
 		Create(u)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	return u, nil
@@ -273,7 +281,7 @@ func (r Repo[C]) Create2(ctx context.Context, u *[]C, returning ...string) (*[]C
 		Clauses(clause.Returning(returning...)).
 		Create(u)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	return u, nil
@@ -296,7 +304,7 @@ func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interfac
 
 	res = res.Create(u)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	return u, nil
@@ -309,7 +317,7 @@ func (r Repo[C]) FirstOrCreate(ctx context.Context, u *C, returning string, quer
 		Clauses(clause.Returning(returning)).
 		FirstOrCreate(u)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	return u, nil
@@ -328,7 +336,7 @@ func (r Repo[C]) Update(ctx context.Context, u *C, selects []interface{}, query 
 
 	res = res.Updates(u)
 	if err := res.Error; err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	return nil
@@ -347,7 +355,7 @@ func (r Repo[C]) Update2(ctx context.Context, u *[]C, selects []interface{}, que
 
 	res = res.Updates(u)
 	if err := res.Error; err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	return nil
@@ -361,7 +369,7 @@ func (r Repo[C]) UpdateMap(ctx context.Context, u map[string]interface{}, query 
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Updates(u)
 	if err := res.Error; err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	return nil
@@ -376,21 +384,21 @@ func (r Repo[C]) Count(ctx context.Context, query string, args ...any) (int64, e
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Count(&count)
 	if err := res.Error; err != nil {
-		return 0, r.Error(err)
+		return 0, r.Error(ctx, err)
 	}
 
 	return count, nil
 }
 
 func (r Repo[C]) List(ctx context.Context, f *model.Filter, query string, args ...any) ([]C, error) {
-	repo, err := r.Where(f.Where, r.FieldSearchable())
+	repo, err := r.Where(f.Where)
 	if err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	repo, err = repo.OrderBy(f.OrderBy)
 	if err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
 	}
 
 	var rows []C
@@ -401,16 +409,31 @@ func (r Repo[C]) List(ctx context.Context, f *model.Filter, query string, args .
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Find(&rows)
 	if err := res.Error; err != nil {
-		return nil, r.Error(err)
+		return nil, r.Error(ctx, err)
+	}
+
+	return rows, nil
+}
+
+func (r Repo[C]) PluckIDs(ctx context.Context, query string, args ...any) ([]int, error) {
+	var rows []int
+	res := r.
+		DB().
+		WithContext(ctx).
+		Model(r.Model()).
+		Scopes(clause.Where(r.QuoteTo, query, args...)).
+		Pluck("id", &rows)
+	if err := res.Error; err != nil {
+		return nil, r.Error(ctx, err)
 	}
 
 	return rows, nil
 }
 
 func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, args ...any) error {
-	repo, err := r.Where(p.Where, r.FieldSearchable())
+	repo, err := r.Where(p.Where)
 	if err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	db := repo.
@@ -422,13 +445,13 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 	if p.MustReturnTotalRows {
 		res := db.Session(&gorm.Session{}).Count(&p.TotalRows)
 		if err := res.Error; err != nil {
-			return r.Error(err)
+			return r.Error(ctx, err)
 		}
 	}
 
 	repo, err = repo.SetDB(db).OrderBy(p.OrderBy)
 	if err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 
 	var rows []C
@@ -437,7 +460,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 		Scopes(clause.Limit(p.GetLimit(), p.GetOffset())).
 		Find(&rows)
 	if err := res2.Error; err != nil {
-		return r.Error(err)
+		return r.Error(ctx, err)
 	}
 	p.Rows = rows
 
@@ -446,7 +469,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 
 func (r Repo[C]) OrderBy(orderBy map[string]string) (Repo[C], error) {
 	if len(orderBy) > 0 {
-		query, joins, err := clause.OrderByFilter(r.QuoteTo, orderBy, r.fieldOrderBy)
+		query, joins, err := clause.OrderByFilter(r.QuoteTo, orderBy, r.FieldOrderBy())
 		if err != nil {
 			return r, err
 		}
@@ -456,9 +479,9 @@ func (r Repo[C]) OrderBy(orderBy map[string]string) (Repo[C], error) {
 	return r, nil
 }
 
-func (r Repo[C]) Where(where *clause.ExpressionWhere, searchable clause.FieldSearchable) (Repo[C], error) {
+func (r Repo[C]) Where(where *clause.ExpressionWhere) (Repo[C], error) {
 	if where != nil {
-		query, args, joins, err := clause.WhereFilter(r.QuoteTo, where, searchable)
+		query, args, joins, err := clause.WhereFilter(r.QuoteTo, where, r.FieldSearchable())
 		if err != nil {
 			return r, err
 		}

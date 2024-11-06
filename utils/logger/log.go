@@ -61,12 +61,22 @@ func (l *logCache) addLogger(module string) {
 	l.loggers[module] = logger
 }
 
+type Config struct {
+	MachineReadable bool
+	Dir             string
+	Filename        string
+	MaxSize         int
+	MaxBackups      int
+	MaxAge          int
+	Compress        bool
+}
+
 // Initialize logger with given level
-func Initialize(mr bool, logFile string, customLogsDir string) {
-	machineReadable = mr
+func Initialize(config Config) {
+	machineReadable = config.MachineReadable
 	level = loggingLevel("")
-	ActiveLogFile = getLogFile(logFile, customLogsDir)
-	initFileLoggerBackend()
+	ActiveLogFile = getLogFile(config)
+	initFileLoggerBackend(config)
 	loggersMap = logCache{loggers: make(map[string]*logging.Logger)}
 	loggersMap.addLogger(ModuleID)
 	initialized = true
@@ -156,28 +166,59 @@ func machineReadableLog(msg string) {
 	}
 }
 
-func initFileLoggerBackend() {
-	var backend = createFileLogger(ActiveLogFile, 10)
+func initFileLoggerBackend(config Config) {
+	var backend = createFileLogger(ActiveLogFile, config)
 	fileFormatter := logging.NewBackendFormatter(backend, fileLogFormat)
 	fileLoggerLeveled = logging.AddModuleLevel(fileFormatter)
 	fileLoggerLeveled.SetLevel(logging.DEBUG, "")
 }
 
-var createFileLogger = func(name string, size int) logging.Backend {
+var createFileLogger = func(name string, config Config) logging.Backend {
 	err := os.MkdirAll(filepath.Dir(name), os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	var maxSize, maxBackups, maxAge int
+	var compress bool
+	if config.MaxSize != 0 {
+		maxSize = config.MaxSize
+	} else {
+		maxSize = 10
+	}
+
+	if config.MaxBackups != 0 {
+		maxBackups = config.MaxBackups
+	} else {
+		maxBackups = 5
+	}
+
+	if config.MaxAge != 0 {
+		maxAge = config.MaxAge
+	} else {
+		maxAge = 28
+	}
+
+	if config.Compress {
+		compress = true
+	} else {
+		compress = false
+	}
+
 	return logging.NewLogBackend(&lumberjack.Logger{
 		Filename:   name,
-		MaxSize:    size, // megabytes
-		MaxBackups: 5,
-		MaxAge:     28, //days
+		MaxSize:    maxSize, // megabytes
+		MaxBackups: maxBackups,
+		MaxAge:     maxAge, //days
+		Compress:   compress,
 	}, "", 0)
 }
 
 func addLogsDirPath(logFileName string, customLogsDir string) string {
+	if logFileName == "" {
+		logFileName = "app.log"
+	}
+
 	if strings.Index(customLogsDir, ".") != -1 {
 		customLogsDir = filepath.Dir(customLogsDir)
 	}
@@ -191,8 +232,8 @@ func addLogsDirPath(logFileName string, customLogsDir string) string {
 	return customLogsDir
 }
 
-func getLogFile(logFileName string, customLogsDir string) string {
-	logDirPath := addLogsDirPath(logFileName, customLogsDir)
+func getLogFile(config Config) string {
+	logDirPath := addLogsDirPath(config.Filename, config.Dir)
 	if filepath.IsAbs(logDirPath) {
 		return logDirPath
 	}

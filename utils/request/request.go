@@ -1,9 +1,13 @@
 package request
 
 import (
+	"encoding/json"
+	"io"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 )
 
 func BindJSON[T any](c *gin.Context) (*T, error) {
@@ -43,4 +47,32 @@ func BindUri[T any](c *gin.Context) (*T, error) {
 		return nil, apperr.ErrValidation.WithError(err)
 	}
 	return &r, nil
+}
+
+func DecodeJSON(r io.Reader, obj any) error {
+	decoder := json.NewDecoder(r)
+	if binding.EnableDecoderUseNumber {
+		decoder.UseNumber()
+	}
+	if binding.EnableDecoderDisallowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
+	if err := decoder.Decode(obj); err != nil {
+		return apperr.ErrValidation.WithError(err)
+	}
+	err := binding.Validator.ValidateStruct(obj)
+	if err != nil {
+		return apperr.ErrValidation.WithError(err)
+	}
+	return nil
+}
+
+func BindJsonStruct(obj any) error {
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		err := v.Struct(obj)
+		if err != nil {
+			return apperr.ErrValidation.WithError(err)
+		}
+	}
+	return nil
 }

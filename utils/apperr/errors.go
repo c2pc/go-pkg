@@ -15,6 +15,7 @@ var (
 	ErrUnauthenticated      = New("unauthenticated_error", WithTextTranslate(i18n.ErrUnauthenticated), WithCode(code.Unauthenticated))
 	ErrNotFound             = New("not_found_error", WithTextTranslate(i18n.ErrNotFound), WithCode(code.NotFound))
 	ErrServerIsNotAvailable = New("server_is_not_available", WithTextTranslate(i18n.ErrServerIsNotAvailable), WithCode(code.Unavailable))
+	ErrContextCanceled      = New("context_canceled", WithTextTranslate(i18n.ErrContextCanceled), WithCode(code.Unavailable))
 )
 
 // Объявление стандартных ошибок базы данных

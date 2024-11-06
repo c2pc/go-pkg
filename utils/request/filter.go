@@ -41,6 +41,33 @@ func Filter(c *gin.Context) (*FilterRequest, error) {
 	}, nil
 }
 
+func FilterJSON(c *gin.Context) (*FilterRequest, error) {
+	type Filter struct {
+		OrderBy string `json:"sorters" binding:"omitempty"`
+		Where   string `json:"filters" binding:"omitempty"`
+	}
+
+	r, err := BindJSON[Filter](c)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedWhere, err := url.QueryUnescape(r.Where)
+	if err != nil {
+		return nil, err
+	}
+
+	where, err := ParseWhere(decodedWhere)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FilterRequest{
+		OrderBy: orderByToMap(r.OrderBy),
+		Where:   where,
+	}, nil
+}
+
 func orderByToMap(str string) map[string]string {
 	filter := map[string]string{}
 
