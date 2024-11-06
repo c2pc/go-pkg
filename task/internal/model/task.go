@@ -39,5 +39,5 @@ func (m Task) TableName() string {
 }
 
 func (m Task) FilePath() string {
-	return fmt.Sprintf("media/tasks/%s_%s_%d.csv", m.Type, m.Name, m.ID)
+	return fmt.Sprintf("media/tasks/%s_task_%d.csv", m.Type, m.ID)
 }
