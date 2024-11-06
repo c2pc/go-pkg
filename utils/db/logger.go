@@ -20,7 +20,7 @@ func defaultLogger(debug string) (gormLogger.Writer, gormLogger.Config) {
 	if level.Is(debug, level.TEST) {
 		logLevel = gormLogger.Info
 	}
-	writer := logger2.NewLogWriter(constant.DB_ID, true, 0)
+	writer := logger2.NewLogWriter(constant.DB_ID, false, 0)
 	return log.New(writer.Stdout, "\r\n\n", log.LstdFlags), gormLogger.Config{
 		SlowThreshold:             200 * time.Millisecond,
 		LogLevel:                  logLevel,

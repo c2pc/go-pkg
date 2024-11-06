@@ -48,7 +48,7 @@ func CorsHandler() gin.HandlerFunc {
 }
 
 func LogHandler(moduleID, debug string) gin.LoggerConfig {
-	writer := logger.NewLogWriter(moduleID, true, 0)
+	writer := logger.NewLogWriter(moduleID, false, 0)
 
 	prefix := ""
 	if level.Is(debug, level.TEST) {

@@ -17,7 +17,7 @@ type logger struct {
 // defaultLogger создает и возвращает экземпляр logger с конфигурацией по умолчанию
 func defaultLogger() logger {
 	// Создание нового логгера с определенным идентификатором и конфигурацией
-	writer := logger2.NewLogWriter(constant.REDIS_ID, true, 0)
+	writer := logger2.NewLogWriter(constant.REDIS_ID, false, 0)
 	return logger{
 		log: log.New(writer.Stdout, "\r\n\n", log.LstdFlags),
 	}
