@@ -31,7 +31,7 @@ func WarningLog(module string, stdout bool, msg string) {
 
 // WarningfLog logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
 func WarningfLog(module string, stdout bool, msg string, args ...interface{}) {
-	WarningfLog(module, stdout, fmt.Sprintf(msg, args...))
+	WarningLog(module, stdout, fmt.Sprintf(msg, args...))
 }
 
 // FatalLog logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
@@ -44,7 +44,7 @@ func FatalLog(module string, stdout bool, msg string) {
 
 // FatalfLog logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
 func FatalfLog(module string, stdout bool, msg string, args ...interface{}) {
-	FatalfLog(module, stdout, fmt.Sprintf(msg, args...))
+	FatalLog(module, stdout, fmt.Sprintf(msg, args...))
 }
 
 // DebugLog logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
