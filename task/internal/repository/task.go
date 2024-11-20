@@ -8,19 +8,19 @@ import (
 )
 
 var searchable = clause.FieldSearchable{
-	"id":         {`auth_tasks."id"`, clause.Int, ""},
-	"name":       {`auth_tasks."name"`, clause.String, ""},
-	"status":     {`auth_tasks."status"`, clause.String, ""},
-	"created_at": {`auth_tasks."created_at"`, clause.DateTime, ""},
-	"updated_at": {`auth_tasks."updated_at"`, clause.DateTime, ""},
+	"id":         {Column: `auth_tasks."id"`, Type: clause.Int},
+	"name":       {Column: `auth_tasks."name"`, Type: clause.String},
+	"status":     {Column: `auth_tasks."status"`, Type: clause.String},
+	"created_at": {Column: `auth_tasks."created_at"`, Type: clause.DateTime},
+	"updated_at": {Column: `auth_tasks."updated_at"`, Type: clause.DateTime},
 }
 
 var orderBy = clause.FieldOrderBy{
-	"id":         {`auth_tasks."id"`, ""},
-	"name":       {`auth_tasks."name"`, ""},
-	"status":     {`auth_tasks."status"`, ""},
-	"created_at": {`auth_tasks."created_at"`, ""},
-	"updated_at": {`auth_tasks."updated_at"`, ""},
+	"id":         {Column: `auth_tasks."id"`},
+	"name":       {Column: `auth_tasks."name"`},
+	"status":     {Column: `auth_tasks."status"`},
+	"created_at": {Column: `auth_tasks."created_at"`},
+	"updated_at": {Column: `auth_tasks."updated_at"`},
 }
 
 type ITaskRepository interface {

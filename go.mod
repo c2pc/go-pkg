@@ -13,6 +13,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/jackc/pgx/v5 v5.7.0
 	github.com/jinzhu/copier v0.4.0
+	github.com/jszwec/csvutil v1.10.0
 	github.com/lib/pq v1.10.9
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/errors v0.9.1
@@ -54,7 +55,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jszwec/csvutil v1.10.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lithammer/shortuuid v3.0.0+incompatible // indirect
