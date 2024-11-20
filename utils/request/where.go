@@ -14,8 +14,7 @@ func isAndOR(token string) bool {
 }
 
 func isOperation(token string) bool {
-	operations := []string{"co", "eq", "sw", "ew", "pt", "np", "in", ">", "<", ">=", "<=", "="}
-	for _, op := range operations {
+	for _, op := range clause.Operators {
 		if token == op {
 			return true
 		}
@@ -80,7 +79,7 @@ func parseTokens(tokens []string) (*clause.ExpressionWhere, error) {
 		default:
 			if isOperation(tokens[i]) {
 				var value string
-				if tokens[i] == "pt" || tokens[i] == "np" {
+				if tokens[i] == clause.OpPt || tokens[i] == clause.OpNp {
 					value = ""
 				} else {
 					if i+1 >= len(tokens) {
@@ -89,7 +88,7 @@ func parseTokens(tokens []string) (*clause.ExpressionWhere, error) {
 					value = tokens[i+1]
 				}
 				expressions = append(expressions, clause.ExpressionWhere{Column: tokens[i-1], Operation: strings.ToLower(tokens[i]), Value: value})
-				if tokens[i] != "pt" && tokens[i] != "np" {
+				if tokens[i] != clause.OpPt && tokens[i] != clause.OpNp {
 					i++
 				}
 
