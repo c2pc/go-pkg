@@ -8,13 +8,13 @@ import (
 )
 
 var newsSearchable = clause.FieldSearchable{
-	"id":    {`news."id"`, clause.Int, ""},
-	"title": {`news."title"`, clause.String, ""},
+	"id":    {Column: `news."id"`, Type: clause.Int},
+	"title": {Column: `news."title"`, Type: clause.String},
 }
 
 var newsOrderBy = clause.FieldOrderBy{
-	"id":    {`news."id"`, ""},
-	"title": {`news."title"`, ""},
+	"id":    {Column: `news."id"`},
+	"title": {Column: `news."title"`},
 }
 
 type INewsRepository interface {

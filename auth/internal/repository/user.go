@@ -10,25 +10,25 @@ import (
 )
 
 var userSearchable = clause.FieldSearchable{
-	"id":          {`auth_users."id"`, clause.Int, ""},
-	"login":       {`auth_users."login"`, clause.String, ""},
-	"first_name":  {`auth_users."first_name"`, clause.String, ""},
-	"second_name": {`auth_users."second_name"`, clause.String, ""},
-	"last_name":   {`auth_users."last_name"`, clause.String, ""},
-	"email":       {`auth_users."email"`, clause.String, ""},
-	"phone":       {`auth_users."phone"`, clause.String, ""},
-	"blocked":     {`auth_users."blocked"`, clause.Bool, ""},
+	"id":          {Column: `auth_users."id"`, Type: clause.Int},
+	"login":       {Column: `auth_users."login"`, Type: clause.String},
+	"first_name":  {Column: `auth_users."first_name"`, Type: clause.String},
+	"second_name": {Column: `auth_users."second_name"`, Type: clause.String},
+	"last_name":   {Column: `auth_users."last_name"`, Type: clause.String},
+	"email":       {Column: `auth_users."email"`, Type: clause.String},
+	"phone":       {Column: `auth_users."phone"`, Type: clause.String},
+	"blocked":     {Column: `auth_users."blocked"`, Type: clause.Bool},
 }
 
 var userOrderBy = clause.FieldOrderBy{
-	"id":          {`auth_users."id"`, ""},
-	"login":       {`auth_users."login"`, ""},
-	"first_name":  {`auth_users."first_name"`, ""},
-	"second_name": {`auth_users."second_name"`, ""},
-	"last_name":   {`auth_users."last_name"`, ""},
-	"email":       {`auth_users."email"`, ""},
-	"phone":       {`auth_users."phone"`, ""},
-	"blocked":     {`auth_users."blocked"`, ""},
+	"id":          {Column: `auth_users."id"`},
+	"login":       {Column: `auth_users."login"`},
+	"first_name":  {Column: `auth_users."first_name"`},
+	"second_name": {Column: `auth_users."second_name"`},
+	"last_name":   {Column: `auth_users."last_name"`},
+	"email":       {Column: `auth_users."email"`},
+	"phone":       {Column: `auth_users."phone"`},
+	"blocked":     {Column: `auth_users."blocked"`},
 }
 
 type IUserRepository interface {

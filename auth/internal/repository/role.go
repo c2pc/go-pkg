@@ -8,12 +8,12 @@ import (
 )
 
 var RoleSearchable = clause.FieldSearchable{
-	"id":   {`auth_roles."id"`, clause.Int, ""},
-	"name": {`auth_roles."name"`, clause.String, ""},
+	"id":   {Column: `auth_roles."id"`, Type: clause.Int},
+	"name": {Column: `auth_roles."name"`, Type: clause.String},
 }
 var RoleOrderBy = clause.FieldOrderBy{
-	"id":   {`auth_roles."id"`, ""},
-	"name": {`auth_roles."name"`, ""},
+	"id":   {Column: `auth_roles."id"`},
+	"name": {Column: `auth_roles."name"`},
 }
 
 type IRoleRepository interface {
