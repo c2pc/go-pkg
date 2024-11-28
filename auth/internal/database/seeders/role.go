@@ -33,7 +33,7 @@ func RoleSeeder(ctx context.Context, roleRepository repository2.IRoleRepository,
 				Read:         true,
 				Write:        true,
 				Exec:         true,
-			}, []interface{}{"role_id", "permission_id"}, []interface{}{"read", "write", "exec"})
+			}, []interface{}{"role_id", "permission_id"}, []interface{}{"read", "write", "exec"}, nil)
 			if err != nil {
 				return nil, err
 			}

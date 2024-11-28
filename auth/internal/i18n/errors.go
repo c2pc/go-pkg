@@ -15,3 +15,7 @@ var (
 	ErrRoleCannotBeChanged = translator.Translate{translator.RU: "Роль нельзя редактировать", translator.EN: "Role cannot be changed"}
 	ErrRoleCannotBeDeleted = translator.Translate{translator.RU: "Роль нельзя удалять", translator.EN: "Role cannot be deleted"}
 )
+
+var (
+	ErrSessionNotFound = translator.Translate{translator.RU: "Сессия не найдена", translator.EN: "Session not found"}
+)

@@ -24,6 +24,7 @@ type Handler struct {
 	roleService          service2.IRoleService
 	userService          service2.IUserService
 	settingService       service2.ISettingService
+	sessionService       service2.ISessionService
 	tr                   mw.ITransaction
 	tokenMiddleware      middleware2.ITokenMiddleware
 	permissionMiddleware middleware2.IPermissionMiddleware
@@ -35,6 +36,7 @@ func NewHandlers(
 	roleService service2.IRoleService,
 	userService service2.IUserService,
 	settingService service2.ISettingService,
+	sessionService service2.ISessionService,
 	tr mw.ITransaction,
 	tokenMiddleware middleware2.ITokenMiddleware,
 	permissionMiddleware middleware2.IPermissionMiddleware,
@@ -57,6 +59,7 @@ func NewHandlers(
 		roleService,
 		userService,
 		settingService,
+		sessionService,
 		tr,
 		tokenMiddleware,
 		permissionMiddleware,
@@ -69,6 +72,7 @@ func (h *Handler) Init(api *gin.RouterGroup) {
 	roleHandler := NewRoleHandlers(h.roleService, h.tr)
 	userHandler := NewUserHandlers(h.userService, h.tr)
 	settingHandler := NewSettingHandlers(h.settingService, h.tr)
+	sessionHandler := NewSessionHandlers(h.sessionService, h.tr)
 
 	handler := api.Group("/auth")
 	{
@@ -83,6 +87,7 @@ func (h *Handler) Init(api *gin.RouterGroup) {
 				permissionHandler.Init(perm)
 				roleHandler.Init(perm)
 				userHandler.Init(perm)
+				sessionHandler.Init(perm)
 			}
 		}
 	}

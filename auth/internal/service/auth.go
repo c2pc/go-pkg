@@ -89,7 +89,7 @@ func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model2.AuthTo
 		return nil, apperr.ErrUnauthenticated.WithErrorText("user is blocked")
 	}
 
-	return s.createSession(ctx, user.ID, input.DeviceID)
+	return s.createSession(ctx, true, user.ID, input.DeviceID)
 }
 
 type AuthRefresh struct {
@@ -104,10 +104,11 @@ func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model2.Au
 	}
 
 	if time.Now().UTC().After(token.ExpiresAt) {
+		_ = s.tokenRepository.Delete(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
 		return nil, apperr.ErrUnauthenticated.WithErrorText("token is expired")
 	}
 
-	return s.createSession(ctx, token.UserID, token.DeviceID)
+	return s.createSession(ctx, false, token.UserID, token.DeviceID)
 }
 
 type AuthLogout struct {
@@ -233,7 +234,7 @@ func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAcco
 	return nil
 }
 
-func (s AuthService) createSession(ctx context.Context, userID int, deviceID int) (*model2.AuthToken, error) {
+func (s AuthService) createSession(ctx context.Context, isLogin bool, userID int, deviceID int) (*model2.AuthToken, error) {
 	claims := tokenverify.BuildClaims(userID, deviceID, s.accessExpire)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.accessSecret))
@@ -244,12 +245,20 @@ func (s AuthService) createSession(ctx context.Context, userID int, deviceID int
 	refreshToken := xid.New().String()
 	expiresAt := time.Now().UTC().Add(s.refreshExpire)
 
+	doUpdate := []interface{}{"token", "expires_at", "updated_at"}
+	doCreate := []interface{}{"logged_at"}
+	if isLogin {
+		doUpdate = append(doUpdate, "logged_at")
+	}
+
 	if _, err = s.tokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
 		UserID:    userID,
 		DeviceID:  deviceID,
 		Token:     refreshToken,
+		LoggedAt:  time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
 		ExpiresAt: expiresAt,
-	}, []interface{}{"user_id", "device_id"}, []interface{}{"token", "expires_at"}); err != nil {
+	}, []interface{}{"user_id", "device_id"}, doUpdate, doCreate); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 

@@ -25,6 +25,7 @@ var (
 	ErrValidation           = translator.Translate{translator.RU: "Неверный запрос", translator.EN: "Validation error"}
 	ErrEmptyData            = translator.Translate{translator.RU: "Неверный запрос", translator.EN: "Empty data error"}
 	ErrInternal             = translator.Translate{translator.RU: "Ошибка сервера", translator.EN: "Internal error"}
+	ErrBadRequest           = translator.Translate{translator.RU: "Неверный запрос", translator.EN: "Bad request error"}
 	ErrForbidden            = translator.Translate{translator.RU: "Нет доступа", translator.EN: "Forbidden error"}
 	ErrUnauthenticated      = translator.Translate{translator.RU: "Ошибка аутентификации", translator.EN: "Unauthenticated error"}
 	ErrNotFound             = translator.Translate{translator.RU: "Не найдено", translator.EN: "Not found error"}

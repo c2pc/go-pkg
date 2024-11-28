@@ -45,10 +45,14 @@ create table if not exists auth_user_roles
 
 create table if not exists auth_tokens
 (
+    id         serial
+        primary key,
     user_id    integer      not null references auth_users on update cascade on delete cascade,
     device_id  integer      not null,
     token      varchar(256) not null,
-    expires_at timestamp    not null,
+    updated_at timestamp    not null default now(),
+    expires_at timestamp    not null default now(),
+    logged_at  timestamp    not null default now(),
     unique (user_id, device_id)
 );
 
@@ -58,4 +62,20 @@ create table if not exists auth_settings
     device_id integer not null,
     settings  text,
     unique (user_id, device_id)
+);
+
+create table if not exists auth_tasks
+(
+    id         serial
+        primary key,
+    user_id    integer      not null
+        references auth_users
+            on update cascade on delete cascade,
+    name       varchar(256) not null,
+    type       varchar(256) not null,
+    status     varchar(256) not null,
+    output     bytea,
+    input      bytea,
+    created_at timestamp default now(),
+    updated_at timestamp default now()
 );

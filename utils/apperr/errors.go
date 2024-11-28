@@ -11,6 +11,7 @@ var (
 	ErrValidation           = New("validation_error", WithTextTranslate(i18n.ErrValidation), WithCode(code.InvalidArgument))
 	ErrEmptyData            = New("empty_data_error", WithTextTranslate(i18n.ErrEmptyData), WithCode(code.InvalidArgument))
 	ErrInternal             = New("internal_error", WithTextTranslate(i18n.ErrInternal), WithCode(code.Internal))
+	ErrBadRequest           = New("bad_request_error", WithTextTranslate(i18n.ErrBadRequest), WithCode(code.InvalidArgument))
 	ErrForbidden            = New("forbidden_error", WithTextTranslate(i18n.ErrForbidden), WithCode(code.PermissionDenied))
 	ErrUnauthenticated      = New("unauthenticated_error", WithTextTranslate(i18n.ErrUnauthenticated), WithCode(code.Unauthenticated))
 	ErrNotFound             = New("not_found_error", WithTextTranslate(i18n.ErrNotFound), WithCode(code.NotFound))

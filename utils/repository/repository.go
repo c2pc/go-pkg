@@ -27,7 +27,7 @@ type Repository[T any, C model.Model] interface {
 	Delete(ctx context.Context, query string, args ...any) error
 	Create(ctx context.Context, u *C, returning ...string) (*C, error)
 	Create2(ctx context.Context, u *[]C, returning ...string) (*[]C, error)
-	CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, returning ...string) (*C, error)
+	CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, doCreates []interface{}, returning ...string) (*C, error)
 	FirstOrCreate(ctx context.Context, u *C, returning string, query string, args ...any) (*C, error)
 	Update(ctx context.Context, u *C, selects []interface{}, query string, args ...any) error
 	Update2(ctx context.Context, u *[]C, selects []interface{}, query string, args ...any) error
@@ -287,22 +287,32 @@ func (r Repo[C]) Create2(ctx context.Context, u *[]C, returning ...string) (*[]C
 	return u, nil
 }
 
-func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, returning ...string) (*C, error) {
+func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, doCreates []interface{}, returning ...string) (*C, error) {
 	res := r.DB().
 		WithContext(ctx).
 		Clauses(clause.Returning(returning...))
 
-	if onConflict != nil && len(onConflict) > 0 && doUpdates != nil && len(doUpdates) > 0 {
-		var selected []interface{}
+	var selected []interface{}
+	if onConflict != nil && len(onConflict) > 0 {
 		selected = append(selected, onConflict...)
-		selected = append(selected, doUpdates...)
-
-		res = res.
-			Clauses(clause.OnConflict(onConflict, doUpdates)).
-			Select(selected[0], selected[0:]...)
 	}
 
-	res = res.Create(u)
+	if doUpdates != nil && len(doUpdates) > 0 {
+		selected = append(selected, doUpdates...)
+	}
+
+	if doCreates != nil && len(doCreates) > 0 {
+		selected = append(selected, doCreates...)
+	}
+
+	if onConflict != nil && len(onConflict) > 0 && doUpdates != nil && len(doUpdates) > 0 {
+		res = res.
+			Clauses(clause.OnConflict(onConflict, doUpdates))
+	}
+
+	res = res.
+		Select(selected[0], selected[0:]...).
+		Create(u)
 	if err := res.Error; err != nil {
 		return nil, r.Error(ctx, err)
 	}

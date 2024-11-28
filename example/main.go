@@ -137,6 +137,7 @@ func main() {
 
 	go func() {
 		logger.Infof("Starting Rest Server")
+		log.Println("Starting Rest Server")
 		if err := restServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			logger.Infof("Rest ListenAndServe err: %s\n", err.Error())
 		}
@@ -156,4 +157,5 @@ func main() {
 	}
 
 	logger.Infof("Shutting Down Server")
+	log.Println("Shutting Down Server")
 }

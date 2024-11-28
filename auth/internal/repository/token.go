@@ -7,8 +7,19 @@ import (
 	"gorm.io/gorm"
 )
 
-var TokenSearchable = clause.FieldSearchable{}
-var TokenOrderBy = clause.FieldOrderBy{}
+var TokenSearchable = clause.FieldSearchable{
+	"id":         {Column: `auth_tokens."id"`, Type: clause.Int},
+	"user_id":    {Column: `auth_tokens."user_id"`, Type: clause.Int},
+	"logged_at":  {Column: `auth_tokens."logged_at"`, Type: clause.DateTime},
+	"updated_at": {Column: `auth_tokens."updated_at"`, Type: clause.DateTime},
+}
+
+var TokenOrderBy = clause.FieldOrderBy{
+	"id":         {Column: `auth_tokens."id"`},
+	"user_id":    {Column: `auth_tokens."user_id"`},
+	"logged_at":  {Column: `auth_tokens."logged_at"`},
+	"updated_at": {Column: `auth_tokens."updated_at"`},
+}
 
 type ITokenRepository interface {
 	repository.Repository[ITokenRepository, model.RefreshToken]
