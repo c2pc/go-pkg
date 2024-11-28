@@ -1,6 +1,8 @@
 package transformer
 
 import (
+	"strings"
+
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 )
@@ -41,7 +43,7 @@ type AuthAccountTransformer struct {
 func AuthAccountTransform(m *model2.User) *AuthAccountTransformer {
 	r := &AuthAccountTransformer{
 		ID:         m.ID,
-		Login:      m.Login,
+		Login:      strings.ToLower(m.Login),
 		FirstName:  m.FirstName,
 		SecondName: m.SecondName,
 		LastName:   m.LastName,

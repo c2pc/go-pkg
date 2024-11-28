@@ -2,6 +2,7 @@ package seeders
 
 import (
 	"context"
+	"strings"
 
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
@@ -19,7 +20,7 @@ func UserSeeder(ctx context.Context, userRepository repository2.IUserRepository,
 			pass := hasher.HashString(password)
 
 			admin, err := userRepository.FirstOrCreate(ctx, &model.User{
-				Login:     login,
+				Login:     strings.ToLower(login),
 				FirstName: name,
 				Password:  pass,
 			}, "id", `login = ?`, login)
