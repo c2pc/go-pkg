@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
@@ -77,7 +76,7 @@ type AuthLogin struct {
 }
 
 func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, error) {
-	user, err := s.userRepository.Find(ctx, "LOWER(login) = ?", strings.ToLower(input.Login))
+	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -166,7 +165,7 @@ func (s AuthService) UpdateAccountData(ctx context.Context, input AuthUpdateAcco
 
 	var selects []interface{}
 	if input.Login != nil && *input.Login != "" {
-		user.Login = strings.ToLower(*input.Login)
+		user.Login = *input.Login
 		selects = append(selects, "login")
 	}
 

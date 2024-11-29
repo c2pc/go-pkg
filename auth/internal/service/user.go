@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strings"
 
 	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
@@ -99,7 +98,7 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput) (*model.
 	password := s.hasher.HashString(input.Password)
 
 	user, err := s.userRepository.Create(ctx, &model.User{
-		Login:      strings.ToLower(input.Login),
+		Login:      input.Login,
 		FirstName:  input.FirstName,
 		SecondName: input.SecondName,
 		LastName:   input.LastName,
@@ -150,7 +149,7 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput) 
 
 	var selects []interface{}
 	if input.Login != nil && *input.Login != "" {
-		user.Login = strings.ToLower(*input.Login)
+		user.Login = *input.Login
 		selects = append(selects, "login")
 	}
 	if input.FirstName != nil && *input.FirstName != "" {

@@ -1,8 +1,6 @@
 package transformer
 
 import (
-	"strings"
-
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
@@ -20,7 +18,7 @@ type UserSimpleTransformer struct {
 func UserSimpleTransform(m *model.User) *UserSimpleTransformer {
 	r := &UserSimpleTransformer{
 		ID:         m.ID,
-		Login:      strings.ToLower(m.Login),
+		Login:      m.Login,
 		FirstName:  m.FirstName,
 		SecondName: m.SecondName,
 		LastName:   m.LastName,
@@ -45,7 +43,7 @@ type UserTransformer struct {
 func UserTransform(m *model.User) *UserTransformer {
 	r := &UserTransformer{
 		ID:         m.ID,
-		Login:      strings.ToLower(m.Login),
+		Login:      m.Login,
 		FirstName:  m.FirstName,
 		SecondName: m.SecondName,
 		LastName:   m.LastName,
@@ -79,7 +77,7 @@ func UserListTransform(c *gin.Context, p *model2.Pagination[model.User]) []UserL
 	for _, m := range p.Rows {
 		user := UserListTransformer{
 			ID:         m.ID,
-			Login:      strings.ToLower(m.Login),
+			Login:      m.Login,
 			FirstName:  m.FirstName,
 			SecondName: m.SecondName,
 			LastName:   m.LastName,
