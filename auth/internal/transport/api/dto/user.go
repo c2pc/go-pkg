@@ -15,6 +15,7 @@ func UserCreate(input *request.UserCreateRequest) service.UserCreateInput {
 		Email:      input.Email,
 		Phone:      input.Phone,
 		Roles:      input.Roles,
+		Blocked:    input.Blocked,
 	}
 }
 
@@ -28,5 +29,6 @@ func UserUpdate(input *request.UserUpdateRequest) service.UserUpdateInput {
 		Email:      input.Email,
 		Phone:      input.Phone,
 		Roles:      input.Roles,
+		Blocked:    input.Blocked,
 	}
 }
