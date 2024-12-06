@@ -3,7 +3,8 @@ package transformer
 import (
 	"bytes"
 	"compress/gzip"
-	"io/ioutil"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
@@ -12,20 +13,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func decompressGzip(data string) string {
-	if data == "" {
-		return data
+func decompressGzip(compressedData []byte) string {
+	if compressedData == nil {
+		return ""
 	}
-	compressedData := []byte(data)
 	reader, err := gzip.NewReader(bytes.NewReader(compressedData))
 	if err != nil {
-		return data
+		return ""
 	}
 	defer reader.Close()
 
-	uncompressedData, err := ioutil.ReadAll(reader)
+	uncompressedData, err := io.ReadAll(reader)
 	if err != nil {
-		return data
+		return ""
 	}
 	return string(uncompressedData)
 }
@@ -40,14 +40,17 @@ type AnalyticsTransformer struct {
 	RequestBody  string    `json:"request_body"`
 	ResponseBody string    `json:"response_body"`
 	CreatedAt    time.Time `json:"created_at"`
-	UserID       int       `json:"user_id"`
-	Login        string    `json:"login"`
-	FirstName    string    `json:"first_name"`
-	SecondName   string    `json:"second_name"`
-	LastName     string    `json:"last_name"`
+	UserID       *int      `json:"user_id"`
+	Name         string    `json:"name"`
 }
 
 func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
+	var name string
+	if m.User != nil {
+		name = m.User.FirstName + " " + m.User.LastName + " " + m.User.SecondName
+		name = strings.TrimSpace(strings.ReplaceAll(name, "  ", " "))
+	}
+
 	return AnalyticsTransformer{
 		ID:           m.ID,
 		OperationID:  m.OperationID,
@@ -59,10 +62,7 @@ func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
 		ResponseBody: decompressGzip(m.ResponseBody),
 		CreatedAt:    m.CreatedAt,
 		UserID:       m.UserID,
-		Login:        m.User.Login,
-		FirstName:    m.User.FirstName,
-		SecondName:   m.User.SecondName,
-		LastName:     m.User.LastName,
+		Name:         name,
 	}
 }
 
@@ -74,14 +74,17 @@ type AnalyticsSummaryTransformer struct {
 	StatusCode  int       `json:"status_code"`
 	ClientIP    string    `json:"client_ip"`
 	CreatedAt   time.Time `json:"created_at"`
-	UserID      int       `json:"user_id"`
-	Login       string    `json:"login"`
-	FirstName   string    `json:"first_name"`
-	SecondName  string    `json:"second_name"`
-	LastName    string    `json:"last_name"`
+	UserID      *int      `json:"user_id"`
+	Name        string    `json:"name"`
 }
 
 func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
+	var name string
+	if m.User != nil {
+		name = m.User.FirstName + " " + m.User.LastName + " " + m.User.SecondName
+		name = strings.TrimSpace(strings.ReplaceAll(name, "  ", " "))
+	}
+
 	return AnalyticsSummaryTransformer{
 		ID:          m.ID,
 		Path:        m.Path,
@@ -91,10 +94,7 @@ func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
 		ClientIP:    m.ClientIP,
 		CreatedAt:   m.CreatedAt,
 		UserID:      m.UserID,
-		Login:       m.User.Login,
-		FirstName:   m.User.FirstName,
-		SecondName:  m.User.SecondName,
-		LastName:    m.User.LastName,
+		Name:        name,
 	}
 }
 

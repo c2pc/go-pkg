@@ -8,12 +8,12 @@ type Analytics struct {
 	ID           uint      `json:"id" gorm:"primary_key"`
 	OperationID  string    `json:"operation_id"`
 	Path         string    `json:"path"`
-	UserID       int       `json:"user_id"`
+	UserID       *int      `json:"user_id"`
 	Method       string    `json:"method"`
 	StatusCode   int       `json:"status_code"`
 	ClientIP     string    `json:"client_ip"`
-	RequestBody  string    `json:"request_body"`
-	ResponseBody string    `json:"response_body"`
+	RequestBody  []byte    `json:"request_body"`
+	ResponseBody []byte    `json:"response_body"`
 	CreatedAt    time.Time `json:"created_at"  gorm:"autoCreateTime"`
 
 	User *User `json:"user"`

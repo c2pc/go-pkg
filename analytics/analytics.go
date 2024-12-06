@@ -1,4 +1,4 @@
-package main
+package analytics
 
 import (
 	"time"
@@ -13,7 +13,7 @@ import (
 
 type Analytics interface {
 	InitHandler(api *gin.RouterGroup)
-	InitCollect(engine *gin.Engine)
+	InitCollect() gin.HandlerFunc
 }
 
 type analyticsImpl struct {
@@ -52,6 +52,6 @@ func (a *analyticsImpl) InitHandler(api *gin.RouterGroup) {
 	a.handler.Init(api)
 }
 
-func (a *analyticsImpl) InitCollect(engine *gin.Engine) {
-	engine.Use(a.collector)
+func (a *analyticsImpl) InitCollect() gin.HandlerFunc {
+	return a.collector
 }

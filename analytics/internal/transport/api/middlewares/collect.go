@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
-	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -87,28 +85,21 @@ func (l *logger) middleware(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	path := c.FullPath()
+	path := c.Request.URL.Path
 	if path == "" {
-		path = c.Request.URL.Path
+		path = c.FullPath()
 	}
 	method := c.Request.Method
 	status := c.Writer.Status()
 	clientIP := c.ClientIP()
 
-	userID, ok := mcontext.GetOpUserID(ctx)
-
-	if !ok {
-		response.Response(c, apperr.ErrInternal.WithErrorText("error to get operation user id"))
-		c.Abort()
-		return
+	var userID *int
+	id, ok := mcontext.GetOpUserID(ctx)
+	if ok {
+		userID = &id
 	}
 
-	operationID, ok := mcontext.GetOperationID(ctx)
-	if !ok {
-		response.Response(c, apperr.ErrInternal.WithErrorText("error to get operation id"))
-		c.Abort()
-		return
-	}
+	operationID, _ := mcontext.GetOperationID(ctx)
 
 	compressedRequest := compressData(requestBody)
 	compressedResponse := compressData(w.body.Bytes())
@@ -127,15 +118,15 @@ func (l *logger) middleware(c *gin.Context) {
 	l.addEntry(entry)
 }
 
-func compressData(data []byte) string {
+func compressData(data []byte) []byte {
 	if len(data) == 0 {
-		return ""
+		return nil
 	}
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	_, _ = gz.Write(data)
 	gz.Close()
-	return buf.String()
+	return buf.Bytes()
 }
 
 func (l *logger) addEntry(entry models.Analytics) {
