@@ -25,6 +25,7 @@ type logger struct {
 	db            *gorm.DB
 	batchSize     int
 	entries       []models.Analytics
+	userIDMap     map[int]struct{}
 	mu            sync.Mutex
 	flushInterval time.Duration
 	ticker        *time.Ticker
@@ -56,6 +57,7 @@ func New(cfg LoggerConfig) gin.HandlerFunc {
 		db:            cfg.DB,
 		batchSize:     cfg.BatchSize,
 		entries:       make([]models.Analytics, 0, cfg.BatchSize),
+		userIDMap:     make(map[int]struct{}),
 		flushInterval: cfg.FlushInterval,
 	}
 
@@ -134,6 +136,11 @@ func (l *logger) addEntry(entry models.Analytics) {
 	defer l.mu.Unlock()
 
 	l.entries = append(l.entries, entry)
+
+	if entry.UserID != nil {
+		l.userIDMap[*entry.UserID] = struct{}{}
+	}
+
 	if len(l.entries) >= l.batchSize {
 		l.flush()
 	}
@@ -159,11 +166,39 @@ func (l *logger) flush() {
 		return
 	}
 
+	userIDs := make([]int, 0, len(l.userIDMap))
+	for id := range l.userIDMap {
+		userIDs = append(userIDs, id)
+	}
+
+	var users []models.User
+	if len(userIDs) > 0 {
+		if err := l.db.Where("id IN ?", userIDs).Omit("password", "email", "phone", "blocked", "roles").Find(&users).Error; err != nil {
+			log.Printf("error getting users: %v", err)
+		}
+	}
+
+	userMap := make(map[int]models.User)
+	for _, user := range users {
+		userMap[user.ID] = user
+	}
+
+	for i := range l.entries {
+		if l.entries[i].UserID != nil {
+			if user, exists := userMap[*l.entries[i].UserID]; exists {
+				l.entries[i].FirstName = user.FirstName
+				l.entries[i].SecondName = user.SecondName
+				l.entries[i].LastName = user.LastName
+			}
+		}
+	}
+
 	err := l.db.Create(&l.entries).Error
 	if err == nil {
 		l.entries = l.entries[:0]
+		l.userIDMap = make(map[int]struct{})
 	} else {
-		log.Printf("Error inserting analytics batch: %v", err)
+		log.Printf("Ошибка при вставке пакета аналитики: %v", err)
 	}
 }
 
@@ -173,7 +208,37 @@ func (l *logger) Shutdown() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if len(l.entries) > 0 {
-		_ = l.db.Create(&l.entries).Error
+		userIDs := make([]int, 0, len(l.userIDMap))
+		for id := range l.userIDMap {
+			userIDs = append(userIDs, id)
+		}
+
+		var users []models.User
+		if len(userIDs) > 0 {
+			if err := l.db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+				log.Printf("Ошибка при пSолучении пользователей во время завершения: %v", err)
+			}
+		}
+
+		userMap := make(map[int]models.User)
+		for _, user := range users {
+			userMap[user.ID] = user
+		}
+
+		for i := range l.entries {
+			if l.entries[i].UserID != nil {
+				if user, exists := userMap[*l.entries[i].UserID]; exists {
+					l.entries[i].FirstName = user.FirstName
+					l.entries[i].SecondName = user.SecondName
+					l.entries[i].LastName = user.LastName
+				}
+			}
+		}
+
+		if err := l.db.Create(&l.entries).Error; err != nil {
+			log.Printf("error when inserting analytics: %v", err)
+		}
 		l.entries = l.entries[:0]
+		l.userIDMap = make(map[int]struct{})
 	}
 }

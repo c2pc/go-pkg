@@ -41,7 +41,9 @@ type AnalyticsTransformer struct {
 	ResponseBody string    `json:"response_body"`
 	CreatedAt    time.Time `json:"created_at"`
 	UserID       *int      `json:"user_id"`
-	Name         string    `json:"name"`
+	FirstName    string    `json:"first_name"`
+	SecondName   string    `json:"second_name"`
+	LastName     string    `json:"last_name"`
 }
 
 func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
@@ -62,7 +64,9 @@ func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
 		ResponseBody: decompressGzip(m.ResponseBody),
 		CreatedAt:    m.CreatedAt,
 		UserID:       m.UserID,
-		Name:         name,
+		FirstName:    m.FirstName,
+		SecondName:   m.SecondName,
+		LastName:     m.LastName,
 	}
 }
 
@@ -75,7 +79,9 @@ type AnalyticsSummaryTransformer struct {
 	ClientIP    string    `json:"client_ip"`
 	CreatedAt   time.Time `json:"created_at"`
 	UserID      *int      `json:"user_id"`
-	Name        string    `json:"name"`
+	FirstName   string    `json:"first_name"`
+	SecondName  string    `json:"second_name"`
+	LastName    string    `json:"last_name"`
 }
 
 func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
@@ -94,7 +100,9 @@ func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
 		ClientIP:    m.ClientIP,
 		CreatedAt:   m.CreatedAt,
 		UserID:      m.UserID,
-		Name:        name,
+		FirstName:   m.FirstName,
+		SecondName:  m.SecondName,
+		LastName:    m.LastName,
 	}
 }
 
