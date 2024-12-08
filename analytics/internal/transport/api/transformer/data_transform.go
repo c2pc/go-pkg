@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
@@ -47,12 +46,6 @@ type AnalyticsTransformer struct {
 }
 
 func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
-	var name string
-	if m.User != nil {
-		name = m.User.FirstName + " " + m.User.LastName + " " + m.User.SecondName
-		name = strings.TrimSpace(strings.ReplaceAll(name, "  ", " "))
-	}
-
 	return AnalyticsTransformer{
 		ID:           m.ID,
 		OperationID:  m.OperationID,
@@ -85,12 +78,6 @@ type AnalyticsSummaryTransformer struct {
 }
 
 func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
-	var name string
-	if m.User != nil {
-		name = m.User.FirstName + " " + m.User.LastName + " " + m.User.SecondName
-		name = strings.TrimSpace(strings.ReplaceAll(name, "  ", " "))
-	}
-
 	return AnalyticsSummaryTransformer{
 		ID:          m.ID,
 		Path:        m.Path,

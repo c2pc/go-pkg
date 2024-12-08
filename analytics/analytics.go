@@ -13,7 +13,7 @@ import (
 
 type Analytics interface {
 	InitHandler(api *gin.RouterGroup)
-	InitCollect() gin.HandlerFunc
+	CollectAnalytic(c *gin.Context)
 }
 
 type analyticsImpl struct {
@@ -30,9 +30,9 @@ type Config struct {
 func New(config Config) Analytics {
 	repo := repository.NewAnalyticRepository(config.DB)
 
-	service := service.NewAnalyticService(repo)
+	svc := service.NewAnalyticService(repo)
 
-	handler := handlers.NewAnalyticsHandler(service)
+	handler := handlers.NewAnalyticsHandler(svc)
 
 	collectorConfig := collector.LoggerConfig{
 		DB:            config.DB,
@@ -52,6 +52,6 @@ func (a *analyticsImpl) InitHandler(api *gin.RouterGroup) {
 	a.handler.Init(api)
 }
 
-func (a *analyticsImpl) InitCollect() gin.HandlerFunc {
-	return a.collector
+func (a *analyticsImpl) CollectAnalytic(c *gin.Context) {
+	a.collector(c)
 }

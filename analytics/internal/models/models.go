@@ -15,10 +15,9 @@ type Analytics struct {
 	RequestBody  []byte    `json:"request_body"`
 	ResponseBody []byte    `json:"response_body"`
 	CreatedAt    time.Time `json:"created_at"  gorm:"autoCreateTime"`
-
-	FirstName  string `json:"first_name"`
-	SecondName string `json:"second_name"`
-	LastName   string `json:"last_name"`
+	FirstName    string    `json:"first_name"`
+	SecondName   string    `json:"second_name"`
+	LastName     string    `json:"last_name"`
 
 	User *User `json:"user"`
 }

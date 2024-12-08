@@ -88,9 +88,6 @@ func (l *logger) middleware(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	path := c.Request.URL.Path
-	if path == "" {
-		path = c.FullPath()
-	}
 	method := c.Request.Method
 	status := c.Writer.Status()
 	clientIP := c.ClientIP()
@@ -122,7 +119,7 @@ func (l *logger) middleware(c *gin.Context) {
 
 func compressData(data []byte) []byte {
 	if len(data) == 0 {
-		return nil
+		return data
 	}
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
@@ -166,6 +163,21 @@ func (l *logger) flush() {
 		return
 	}
 
+	if err := l.analyticWithUserData(); err != nil {
+		log.Printf("error when adding user data to the request")
+	}
+
+	err := l.db.Create(&l.entries).Error
+	// Не оборачиваем мьютексами потому что метод flush сам всегда вызывается внутри заблокированного мьютекса.
+	if err == nil {
+		l.entries = l.entries[:0]
+		l.userIDMap = make(map[int]struct{})
+	} else {
+		log.Printf("error when inserting analytics: %v", err)
+	}
+}
+
+func (l *logger) analyticWithUserData() error {
 	userIDs := make([]int, 0, len(l.userIDMap))
 	for id := range l.userIDMap {
 		userIDs = append(userIDs, id)
@@ -173,8 +185,8 @@ func (l *logger) flush() {
 
 	var users []models.User
 	if len(userIDs) > 0 {
-		if err := l.db.Where("id IN ?", userIDs).Omit("password", "email", "phone", "blocked", "roles").Find(&users).Error; err != nil {
-			log.Printf("error getting users: %v", err)
+		if err := l.db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+			return err
 		}
 	}
 
@@ -193,13 +205,7 @@ func (l *logger) flush() {
 		}
 	}
 
-	err := l.db.Create(&l.entries).Error
-	if err == nil {
-		l.entries = l.entries[:0]
-		l.userIDMap = make(map[int]struct{})
-	} else {
-		log.Printf("Ошибка при вставке пакета аналитики: %v", err)
-	}
+	return nil
 }
 
 func (l *logger) Shutdown() {
@@ -208,31 +214,8 @@ func (l *logger) Shutdown() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if len(l.entries) > 0 {
-		userIDs := make([]int, 0, len(l.userIDMap))
-		for id := range l.userIDMap {
-			userIDs = append(userIDs, id)
-		}
-
-		var users []models.User
-		if len(userIDs) > 0 {
-			if err := l.db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
-				log.Printf("Ошибка при пSолучении пользователей во время завершения: %v", err)
-			}
-		}
-
-		userMap := make(map[int]models.User)
-		for _, user := range users {
-			userMap[user.ID] = user
-		}
-
-		for i := range l.entries {
-			if l.entries[i].UserID != nil {
-				if user, exists := userMap[*l.entries[i].UserID]; exists {
-					l.entries[i].FirstName = user.FirstName
-					l.entries[i].SecondName = user.SecondName
-					l.entries[i].LastName = user.LastName
-				}
-			}
+		if err := l.analyticWithUserData(); err != nil {
+			log.Printf("error when adding user data to the request")
 		}
 
 		if err := l.db.Create(&l.entries).Error; err != nil {
