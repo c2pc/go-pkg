@@ -45,7 +45,7 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func New(cfg LoggerConfig) gin.HandlerFunc {
+func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 	if cfg.FlushInterval == 0 {
 		cfg.FlushInterval = 10 * time.Second
 	}
@@ -67,7 +67,7 @@ func New(cfg LoggerConfig) gin.HandlerFunc {
 
 	go l.periodicFlush(ctx)
 
-	return l.middleware
+	return l.middleware, l.shutdown
 }
 
 func (l *logger) middleware(c *gin.Context) {
@@ -208,7 +208,7 @@ func (l *logger) analyticWithUserData() error {
 	return nil
 }
 
-func (l *logger) Shutdown() {
+func (l *logger) shutdown() {
 	l.cancelFunc()
 	l.ticker.Stop()
 	l.mu.Lock()

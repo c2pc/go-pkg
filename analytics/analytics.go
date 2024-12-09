@@ -14,11 +14,13 @@ import (
 type Analytics interface {
 	InitHandler(api *gin.RouterGroup)
 	CollectAnalytic(c *gin.Context)
+	ShutDown()
 }
 
 type analyticsImpl struct {
-	handler   *handlers.AnalyticsHandler
-	collector gin.HandlerFunc
+	handler    *handlers.AnalyticsHandler
+	middleware gin.HandlerFunc
+	shutdown   func()
 }
 
 type Config struct {
@@ -40,11 +42,12 @@ func New(config Config) Analytics {
 		BatchSize:     config.BatchSize,
 	}
 
-	logger := collector.New(collectorConfig)
+	middleware, shutdown := collector.New(collectorConfig)
 
 	return &analyticsImpl{
-		handler:   handler,
-		collector: logger,
+		handler:    handler,
+		middleware: middleware,
+		shutdown:   shutdown,
 	}
 }
 
@@ -53,5 +56,9 @@ func (a *analyticsImpl) InitHandler(api *gin.RouterGroup) {
 }
 
 func (a *analyticsImpl) CollectAnalytic(c *gin.Context) {
-	a.collector(c)
+	a.middleware(c)
+}
+
+func (a *analyticsImpl) ShutDown() {
+	a.shutdown()
 }
