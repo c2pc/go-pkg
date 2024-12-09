@@ -469,8 +469,11 @@ func (s TaskService) writeToFile(task *model.Task, data []byte) (string, error) 
 }
 
 func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string, error) {
-	task, err := s.GetById(ctx, id)
+	task, err := s.taskRepository.Omit("input", "output").Find(ctx, `id = ?`, id)
 	if err != nil {
+		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
+			return "", ErrTaskNotFound
+		}
 		return "", err
 	}
 
@@ -490,16 +493,16 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	tokenString, err := token.SignedString(s.tokenSecret)
+	tokenString, err := token.SignedString([]byte(s.tokenSecret))
 	if err != nil {
-		return "", ErrGenerateToken
+		return "", ErrGenerateToken.WithError(err)
 	}
 
 	return tokenString, nil
 }
 
 func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString string, id int) error {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -510,7 +513,7 @@ func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString stri
 		return ErrInvalidLink.WithError(err)
 	}
 
-	claims, ok := token.Claims.(jwt.RegisteredClaims)
+	claims, ok := token.Claims.(*jwt.RegisteredClaims)
 	if !ok {
 		return ErrInvalidLink.WithErrorText("invalid token")
 	}

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"path/filepath"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 
@@ -154,5 +155,5 @@ func (h *TaskHandler) Download(c *gin.Context) {
 		return
 	}
 
-	c.File(path)
+	c.FileAttachment(path, filepath.Base(path))
 }
