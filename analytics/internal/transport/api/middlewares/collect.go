@@ -179,13 +179,11 @@ func (l *logger) flush() {
 	}
 
 	err := l.db.Create(&l.entries).Error
-	// Не оборачиваем мьютексами потому что метод flush сам всегда вызывается внутри заблокированного мьютекса.
-	if err == nil {
-		l.entries = l.entries[:0]
-		l.userIDMap = make(map[int]struct{})
-	} else {
+	if err != nil {
 		log.Printf("error when inserting analytics: %v", err)
 	}
+	l.entries = l.entries[:0]
+	l.userIDMap = make(map[int]struct{})
 }
 
 func (l *logger) analyticWithUserData() error {
