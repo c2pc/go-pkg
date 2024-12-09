@@ -37,10 +37,10 @@ func (h *TaskHandler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup)
 		task.POST("/:id/stop", h.Stop)
 		task.POST("/:id/rerun", h.Rerun)
 		task.GET("/:id", h.GetById)
-		task.Group("tasks/:id/link", h.Link)
+		task.GET("/:id/link", h.Link)
 	}
 
-	unsecured.GET("/:id/download/:link", h.Download)
+	unsecured.GET("tasks/:id/download/:link", h.Download)
 }
 
 func (h *TaskHandler) Link(c *gin.Context) {
