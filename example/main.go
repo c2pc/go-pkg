@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
 	"github.com/c2pc/go-pkg/v2/example/internal/config"
 	database3 "github.com/c2pc/go-pkg/v2/example/internal/database"
@@ -107,6 +108,13 @@ func main() {
 		return
 	}
 
+	analyticService := analytics.New(analytics.Config{
+		DB:            db,
+		FlushInterval: 4,
+		BatchSize:     2,
+	})
+	defer analyticService.ShutDown()
+
 	ctx2 := mcontext.WithOperationIDContext(ctx, strconv.Itoa(int(time.Now().UTC().Unix())))
 	if err := database3.SeedersRun(ctx, db, authService.GetAdminID()); err != nil {
 		logger.Fatalf("[DB] %s", err.Error())
@@ -129,7 +137,7 @@ func main() {
 		return
 	}
 
-	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService)
+	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService, analyticService)
 	restServer := api.NewServer(api.Input{
 		Host: configs.HTTP.Host,
 		Port: configs.HTTP.Port,

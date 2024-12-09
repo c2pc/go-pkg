@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/task"
@@ -14,18 +15,20 @@ import (
 )
 
 type Handler struct {
-	authService auth.IAuth
-	taskService task.Tasker
-	services    service.Services
-	trx         mw.ITransaction
+	authService     auth.IAuth
+	taskService     task.Tasker
+	analyticService analytics.Analytics
+	services        service.Services
+	trx             mw.ITransaction
 }
 
-func NewHandlers(authService auth.IAuth, services service.Services, trx mw.ITransaction, taskService task.Tasker) *Handler {
+func NewHandlers(authService auth.IAuth, services service.Services, trx mw.ITransaction, taskService task.Tasker, analyticService analytics.Analytics) *Handler {
 	return &Handler{
-		authService: authService,
-		services:    services,
-		trx:         trx,
-		taskService: taskService,
+		authService:     authService,
+		services:        services,
+		trx:             trx,
+		taskService:     taskService,
+		analyticService: analyticService,
 	}
 }
 
@@ -67,12 +70,19 @@ func (h *Handler) Init(debug string) *gin.Engine {
 func (h *Handler) initAPI(handler *gin.Engine) {
 	api := handler.Group("api/v1")
 	{
-		h.authService.InitHandler(api)
+		unsecured := api.Group("", h.analyticService.CollectAnalytic)
+		{
+			h.authService.InitHandler(unsecured)
+		}
 
 		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)
 		{
-			h.taskService.InitHandler(secure)
-			NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(secure)
+			h.analyticService.InitHandler(secure)
+			withAnalytic := secure.Group("", h.analyticService.CollectAnalytic)
+			{
+				h.taskService.InitHandler(withAnalytic)
+				NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(withAnalytic)
+			}
 		}
 	}
 }
