@@ -80,7 +80,7 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 			h.analyticService.InitHandler(secure)
 			withAnalytic := secure.Group("", h.analyticService.CollectAnalytic)
 			{
-				h.taskService.InitHandler(withAnalytic)
+				h.taskService.InitHandler(withAnalytic, unsecured)
 				NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(withAnalytic)
 			}
 		}

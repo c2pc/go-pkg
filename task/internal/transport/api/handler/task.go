@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/service"
 	"github.com/c2pc/go-pkg/v2/task/internal/transport/api/transformer"
@@ -28,8 +30,8 @@ func NewTaskHandlers(
 	}
 }
 
-func (h *TaskHandler) Init(api *gin.RouterGroup) {
-	task := api.Group("tasks")
+func (h *TaskHandler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
+	task := secured.Group("tasks")
 	{
 		task.GET("", h.List)
 		task.POST("/:id/stop", h.Stop)
@@ -37,6 +39,24 @@ func (h *TaskHandler) Init(api *gin.RouterGroup) {
 		task.GET("/:id", h.GetById)
 		task.GET("/:id/download", h.Download)
 	}
+
+	unsecured.Group("tasks/:id/link/:link", h.Link)
+}
+
+func (h *TaskHandler) Link(c *gin.Context) {
+	id, err := request2.Id(c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	token, err := h.taskService.GenerateDownloadToken(c.Request.Context(), id)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -110,6 +130,21 @@ func (h *TaskHandler) Download(c *gin.Context) {
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
+		return
+	}
+
+	type Link struct {
+		Link string `uri:"link" binding:"required"`
+	}
+
+	token, err := request2.BindUri[Link](c)
+	if err != nil {
+		response.Response(c, apperr.ErrBadRequest.WithError(err))
+		return
+	}
+
+	if err := h.taskService.ValidateDownloadToken(c.Request.Context(), token.Link, id); err != nil {
+		response.Response(c, apperr.ErrForbidden.WithError(err))
 		return
 	}
 

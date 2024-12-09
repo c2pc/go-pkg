@@ -131,6 +131,7 @@ func main() {
 		Services: task.Consumers{
 			"news": services.NewsService,
 		},
+		TokenString: "787hhjvYTYTcfcr6556tCTTYChgUYy",
 	})
 	if err != nil {
 		logger.Fatalf("[TASK] %s", err.Error())
