@@ -70,7 +70,7 @@ func (h *Handler) Init(debug string) *gin.Engine {
 func (h *Handler) initAPI(handler *gin.Engine) {
 	api := handler.Group("api/v1")
 	{
-		unsecured := api.Group("", h.analyticService.InitCollect())
+		unsecured := api.Group("", h.analyticService.CollectAnalytic)
 		{
 			h.authService.InitHandler(unsecured)
 		}
@@ -78,9 +78,9 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)
 		{
 			h.analyticService.InitHandler(secure)
-			withAnalytic := secure.Group("", h.analyticService.InitCollect())
+			withAnalytic := secure.Group("", h.analyticService.CollectAnalytic)
 			{
-				h.taskService.InitHandler(withAnalytic)
+				h.taskService.InitHandler(withAnalytic, unsecured)
 				NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(withAnalytic)
 			}
 		}

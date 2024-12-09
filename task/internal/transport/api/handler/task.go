@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"net/http"
-	"os"
+
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
 
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/service"
@@ -30,16 +30,17 @@ func NewTaskHandlers(
 	}
 }
 
-func (h *TaskHandler) Init(api *gin.RouterGroup) {
-	task := api.Group("tasks")
+func (h *TaskHandler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
+	task := secured.Group("tasks")
 	{
 		task.GET("", h.List)
 		task.POST("/:id/stop", h.Stop)
 		task.POST("/:id/rerun", h.Rerun)
 		task.GET("/:id", h.GetById)
 		task.GET("/:id/download", h.Download)
-		task.GET("/:id/link", h.Link)
 	}
+
+	unsecured.Group("tasks/:id/link/:link", h.Link)
 }
 
 func (h *TaskHandler) Link(c *gin.Context) {
@@ -132,25 +133,24 @@ func (h *TaskHandler) Download(c *gin.Context) {
 		return
 	}
 
-	token := c.Query("link")
-	if token == "" {
-		response.Response(c, apperr.ErrBadRequest.WithErrorText("token required"))
+	type Link struct {
+		Link string `uri:"link" binding:"required"`
+	}
+
+	token, err := request2.BindUri[Link](c)
+	if err != nil {
+		response.Response(c, apperr.ErrBadRequest.WithError(err))
 		return
 	}
 
-	if err := h.taskService.ValidateDownloadToken(c.Request.Context(), token, id); err != nil {
-		response.Response(c, apperr.ErrForbidden.WithErrorText(err.Error()))
+	if err := h.taskService.ValidateDownloadToken(c.Request.Context(), token.Link, id); err != nil {
+		response.Response(c, apperr.ErrForbidden.WithError(err))
 		return
 	}
 
 	path, err := h.taskService.Download(c.Request.Context(), id)
 	if err != nil {
 		response.Response(c, err)
-		return
-	}
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		response.Response(c, service.ErrTaskFileNotFound)
 		return
 	}
 

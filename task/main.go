@@ -37,7 +37,7 @@ type Queue interface {
 }
 
 type Tasker interface {
-	InitHandler(api *gin.RouterGroup)
+	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup)
 	ExportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	ImportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
@@ -57,7 +57,7 @@ type Config struct {
 	DB          *gorm.DB
 	Transaction mw.ITransaction
 	Services    Consumers
-	tokenString string
+	TokenString string
 }
 
 func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
@@ -70,7 +70,11 @@ func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
 		consumers[name] = service.Consumer(consumer)
 	}
 
-	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue, cfg.tokenString)
+	if cfg.TokenString == "" {
+		return nil, apperr.New("tokenString is required")
+	}
+
+	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue, cfg.TokenString)
 
 	handlers := handler.NewHandlers(taskService, cfg.Transaction)
 
@@ -148,8 +152,8 @@ func (e *Task) reset(ctx context.Context) error {
 	return nil
 }
 
-func (e *Task) InitHandler(api *gin.RouterGroup) {
-	e.handler.Init(api)
+func (e *Task) InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
+	e.handler.Init(secured, unsecured)
 }
 
 func (e *Task) NewTask(c *gin.Context, tp string, name string, data []byte) (*model.Task, error) {
