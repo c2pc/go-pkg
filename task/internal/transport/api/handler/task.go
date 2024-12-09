@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+	"os"
 
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/service"
@@ -36,7 +38,24 @@ func (h *TaskHandler) Init(api *gin.RouterGroup) {
 		task.POST("/:id/rerun", h.Rerun)
 		task.GET("/:id", h.GetById)
 		task.GET("/:id/download", h.Download)
+		task.GET("/:id/link", h.Link)
 	}
+}
+
+func (h *TaskHandler) Link(c *gin.Context) {
+	id, err := request2.Id(c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	token, err := h.taskService.GenerateDownloadToken(c.Request.Context(), id)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 func (h *TaskHandler) List(c *gin.Context) {
@@ -113,9 +132,24 @@ func (h *TaskHandler) Download(c *gin.Context) {
 		return
 	}
 
+	token := c.Query("link")
+	if token == "" {
+		response.Response(c, errors.New("token required"))
+	}
+
+	if err := h.taskService.ValidateDownloadToken(c.Request.Context(), token, id); err != nil {
+		response.Response(c, err)
+		return
+	}
+
 	path, err := h.taskService.Download(c.Request.Context(), id)
 	if err != nil {
 		response.Response(c, err)
+		return
+	}
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		response.Response(c, service.ErrTaskFileNotFound)
 		return
 	}
 

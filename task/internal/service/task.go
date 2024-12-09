@@ -9,7 +9,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
@@ -22,6 +24,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +35,11 @@ var (
 	ErrTaskUnableRerun      = apperr.New("task_unable_rerun", apperr.WithTextTranslate(translator.Translate{translator.RU: "Невозможно запустить незавершенную задачу", translator.EN: "Unable to rerun an unfinished task"}), apperr.WithCode(code.NotFound))
 	ErrTaskFileNotFound     = apperr.New("task_file_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Файл не найден", translator.EN: "File not found"}), apperr.WithCode(code.NotFound))
 	ErrTaskFileStillOngoing = apperr.New("task_file_process", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача все еще выполняется", translator.EN: "The task is still ongoing"}), apperr.WithCode(code.NotFound))
+	ErrTaskTypeInvalid      = apperr.New("invalid_task_type", apperr.WithTextTranslate(translator.Translate{translator.RU: "Только export задачи могут генерировать ссылки для скачивания", translator.EN: "Only export tasks can generate download links"}), apperr.WithCode(code.Aborted))
+	ErrTaskStatusInvalid    = apperr.New("invalid_task_status", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача не находится в статусе success", translator.EN: "Task is not in success status"}), apperr.WithCode(code.Aborted))
+	ErrGenerateToken        = apperr.New("token_generation_failed", apperr.WithTextTranslate(translator.Translate{translator.RU: "Не удалось сгенерировать токен", translator.EN: "Failed to generate token"}), apperr.WithCode(code.Internal))
+	ErrWithToken            = apperr.New("invalid_or_expired_token", apperr.WithTextTranslate(translator.Translate{translator.RU: "Недействительный или истёкший токен", translator.EN: "Invalid or expired token"}), apperr.WithCode(code.Unauthenticated))
+	ErrInvalidToken         = apperr.New("invalid_token_claims", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неверные данные токена", translator.EN: "Invalid token claims"}), apperr.WithCode(code.Unauthenticated))
 )
 
 type Queue interface {
@@ -60,23 +68,28 @@ type ITaskService interface {
 	Rerun(ctx context.Context, id int) (*model.Task, error)
 	RunTasks(ctx context.Context, statuses []string, ids ...int) error
 	Download(ctx context.Context, id int) (string, error)
+	GenerateDownloadToken(ctx context.Context, id int) (string, error)
+	ValidateDownloadToken(ctx context.Context, token string, id int) error
 }
 
 type TaskService struct {
 	taskRepository repository.ITaskRepository
 	services       Consumers
 	queue          Queue
+	tokenSecret    string
 }
 
 func NewTaskService(
 	taskRepository repository.ITaskRepository,
 	services Consumers,
 	queue Queue,
+	tokenSecret string,
 ) TaskService {
 	return TaskService{
 		taskRepository: taskRepository,
 		services:       services,
 		queue:          queue,
+		tokenSecret:    tokenSecret,
 	}
 }
 
@@ -454,4 +467,62 @@ func (s TaskService) writeToFile(task *model.Task, data []byte) (string, error) 
 	}
 
 	return path, nil
+}
+
+func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string, error) {
+	task, err := s.GetById(ctx, id)
+	if err != nil {
+		return "", err
+	}
+
+	if task.Type != model3.Export {
+		return "", ErrTaskTypeInvalid
+	}
+
+	if task.Status != model.StatusSuccess {
+		return "", ErrTaskStatusInvalid
+	}
+
+	claims := jwt.RegisteredClaims{
+		Subject:   strconv.Itoa(id),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString(s.tokenSecret)
+	if err != nil {
+		return "", ErrGenerateToken
+	}
+
+	return tokenString, nil
+}
+
+func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString string, id int) error {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(s.tokenSecret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return ErrWithToken
+	}
+
+	claims, ok := token.Claims.(jwt.StandardClaims)
+	if !ok {
+		return ErrInvalidToken
+	}
+
+	taskID, err := strconv.Atoi(claims.Subject)
+	if err != nil || taskID != id {
+		return apperr.New("token_subject_mismatch", apperr.WithTextTranslate(translator.Translate{
+			translator.RU: "ID задачи в токене не совпадает с ID в URL",
+			translator.EN: "Task ID in token does not match the ID in URL",
+		}), apperr.WithCode(code.Unauthenticated))
+	}
+
+	return nil
 }
