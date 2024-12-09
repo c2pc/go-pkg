@@ -113,6 +113,7 @@ func main() {
 		FlushInterval: 4,
 		BatchSize:     2,
 	})
+	defer analyticService.ShutDown()
 
 	ctx2 := mcontext.WithOperationIDContext(ctx, strconv.Itoa(int(time.Now().UTC().Unix())))
 	if err := database3.SeedersRun(ctx, db, authService.GetAdminID()); err != nil {
