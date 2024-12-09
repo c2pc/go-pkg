@@ -36,10 +36,9 @@ var (
 	ErrTaskFileNotFound     = apperr.New("task_file_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Файл не найден", translator.EN: "File not found"}), apperr.WithCode(code.NotFound))
 	ErrTaskFileStillOngoing = apperr.New("task_file_process", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача все еще выполняется", translator.EN: "The task is still ongoing"}), apperr.WithCode(code.NotFound))
 	ErrTaskTypeInvalid      = apperr.New("invalid_task_type", apperr.WithTextTranslate(translator.Translate{translator.RU: "Только export задачи могут генерировать ссылки для скачивания", translator.EN: "Only export tasks can generate download links"}), apperr.WithCode(code.Aborted))
-	ErrTaskStatusInvalid    = apperr.New("invalid_task_status", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача не находится в статусе success", translator.EN: "Task is not in success status"}), apperr.WithCode(code.Aborted))
+	ErrTaskStatusInvalid    = apperr.New("invalid_task_status", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача все еще находится в исполнении", translator.EN: "The task is still in progress"}), apperr.WithCode(code.Aborted))
 	ErrGenerateToken        = apperr.New("token_generation_failed", apperr.WithTextTranslate(translator.Translate{translator.RU: "Не удалось сгенерировать токен", translator.EN: "Failed to generate token"}), apperr.WithCode(code.Internal))
-	ErrWithToken            = apperr.New("invalid_or_expired_token", apperr.WithTextTranslate(translator.Translate{translator.RU: "Недействительный или истёкший токен", translator.EN: "Invalid or expired token"}), apperr.WithCode(code.Unauthenticated))
-	ErrInvalidToken         = apperr.New("invalid_token_claims", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неверные данные токена", translator.EN: "Invalid token claims"}), apperr.WithCode(code.Unauthenticated))
+	ErrInvalidLink          = apperr.New("invalid_link")
 )
 
 type Queue interface {
@@ -508,20 +507,17 @@ func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString stri
 	})
 
 	if err != nil || !token.Valid {
-		return ErrWithToken
+		return ErrInvalidLink.WithError(err)
 	}
 
-	claims, ok := token.Claims.(jwt.StandardClaims)
+	claims, ok := token.Claims.(jwt.RegisteredClaims)
 	if !ok {
-		return ErrInvalidToken
+		return ErrInvalidLink.WithErrorText("invalid token")
 	}
 
 	taskID, err := strconv.Atoi(claims.Subject)
 	if err != nil || taskID != id {
-		return apperr.New("token_subject_mismatch", apperr.WithTextTranslate(translator.Translate{
-			translator.RU: "ID задачи в токене не совпадает с ID в URL",
-			translator.EN: "Task ID in token does not match the ID in URL",
-		}), apperr.WithCode(code.Unauthenticated))
+		return ErrInvalidLink.WithErrorText("Task ID in token does not match the ID in URL")
 	}
 
 	return nil

@@ -57,6 +57,7 @@ type Config struct {
 	DB          *gorm.DB
 	Transaction mw.ITransaction
 	Services    Consumers
+	tokenString string
 }
 
 func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
@@ -69,7 +70,7 @@ func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
 		consumers[name] = service.Consumer(consumer)
 	}
 
-	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue)
+	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue, cfg.tokenString)
 
 	handlers := handler.NewHandlers(taskService, cfg.Transaction)
 

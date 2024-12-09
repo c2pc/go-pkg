@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"errors"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"net/http"
 	"os"
 
@@ -134,11 +134,12 @@ func (h *TaskHandler) Download(c *gin.Context) {
 
 	token := c.Query("link")
 	if token == "" {
-		response.Response(c, errors.New("token required"))
+		response.Response(c, apperr.ErrBadRequest.WithErrorText("token required"))
+		return
 	}
 
 	if err := h.taskService.ValidateDownloadToken(c.Request.Context(), token, id); err != nil {
-		response.Response(c, err)
+		response.Response(c, apperr.ErrForbidden.WithErrorText(err.Error()))
 		return
 	}
 
