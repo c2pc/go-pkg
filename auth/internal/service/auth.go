@@ -21,9 +21,9 @@ import (
 
 type IAuthService interface {
 	Trx(db *gorm.DB) IAuthService
-	Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, error)
-	Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, error)
-	Logout(ctx context.Context, input AuthLogout) error
+	Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, int, error)
+	Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, int, error)
+	Logout(ctx context.Context, input AuthLogout) (int, error)
 	Account(ctx context.Context) (*model2.User, error)
 	UpdateAccountData(ctx context.Context, input AuthUpdateAccountData) error
 }
@@ -75,21 +75,22 @@ type AuthLogin struct {
 	DeviceID int
 }
 
-func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, error) {
+func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, int, error) {
 	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
 	if err != nil {
-		return nil, apperr.ErrUnauthenticated.WithError(err)
+		return nil, 0, apperr.ErrUnauthenticated.WithError(err)
 	}
 
 	if !s.hasher.HashMatchesString(user.Password, input.Password) {
-		return nil, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
+		return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 	}
 
 	if user.Blocked {
-		return nil, apperr.ErrUnauthenticated.WithErrorText("user is blocked")
+		return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("user is blocked")
 	}
 
-	return s.createSession(ctx, true, user.ID, input.DeviceID)
+	data, err := s.createSession(ctx, true, user.ID, input.DeviceID)
+	return data, user.ID, err
 }
 
 type AuthRefresh struct {
@@ -97,31 +98,32 @@ type AuthRefresh struct {
 	DeviceID int
 }
 
-func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, error) {
+func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, int, error) {
 	token, err := s.tokenRepository.Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
 	if err != nil {
-		return nil, apperr.ErrUnauthenticated.WithError(err)
+		return nil, 0, apperr.ErrUnauthenticated.WithError(err)
 	}
 
 	if time.Now().UTC().After(token.ExpiresAt) {
 		_ = s.tokenRepository.Delete(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
-		return nil, apperr.ErrUnauthenticated.WithErrorText("token is expired")
+		return nil, token.UserID, apperr.ErrUnauthenticated.WithErrorText("token is expired")
 	}
 
-	return s.createSession(ctx, false, token.UserID, token.DeviceID)
+	data, err := s.createSession(ctx, false, token.UserID, token.DeviceID)
+	return data, token.UserID, err
 }
 
 type AuthLogout struct {
 	Token string
 }
 
-func (s AuthService) Logout(ctx context.Context, input AuthLogout) error {
+func (s AuthService) Logout(ctx context.Context, input AuthLogout) (int, error) {
 	claims, err := tokenverify.GetClaimFromToken(input.Token, tokenverify.Secret(s.accessSecret))
 	if err != nil {
-		return apperr.ErrUnauthenticated.WithErrorText("invalid token")
+		return 0, apperr.ErrUnauthenticated.WithErrorText("invalid token")
 	}
 
-	return s.clearSession(ctx, claims.UserID, claims.DeviceID)
+	return claims.UserID, s.clearSession(ctx, claims.UserID, claims.DeviceID)
 }
 
 func (s AuthService) Account(ctx context.Context) (*model2.User, error) {
