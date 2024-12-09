@@ -6,6 +6,8 @@ import (
 	"context"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -72,7 +74,13 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 
 func (l *logger) middleware(c *gin.Context) {
 	var requestBody []byte
-	if c.Request.Body != nil {
+	if c.Request.Method == http.MethodGet {
+		query := c.Request.URL.Query()
+		if query.Encode() != "" {
+			q, _ := url.QueryUnescape(query.Encode())
+			requestBody = []byte(q)
+		}
+	} else if c.Request.Body != nil && c.Request.Body != http.NoBody && c.Request.Header.Get("Content-Type") == "application/json" {
 		requestBody, _ = io.ReadAll(c.Request.Body)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	}
@@ -101,7 +109,10 @@ func (l *logger) middleware(c *gin.Context) {
 	operationID, _ := mcontext.GetOperationID(ctx)
 
 	compressedRequest := compressData(requestBody)
-	compressedResponse := compressData(w.body.Bytes())
+	var compressedResponse []byte
+	if w.Header().Get("Content-Type") == "application/json" {
+		compressedResponse = compressData(w.body.Bytes())
+	}
 
 	entry := models.Analytics{
 		OperationID:  operationID,
@@ -119,7 +130,7 @@ func (l *logger) middleware(c *gin.Context) {
 
 func compressData(data []byte) []byte {
 	if len(data) == 0 {
-		return data
+		return nil
 	}
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
