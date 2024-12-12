@@ -15,7 +15,7 @@ var (
 )
 
 type IdRequest struct {
-	Id int `uri:"id" binding:"required"`
+	Id int `uri:"id" binding:"required,gte=1"`
 }
 
 func Id(c *gin.Context) (int, error) {
