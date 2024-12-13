@@ -17,9 +17,9 @@ type AuthLogoutRequest struct {
 
 type AuthUpdateAccountDataRequest struct {
 	Login      *string `json:"login" binding:"omitempty,max=255,min=2,dot_underscore_hyphen"`
-	FirstName  *string `json:"first_name" binding:"omitempty,max=255,min=2,dot_underscore_hyphen"`
-	SecondName *string `json:"second_name" binding:"omitempty,len=0|min=2,max=255,dot_underscore_hyphen"`
-	LastName   *string `json:"last_name" binding:"omitempty,len=0|min=2,max=255,dot_underscore_hyphen"`
+	FirstName  *string `json:"first_name" binding:"omitempty,max=255,min=2,dot_underscore_hyphen_space"`
+	SecondName *string `json:"second_name" binding:"omitempty,len=0|min=2,max=255,dot_underscore_hyphen_space"`
+	LastName   *string `json:"last_name" binding:"omitempty,len=0|min=2,max=255,dot_underscore_hyphen_space"`
 	Password   *string `json:"password" binding:"omitempty,max=255,min=8,spec_chars"`
 	Email      *string `json:"email" binding:"omitempty,len=0|email,max=255"`
 	Phone      *string `json:"phone" binding:"omitempty,len=0|min=1,max=255"`
