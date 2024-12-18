@@ -50,7 +50,7 @@ create table if not exists auth_tokens
     user_id    integer      not null references auth_users on update cascade on delete cascade,
     device_id  integer      not null,
     token      varchar(256) not null,
-    updates_at timestamp    not null default now(),
+    updated_at timestamp    not null default now(),
     expires_at timestamp    not null default now(),
     logged_at  timestamp    not null default now(),
     unique (user_id, device_id)

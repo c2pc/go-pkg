@@ -38,7 +38,6 @@ type UserService struct {
 	userCache          cache2.IUserCache
 	tokenCache         cache2.ITokenCache
 	hasher             secret.Hasher
-	db                 *gorm.DB
 }
 
 func NewUserService(
@@ -62,7 +61,6 @@ func NewUserService(
 func (s UserService) Trx(db *gorm.DB) IUserService {
 	s.userRepository = s.userRepository.Trx(db)
 	s.userRoleRepository = s.userRoleRepository.Trx(db)
-	s.db = db
 	return s
 }
 

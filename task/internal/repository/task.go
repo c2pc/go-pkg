@@ -11,6 +11,8 @@ var searchable = clause.FieldSearchable{
 	"id":         {Column: `auth_tasks."id"`, Type: clause.Int},
 	"name":       {Column: `auth_tasks."name"`, Type: clause.String},
 	"status":     {Column: `auth_tasks."status"`, Type: clause.String},
+	"type":       {Column: `auth_tasks."type"`, Type: clause.String},
+	"user_id":    {Column: `auth_tasks."user_id"`, Type: clause.Int},
 	"created_at": {Column: `auth_tasks."created_at"`, Type: clause.DateTime},
 	"updated_at": {Column: `auth_tasks."updated_at"`, Type: clause.DateTime},
 }
@@ -19,6 +21,8 @@ var orderBy = clause.FieldOrderBy{
 	"id":         {Column: `auth_tasks."id"`},
 	"name":       {Column: `auth_tasks."name"`},
 	"status":     {Column: `auth_tasks."status"`},
+	"type":       {Column: `auth_tasks."type"`},
+	"user_id":    {Column: `auth_tasks."user_id"`},
 	"created_at": {Column: `auth_tasks."created_at"`},
 	"updated_at": {Column: `auth_tasks."updated_at"`},
 }
