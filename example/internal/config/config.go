@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	PasswordSalt string       `yaml:"password_salt"`
-	PostgresUrl  string       `yaml:"postgres_url"`
-	LOG          config.LOG   `yaml:"log"`
-	HTTP         config.HTTP  `yaml:"http"`
-	AUTH         config.AUTH  `yaml:"auth"`
-	Redis        config.Redis `yaml:"redis"`
+	PasswordSalt string         `yaml:"password_salt"`
+	PostgresUrl  string         `yaml:"postgres_url"`
+	LOG          config.LOG     `yaml:"log"`
+	HTTP         config.HTTP    `yaml:"http"`
+	AUTH         config.AUTH    `yaml:"auth"`
+	LIMITER      config.Limiter `yaml:"limiter"`
+	Redis        config.Redis   `yaml:"redis"`
 }
 
 func NewConfig(configPath string) (*Config, error) {
@@ -28,6 +29,14 @@ func NewConfig(configPath string) (*Config, error) {
 
 	if cfg.AUTH.RefreshTokenTTL == 0 {
 		cfg.AUTH.RefreshTokenTTL = config.DefaultRefreshTokenTTL
+	}
+
+	if cfg.LIMITER.TTL == 0 {
+		cfg.LIMITER.TTL = config.DefaultTTL
+	}
+
+	if cfg.LIMITER.MaxAttempts == 0 {
+		cfg.LIMITER.MaxAttempts = config.DefaultMaxAttempts
 	}
 
 	for _, e := range os.Environ() {

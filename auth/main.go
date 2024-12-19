@@ -28,6 +28,7 @@ type IAuth interface {
 	Authenticate(c *gin.Context)
 	CanPermission(c *gin.Context)
 	GetAdminID() int
+	LimiterMiddleware(c *gin.Context)
 }
 
 type Config struct {
@@ -40,6 +41,8 @@ type Config struct {
 	RefreshExpire time.Duration
 	AccessSecret  string
 	Permissions   []model.Permission
+	TTL           time.Duration
+	MaxAttempts   int
 }
 
 func New(cfg Config) (IAuth, error) {
@@ -58,6 +61,7 @@ func New(cfg Config) (IAuth, error) {
 	tokenCache := cache3.NewTokenCache(cfg.Rdb, cfg.AccessExpire)
 	userCache := cache3.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
 	permissionCache := cache3.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
+	limiterCache := cache3.NewLimiterCache(cfg.Rdb)
 
 	authService := service2.NewAuthService(repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
 	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
@@ -68,6 +72,10 @@ func New(cfg Config) (IAuth, error) {
 
 	tokenMiddleware := middleware2.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
 	permissionMiddleware := middleware2.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
+	authLimiterMiddleware := middleware2.NewAuthLimiterMiddleware(middleware2.ConfigLimiter{
+		MaxAttempts: cfg.MaxAttempts,
+		TTL:         cfg.TTL,
+	}, limiterCache, cfg.Debug)
 	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, settingService, sessionService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
 
 	return Auth{
@@ -75,6 +83,7 @@ func New(cfg Config) (IAuth, error) {
 		tokenMiddleware:      tokenMiddleware,
 		permissionMiddleware: permissionMiddleware,
 		adminID:              admin.ID,
+		limiterMiddleware:    authLimiterMiddleware,
 	}, nil
 }
 
@@ -82,6 +91,7 @@ type Auth struct {
 	handler              handler.IHandler
 	tokenMiddleware      middleware2.ITokenMiddleware
 	permissionMiddleware middleware2.IPermissionMiddleware
+	limiterMiddleware    middleware2.AuthMiddleware
 	adminID              int
 }
 
@@ -99,4 +109,8 @@ func (a Auth) CanPermission(c *gin.Context) {
 
 func (a Auth) GetAdminID() int {
 	return a.adminID
+}
+
+func (a Auth) LimiterMiddleware(c *gin.Context) {
+	a.limiterMiddleware.LimiterMiddleware(c)
 }

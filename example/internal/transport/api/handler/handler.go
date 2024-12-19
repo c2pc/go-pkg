@@ -68,7 +68,7 @@ func (h *Handler) Init(debug string) *gin.Engine {
 }
 
 func (h *Handler) initAPI(handler *gin.Engine) {
-	api := handler.Group("api/v1")
+	api := handler.Group("api/v1", h.authService.LimiterMiddleware)
 	{
 		unsecured := api.Group("", h.analyticService.CollectAnalytic)
 		{
@@ -77,12 +77,15 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 
 		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)
 		{
+
 			h.analyticService.InitHandler(secure)
-			withAnalytic := secure.Group("", h.analyticService.CollectAnalytic)
+
+			withLimiter := secure.Group("", h.analyticService.CollectAnalytic)
 			{
-				h.taskService.InitHandler(withAnalytic, unsecured)
-				NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(withAnalytic)
+				h.taskService.InitHandler(withLimiter, unsecured)
+				NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(withLimiter)
 			}
+
 		}
 	}
 }
