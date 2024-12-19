@@ -4,14 +4,25 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/level"
+
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	ErrToManyRequest = apperr.New("to_many_request", apperr.WithTextTranslate(
+		translator.Translate{translator.RU: "Много запросов", translator.EN: "To many request"}),
+		apperr.WithCode(code.HttpToCode(429)))
 )
 
 type ConfigLimiter struct {
@@ -26,6 +37,14 @@ type AuthMiddleware struct {
 }
 
 func NewAuthLimiterMiddleware(cfg ConfigLimiter, cache cache.ILimiterCache, debug string) AuthMiddleware {
+	if cfg.MaxAttempts == 0 {
+		cfg.MaxAttempts = 10
+	}
+
+	if cfg.TTL == 0 {
+		cfg.TTL = time.Second
+	}
+
 	return AuthMiddleware{cfg: cfg, cache: cache, debug: debug}
 }
 
@@ -69,10 +88,15 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 	}
 
 	if attempts1 >= a.cfg.MaxAttempts || attempts2 >= a.cfg.MaxAttempts {
-		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error": "To many attempts.",
-		})
-		c.Abort()
+		ttl, err := a.cache.GetTTL(c.Request.Context(), key2)
+		if err != nil {
+			logger.Warningf("[REDIS] error get TTL. %v", err)
+		}
+
+		c.Header("RateLimit-Limit", strconv.Itoa(a.cfg.MaxAttempts))
+		c.Header("RateLimit-Remaining", strconv.Itoa(attempts2-a.cfg.MaxAttempts))
+		c.Header("RateLimit-Reset", strconv.FormatInt(int64(ttl.Seconds()), 10))
+		response.Response(c, ErrToManyRequest)
 		return
 	}
 

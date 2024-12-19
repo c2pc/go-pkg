@@ -13,6 +13,7 @@ type ILimiterCache interface {
 	IncrAttempts(ctx context.Context, key string, ttl time.Duration) (int, error)
 	SetTTL(ctx context.Context, key string, ttl time.Duration) error
 	ResetAttempts(ctx context.Context, key string) error
+	GetTTL(ctx context.Context, key string) (time.Duration, error)
 }
 
 type LimiterCache struct {
@@ -76,4 +77,8 @@ func (l LimiterCache) SetTTL(ctx context.Context, key string, ttl time.Duration)
 
 func (l LimiterCache) ResetAttempts(ctx context.Context, key string) error {
 	return l.rdb.Del(ctx, key).Err()
+}
+
+func (l LimiterCache) GetTTL(ctx context.Context, key string) (time.Duration, error) {
+	return l.rdb.TTL(ctx, key).Result()
 }
