@@ -8,21 +8,23 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var (
 	ErrToManyRequest = apperr.New("to_many_request", apperr.WithTextTranslate(
 		translator.Translate{translator.RU: "Много запросов", translator.EN: "To many request"}),
-		apperr.WithCode(code.HttpToCode(429)))
+		apperr.WithCode(code.ResourceExhausted),
+	)
 )
 
 type ConfigLimiter struct {
@@ -54,11 +56,9 @@ type AuthLimiter interface {
 
 func (a *AuthMiddleware) limiter(c *gin.Context) {
 	path := c.FullPath()
-	var key1, key2 string
-
+	var key string
 	if strings.Contains(path, "/auth/login") {
 		cred, err := request2.BindJSON[request.AuthLoginRequest](c)
-
 		if err != nil {
 			response.Response(c, err)
 			return
@@ -69,51 +69,44 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 			return
 		}
 
-		key1 = cachekey.GetUsernameKey() + cred.Login
+		key = cachekey.GetUsernameKey() + cred.Login
+	} else {
+		clientIP := c.ClientIP()
+		key = cachekey.GetUserIPKey() + clientIP
 	}
-	clientIP := c.ClientIP()
 
-	key2 = cachekey.GetUserIPKey() + clientIP
-
-	attempts1, err := a.cache.GetAttempts(c.Request.Context(), key1)
-
-	attempts2, err := a.cache.GetAttempts(c.Request.Context(), key2)
+	attempts, err := a.cache.GetAttempts(c.Request.Context(), key)
 
 	if level.Is(a.debug, level.TEST) && err != nil {
-		logger.Warningf("[REDIS] error get attempts. %v", err)
+		logger.Warningf("[REDIS] error get attempts - %v", err)
 	}
 
 	if err != nil {
 		return
 	}
 
-	if attempts1 >= a.cfg.MaxAttempts || attempts2 >= a.cfg.MaxAttempts {
-		ttl, err := a.cache.GetTTL(c.Request.Context(), key2)
+	if attempts >= a.cfg.MaxAttempts {
+		ttl, err := a.cache.GetTTL(c.Request.Context(), key)
 		if err != nil {
-			logger.Warningf("[REDIS] error get TTL. %v", err)
+			if level.Is(a.debug, level.TEST) {
+				logger.Warningf("[REDIS] error get TTL - %v", err)
+			}
+		} else {
+			c.Header("RateLimit-Limit", strconv.Itoa(a.cfg.MaxAttempts))
+			c.Header("RateLimit-Remaining", strconv.Itoa(attempts-a.cfg.MaxAttempts))
+			c.Header("RateLimit-Reset", strconv.FormatInt(int64(ttl.Seconds()), 10))
+			response.Response(c, ErrToManyRequest)
+			return
 		}
-
-		c.Header("RateLimit-Limit", strconv.Itoa(a.cfg.MaxAttempts))
-		c.Header("RateLimit-Remaining", strconv.Itoa(attempts2-a.cfg.MaxAttempts))
-		c.Header("RateLimit-Reset", strconv.FormatInt(int64(ttl.Seconds()), 10))
-		response.Response(c, ErrToManyRequest)
-		return
 	}
 
 	c.Next()
 
 	statusCode := c.Writer.Status()
 	if statusCode == http.StatusUnauthorized {
-		_, err := a.cache.IncrAttempts(c.Request.Context(), key1, a.cfg.TTL)
+		_, err = a.cache.IncrAttempts(c.Request.Context(), key, a.cfg.TTL)
 		if level.Is(a.debug, level.TEST) && err != nil {
-			logger.Warningf("[REDIS] error incr attempts.")
-		}
-		if err != nil {
-			return
-		}
-		_, err = a.cache.IncrAttempts(c.Request.Context(), key2, a.cfg.TTL)
-		if level.Is(a.debug, level.TEST) && err != nil {
-			logger.Warningf("[REDIS] error incr attempts.")
+			logger.Warningf("[REDIS] error incr attempts - %v", err)
 		}
 		if err != nil {
 			return
