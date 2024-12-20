@@ -102,6 +102,8 @@ func main() {
 		RefreshExpire: time.Duration(configs.AUTH.RefreshTokenTTL) * time.Minute,
 		AccessSecret:  configs.AUTH.Key,
 		Permissions:   model.Permissions,
+		TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
+		MaxAttempts:   configs.LIMITER.MaxAttempts,
 	})
 	if err != nil {
 		logger.Fatalf("[AUTH] %s", err.Error())
