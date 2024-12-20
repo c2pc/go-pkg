@@ -67,7 +67,9 @@ func (e Error) WithError(err error) Error {
 
 // WithErrorText создает новую ошибку из текстового сообщения.
 func (e Error) WithErrorText(err string) Error {
-	e.Err = errors.New(err)
+	if err != "" {
+		e.Err = errors.New(err)
+	}
 	return e
 }
 
