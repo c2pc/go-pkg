@@ -170,6 +170,10 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfoResp
 	return output, nil
 }
 
+func (f *FFM) GenPath(path string) string {
+	return f.addr + "api/v1/" + f.service + "/" + "download?path=" + path
+}
+
 func (f *FFM) Remove(ctx context.Context, request RemoveRequest) error {
 	err := f.jsonRequest(ctx, http.MethodPost, "remove", request, nil)
 	if err != nil {
