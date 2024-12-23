@@ -52,9 +52,10 @@ const (
 	OpGte = ">="  // Операция ">="
 	OpLte = "<="  // Операция "<="
 	OpNe  = "="   // Операция "="
+	OpNne = "<>"  // Операция "<>"
 )
 
-var Operators = []string{OpIn, OpNin, OpPt, OpNp, OpCo, OpEq, OpSw, OpEw, OpGt, OpLt, OpGte, OpLte, OpNe}
+var Operators = []string{OpIn, OpNin, OpPt, OpNp, OpCo, OpEq, OpSw, OpEw, OpGt, OpLt, OpGte, OpLte, OpNe, OpNne}
 
 // FieldSearchable представляет карту столбцов с информацией о том, как они можно искать
 type FieldSearchable map[string]Search
@@ -254,6 +255,8 @@ func formatIntWhere(expr ExpressionWhere, column string) (string, interface{}, e
 		return fmt.Sprintf("%s <= ?", column), values[0], nil
 	case OpEq, OpNe:
 		return fmt.Sprintf("%s = ?", column), values[0], nil
+	case OpNne:
+		return fmt.Sprintf("%s <> ?", column), values[0], nil
 	case OpPt:
 		return fmt.Sprintf("(%s IS NULL OR %s = 0)", column, column), nil, nil
 	case OpNp:
