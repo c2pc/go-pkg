@@ -17,13 +17,14 @@ import (
 )
 
 type FileManager interface {
-	LS(ctx context.Context, request LSRequest) ([]FileInfoResponse, error)
-	Info(ctx context.Context, path string) (*FileInfoResponse, error)
-	MkDir(ctx context.Context, request MkDirRequest) (*FileInfoResponse, error)
-	DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfoResponse, error)
-	Upload(ctx context.Context, request UploadRequest) ([]FileInfoResponse, error)
+	LS(ctx context.Context, request LSRequest) ([]FileInfo, error)
+	Info(ctx context.Context, path string) (*FileInfo, error)
+	MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error)
+	DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfo, error)
+	Upload(ctx context.Context, request UploadRequest) ([]FileInfo, error)
 	Remove(ctx context.Context, request RemoveRequest) error
-	GenPath(path string) string
+	GenDownloadPath(info FileInfo) string
+	GenCompressDownloadPath(info FileInfo) string
 }
 
 type FFM struct {
@@ -61,8 +62,8 @@ func New(addr, service, debug string) (FileManager, error) {
 	return ffm, nil
 }
 
-func (f *FFM) LS(ctx context.Context, request LSRequest) ([]FileInfoResponse, error) {
-	var response []FileInfoResponse
+func (f *FFM) LS(ctx context.Context, request LSRequest) ([]FileInfo, error) {
+	var response []FileInfo
 	err := f.jsonRequest(ctx, http.MethodGet, "ls", request, &response)
 	if err != nil {
 		return nil, err
@@ -71,12 +72,12 @@ func (f *FFM) LS(ctx context.Context, request LSRequest) ([]FileInfoResponse, er
 	return response, nil
 }
 
-func (f *FFM) Info(ctx context.Context, path string) (*FileInfoResponse, error) {
+func (f *FFM) Info(ctx context.Context, path string) (*FileInfo, error) {
 	request := PathRequest{
 		Path: path,
 	}
 
-	var response FileInfoResponse
+	var response FileInfo
 	err := f.jsonRequest(ctx, http.MethodGet, "info", request, &response)
 	if err != nil {
 		return nil, err
@@ -85,8 +86,8 @@ func (f *FFM) Info(ctx context.Context, path string) (*FileInfoResponse, error) 
 	return &response, nil
 }
 
-func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfoResponse, error) {
-	var response FileInfoResponse
+func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error) {
+	var response FileInfo
 	err := f.jsonRequest(ctx, http.MethodPost, "mkdir", request, &response)
 	if err != nil {
 		return nil, err
@@ -95,8 +96,8 @@ func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfoRespons
 	return &response, nil
 }
 
-func (f *FFM) DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfoResponse, error) {
-	var response FileInfoResponse
+func (f *FFM) DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfo, error) {
+	var response FileInfo
 	err := f.jsonRequest(ctx, http.MethodPost, "decode-mp3", request, &response)
 	if err != nil {
 		return nil, err
@@ -105,7 +106,7 @@ func (f *FFM) DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInf
 	return &response, nil
 }
 
-func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfoResponse, error) {
+func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfo, error) {
 	method := http.MethodPost
 	url := "upload"
 
@@ -155,7 +156,7 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfoResp
 	}
 	defer resp.Body.Close()
 
-	var output []FileInfoResponse
+	var output []FileInfo
 	if _, err = parseResult(resp, &output); err != nil {
 		if level.Is(f.debug, level.TEST) {
 			logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, err)
@@ -171,8 +172,12 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfoResp
 	return output, nil
 }
 
-func (f *FFM) GenPath(path string) string {
-	return f.addr + "api/v1/" + f.service + "/" + "download?path=" + path
+func (f *FFM) GenDownloadPath(info FileInfo) string {
+	return f.addr + "api/v1/" + f.service + "/download?path=" + info.Path
+}
+
+func (f *FFM) GenCompressDownloadPath(info FileInfo) string {
+	return f.addr + "api/v1/" + f.service + "/compress-download?path=" + info.Path
 }
 
 func (f *FFM) Remove(ctx context.Context, request RemoveRequest) error {

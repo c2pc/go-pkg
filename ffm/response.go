@@ -2,7 +2,7 @@ package ffm
 
 import "time"
 
-type FileInfoResponse struct {
+type FileInfo struct {
 	Path     string    `json:"path"`
 	FullPath string    `json:"full_path"`
 	Name     string    `json:"name"`
