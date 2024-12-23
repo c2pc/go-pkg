@@ -112,8 +112,8 @@ func main() {
 
 	analyticService := analytics.New(analytics.Config{
 		DB:            db,
-		FlushInterval: 4,
-		BatchSize:     2,
+		FlushInterval: 10,
+		BatchSize:     20,
 	})
 	defer analyticService.ShutDown()
 

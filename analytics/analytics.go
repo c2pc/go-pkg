@@ -1,8 +1,6 @@
 package analytics
 
 import (
-	"time"
-
 	"github.com/c2pc/go-pkg/v2/analytics/internal/repository"
 	"github.com/c2pc/go-pkg/v2/analytics/internal/service"
 	"github.com/c2pc/go-pkg/v2/analytics/internal/transport/api/handlers"
@@ -25,7 +23,7 @@ type analyticsImpl struct {
 
 type Config struct {
 	DB            *gorm.DB
-	FlushInterval time.Duration
+	FlushInterval int
 	BatchSize     int
 }
 

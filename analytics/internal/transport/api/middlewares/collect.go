@@ -19,7 +19,7 @@ import (
 
 type LoggerConfig struct {
 	DB            *gorm.DB
-	FlushInterval time.Duration
+	FlushInterval int
 	BatchSize     int
 }
 
@@ -48,8 +48,8 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
-	if cfg.FlushInterval == 0 {
-		cfg.FlushInterval = 10 * time.Second
+	if cfg.FlushInterval <= 10 {
+		cfg.FlushInterval = 10
 	}
 	if cfg.BatchSize == 0 {
 		cfg.BatchSize = 100
@@ -60,7 +60,7 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 		batchSize:     cfg.BatchSize,
 		entries:       make([]models.Analytics, 0, cfg.BatchSize),
 		userIDMap:     make(map[int]struct{}),
-		flushInterval: cfg.FlushInterval,
+		flushInterval: time.Duration(cfg.FlushInterval) * time.Second,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
