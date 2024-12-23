@@ -23,6 +23,7 @@ type FileManager interface {
 	DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfoResponse, error)
 	Upload(ctx context.Context, request UploadRequest) ([]FileInfoResponse, error)
 	Remove(ctx context.Context, request RemoveRequest) error
+	GenPath(path string) string
 }
 
 type FFM struct {
