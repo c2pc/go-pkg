@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"io"
 	"os"
 	"path/filepath"
@@ -485,11 +486,7 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 		return "", ErrTaskStatusInvalid
 	}
 
-	claims := jwt.RegisteredClaims{
-		Subject:   strconv.Itoa(id),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-	}
+	claims := tokenverify.BuildLinkClaims(strconv.Itoa(id), 15*time.Minute)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
@@ -502,23 +499,12 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 }
 
 func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString string, id int) error {
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.tokenSecret), nil
-	})
-
-	if err != nil || !token.Valid {
-		return ErrInvalidLink.WithError(err)
+	claims, err := tokenverify.GetLinkClaimFromToken(tokenString, tokenverify.Secret(s.tokenSecret))
+	if err != nil {
+		return err
 	}
 
-	claims, ok := token.Claims.(*jwt.RegisteredClaims)
-	if !ok {
-		return ErrInvalidLink.WithErrorText("invalid token")
-	}
-
-	taskID, err := strconv.Atoi(claims.Subject)
+	taskID, err := strconv.Atoi(claims.Link)
 	if err != nil || taskID != id {
 		return ErrInvalidLink.WithErrorText("Task ID in token does not match the ID in URL")
 	}
