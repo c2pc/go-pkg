@@ -12,6 +12,12 @@ var TokenSearchable = clause.FieldSearchable{
 	"user_id":    {Column: `auth_tokens."user_id"`, Type: clause.Int},
 	"logged_at":  {Column: `auth_tokens."logged_at"`, Type: clause.DateTime},
 	"updated_at": {Column: `auth_tokens."updated_at"`, Type: clause.DateTime},
+
+	"user.id":          {Column: `"User"."id"`, Type: clause.Int, Join: "User"},
+	"user.login":       {Column: `"User"."login"`, Type: clause.String, Join: "User"},
+	"user.first_name":  {Column: `"User"."first_name"`, Type: clause.String, Join: "User"},
+	"user.second_name": {Column: `"User"."second_name"`, Type: clause.String, Join: "User"},
+	"user.last_name":   {Column: `"User"."last_name"`, Type: clause.String, Join: "User"},
 }
 
 var TokenOrderBy = clause.FieldOrderBy{
@@ -19,6 +25,12 @@ var TokenOrderBy = clause.FieldOrderBy{
 	"user_id":    {Column: `auth_tokens."user_id"`},
 	"logged_at":  {Column: `auth_tokens."logged_at"`},
 	"updated_at": {Column: `auth_tokens."updated_at"`},
+
+	"user.id":          {Column: `"User"."id"`, Join: "User"},
+	"user.login":       {Column: `"User"."login"`, Join: "User"},
+	"user.first_name":  {Column: `"User"."first_name"`, Join: "User"},
+	"user.second_name": {Column: `"User"."second_name"`, Join: "User"},
+	"user.last_name":   {Column: `"User"."last_name"`, Join: "User"},
 }
 
 type ITokenRepository interface {
