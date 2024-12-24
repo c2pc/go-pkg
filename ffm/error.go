@@ -6,9 +6,15 @@ import (
 	"net/http"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 )
 
 var (
+	ErrServerIsNotUnavailable = apperr.New("ffm_server_is_not_unavailable", apperr.WithTextTranslate(translator.Translate{translator.RU: "Сервер FFM недоступен", translator.EN: "Server FFM is unavailable"}), apperr.WithCode(code.Unavailable))
+	ErrGenerateLink           = apperr.New("err_to_generate_link", apperr.WithTextTranslate(translator.Translate{translator.RU: "Ошибка генерации ссылки", translator.EN: "Error to generate link"}), apperr.WithCode(code.InvalidArgument))
+	ErrCheckLink              = apperr.New("err_to_check_link", apperr.WithTextTranslate(translator.Translate{translator.RU: "Ошибка проверки ссылки", translator.EN: "Error to check link"}), apperr.WithCode(code.InvalidArgument))
+
 	ErrServiceNotFound           = apperr.New("service_not_found")
 	ErrInvalidFilter             = apperr.New("service_invalid_filter")
 	ErrObjectIsNotFile           = apperr.New("service_object_is_not_file")
@@ -108,7 +114,11 @@ func parseResult(resp *http.Response, output interface{}) (int, error) {
 	case apperr.Is(err, apperr.ErrValidation):
 		err2 = apperr.ErrBadRequest
 	default:
-		err2 = apperr.ErrInternal
+		if resp.StatusCode >= 500 {
+			err2 = ErrServerIsNotUnavailable
+		} else {
+			err2 = apperr.ErrInternal
+		}
 	}
 
 	return resp.StatusCode, err2.WithError(err)

@@ -17,6 +17,8 @@ import (
 )
 
 type FileManager interface {
+	Downloader
+	SetAddr(addr string) FileManager
 	LS(ctx context.Context, request LSRequest) ([]FileInfo, error)
 	Info(ctx context.Context, path string) (*FileInfo, error)
 	MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error)
@@ -33,33 +35,37 @@ type FFM struct {
 	debug   string
 }
 
-func New(addr, service, debug string) (FileManager, error) {
-	if addr == "" {
-		return nil, errors.New("empty file manager url")
-	}
-	if service == "" {
+type Config struct {
+	Addr    string
+	Service string
+	Debug   string
+}
+
+func New(cfg Config) (FileManager, error) {
+	if cfg.Service == "" {
 		return nil, errors.New("empty file manager service")
 	}
 
-	if addr[len(addr)-1:] != "/" {
-		addr += "/"
+	if len(cfg.Addr) > 0 && cfg.Addr[len(cfg.Addr)-1:] != "/" {
+		cfg.Addr += "/"
 	}
 
 	ffm := &FFM{
-		addr:    addr,
-		service: service,
-		debug:   debug,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	_, err := ffm.LS(ctx, LSRequest{})
-	if err != nil {
-		return ffm, err
+		addr:    cfg.Addr,
+		service: cfg.Service,
+		debug:   cfg.Debug,
 	}
 
 	return ffm, nil
+}
+
+func (f *FFM) SetAddr(addr string) FileManager {
+	if len(addr) > 0 && addr[len(addr)-1:] != "/" {
+		addr += "/"
+	}
+
+	f.addr = addr
+	return f
 }
 
 func (f *FFM) LS(ctx context.Context, request LSRequest) ([]FileInfo, error) {
@@ -157,9 +163,9 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfo, er
 	defer resp.Body.Close()
 
 	var output []FileInfo
-	if _, err = parseResult(resp, &output); err != nil {
+	if status, err := parseResult(resp, &output); err != nil {
 		if level.Is(f.debug, level.TEST) {
-			logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, err)
+			logger.Infof("RESPONSE - %s - %s - %s - %+v - %d", operationID, method, url, err, status)
 		}
 
 		return nil, err

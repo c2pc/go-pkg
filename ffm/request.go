@@ -118,9 +118,9 @@ func (f *FFM) jsonRequest(ctx context.Context, method, url string, input interfa
 	}
 	defer resp.Body.Close()
 
-	if _, err = parseResult(resp, output); err != nil {
+	if status, err := parseResult(resp, output); err != nil {
 		if level.Is(f.debug, level.TEST) {
-			logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, err)
+			logger.Infof("RESPONSE - %s - %s - %s - %+v - %d", operationID, method, url, err, status)
 		}
 
 		return err
