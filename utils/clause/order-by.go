@@ -22,6 +22,11 @@ type Order struct {
 	Join   string // Имя соединения для запроса
 }
 
+type ExpressionOrderBy struct {
+	Column string `json:"column"` // Имя столбца для сортировки
+	Order  string `json:"order"`  // Значение для сортировки
+}
+
 // Константы для направлений сортировки
 const (
 	OrderByAsc  = "ASC"  // Сортировка по возрастанию
@@ -29,20 +34,20 @@ const (
 )
 
 // OrderByFilter строит SQL-запрос для сортировки на основе переданных параметров
-func OrderByFilter(quoteTo func(string) string, orderBy map[string]string, fieldOrderBy FieldOrderBy) (string, []string, error) {
+func OrderByFilter(quoteTo func(string) string, orderBy []ExpressionOrderBy, fieldOrderBy FieldOrderBy) (string, []string, error) {
 	var query []string
 	var joins []string
 
 	// Проходим по всем параметрам сортировки
-	for k, v := range orderBy {
-		if search, ok := fieldOrderBy[k]; ok {
+	for _, v := range orderBy {
+		if search, ok := fieldOrderBy[v.Column]; ok {
 			// Форматируем столбец и соединение
 			column := upperModels(quoteTo(search.Column))
 			join := quoteTo(search.Join)
 
 			// Определяем направление сортировки
 			order := OrderByAsc
-			if strings.ToUpper(v) == OrderByDesc {
+			if strings.ToUpper(v.Order) == OrderByDesc {
 				order = OrderByDesc
 			}
 
@@ -55,7 +60,7 @@ func OrderByFilter(quoteTo func(string) string, orderBy map[string]string, field
 			}
 		} else {
 			// Возвращаем ошибку, если столбец неизвестен
-			return "", nil, ErrOrderByUnknownColumn.WithTextArgs(k)
+			return "", nil, ErrOrderByUnknownColumn.WithTextArgs(v.Column)
 		}
 	}
 

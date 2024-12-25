@@ -10,7 +10,7 @@ import (
 )
 
 type FilterRequest struct {
-	OrderBy map[string]string
+	OrderBy []clause.ExpressionOrderBy
 	Where   *clause.ExpressionWhere
 }
 
@@ -68,17 +68,23 @@ func FilterJSON(c *gin.Context) (*FilterRequest, error) {
 	}, nil
 }
 
-func orderByToMap(str string) map[string]string {
-	filter := map[string]string{}
+func orderByToMap(str string) []clause.ExpressionOrderBy {
+	var filter []clause.ExpressionOrderBy
 
 	newStr := regexp.MustCompile(`[\[\] ]+`).ReplaceAllString(str, "")
 
 	for _, v := range strings.Split(newStr, ",") {
 		if len(v) > 0 {
 			if strings.Contains(v, "-") {
-				filter[v[1:]] = clause.OrderByDesc
+				filter = append(filter, clause.ExpressionOrderBy{
+					Column: v[1:],
+					Order:  clause.OrderByDesc,
+				})
 			} else {
-				filter[v] = clause.OrderByAsc
+				filter = append(filter, clause.ExpressionOrderBy{
+					Column: v,
+					Order:  clause.OrderByDesc,
+				})
 			}
 		}
 	}

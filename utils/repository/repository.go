@@ -477,7 +477,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 	return nil
 }
 
-func (r Repo[C]) OrderBy(orderBy map[string]string) (Repo[C], error) {
+func (r Repo[C]) OrderBy(orderBy []clause.ExpressionOrderBy) (Repo[C], error) {
 	if len(orderBy) > 0 {
 		query, joins, err := clause.OrderByFilter(r.QuoteTo, orderBy, r.FieldOrderBy())
 		if err != nil {
