@@ -12,7 +12,7 @@ import (
 	"github.com/jszwec/csvutil"
 )
 
-func MassDelete[T any](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []int, pluckIDsFn func(context.Context, []int) ([]int, error), actionFn func(context.Context, T, int) error) (*model.Message, error) {
+func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []C, pluckIDsFn func(context.Context, []C) ([]C, error), actionFn func(context.Context, T, C) error) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -33,9 +33,9 @@ func MassDelete[T any](ctx context.Context, data []byte, notFoundError error, id
 		return nil, err
 	}
 
-	singleIds := datautil.Single(ids, pluckedIds)
+	singleIds := datautil.Single[C](ids, pluckedIds)
 	for _, id := range singleIds {
-		msg.AddError(strconv.Itoa(id), apperr.Translate(notFoundError, translator.EN.String()))
+		msg.AddError(idToString(id), apperr.Translate(notFoundError, translator.EN.String()))
 		continue
 	}
 
@@ -46,17 +46,17 @@ func MassDelete[T any](ctx context.Context, data []byte, notFoundError error, id
 
 		err = actionFn(ctx, input, id)
 		if err != nil {
-			msg.AddError(strconv.Itoa(id), apperr.Translate(err, translator.EN.String()))
+			msg.AddError(idToString(id), apperr.Translate(err, translator.EN.String()))
 			continue
 		} else {
-			msg.AddSuccess(strconv.Itoa(id))
+			msg.AddSuccess(idToString(id))
 		}
 	}
 
 	return msg, nil
 }
 
-func MassUpdate[T any](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []int, pluckIDsFn func(context.Context, []int) ([]int, error), actionFn func(context.Context, int, T) error) (*model.Message, error) {
+func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []C, pluckIDsFn func(context.Context, []C) ([]C, error), actionFn func(context.Context, C, T) error) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -79,7 +79,7 @@ func MassUpdate[T any](ctx context.Context, data []byte, notFoundError error, id
 
 	singleIds := datautil.Single(ids, pluckedIds)
 	for _, id := range singleIds {
-		msg.AddError(strconv.Itoa(id), apperr.Translate(notFoundError, translator.EN.String()))
+		msg.AddError(idToString(id), apperr.Translate(notFoundError, translator.EN.String()))
 		continue
 	}
 
@@ -90,17 +90,17 @@ func MassUpdate[T any](ctx context.Context, data []byte, notFoundError error, id
 
 		err = actionFn(ctx, id, input)
 		if err != nil {
-			msg.AddError(strconv.Itoa(id), apperr.Translate(err, translator.EN.String()))
+			msg.AddError(idToString(id), apperr.Translate(err, translator.EN.String()))
 			continue
 		} else {
-			msg.AddSuccess(strconv.Itoa(id))
+			msg.AddSuccess(idToString(id))
 		}
 	}
 
 	return msg, nil
 }
 
-func Import[T, C any](ctx context.Context, data []byte, dataFn func(T) []C, actionFn func(context.Context, T, C) (string, error, error)) (*model.Message, error) {
+func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn func(T) []C, actionFn func(context.Context, T, C) (D, error, error)) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -126,7 +126,7 @@ func Import[T, C any](ctx context.Context, data []byte, dataFn func(T) []C, acti
 			msg.AddError(strconv.Itoa(i), prevErr.Error())
 			continue
 		} else {
-			msg.AddSuccess(key)
+			msg.AddSuccess(idToString(key))
 		}
 	}
 
@@ -175,4 +175,15 @@ func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error,
 	msg.SetData(b)
 
 	return msg, nil
+}
+
+func idToString[C string | int](id C) string {
+	switch v := any(id).(type) {
+	case int:
+		return strconv.Itoa(v)
+	case string:
+		return v
+	default:
+		return "unsupported type"
+	}
 }

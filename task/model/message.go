@@ -10,24 +10,24 @@ type Error struct {
 }
 
 type Message struct {
-	mu      sync.Mutex `json:"-"`
+	Mu      sync.Mutex `json:"-"`
 	Count   int        `json:"count"`
 	Success []string   `json:"success,omitempty"`
 	Errors  []Error    `json:"errors,omitempty"`
 	Error   *string    `json:"error,omitempty"`
-	data    []byte     `json:"-"`
+	Data    []byte     `json:"-"`
 }
 
 func NewMessage() *Message {
 	return &Message{
-		mu:    sync.Mutex{},
+		Mu:    sync.Mutex{},
 		Count: 0,
 	}
 }
 
 func (m *Message) AddError(key string, value string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
 
 	if m.Errors == nil {
 		m.Errors = []Error{}
@@ -36,15 +36,15 @@ func (m *Message) AddError(key string, value string) {
 }
 
 func (m *Message) GetErrors() []Error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
 
 	return m.Errors
 }
 
 func (m *Message) AddSuccess(idx string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
 
 	if m.Success == nil {
 		m.Success = []string{}
@@ -53,8 +53,8 @@ func (m *Message) AddSuccess(idx string) {
 }
 
 func (m *Message) GetSuccesses() []string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.Mu.Lock()
+	defer m.Mu.Unlock()
 	return m.Success
 }
 
@@ -67,11 +67,11 @@ func (m *Message) GetCount() int {
 }
 
 func (m *Message) SetData(value []byte) {
-	m.data = value
+	m.Data = value
 }
 
 func (m *Message) GetData() []byte {
-	return m.data
+	return m.Data
 }
 
 func (m *Message) SetError(err string) {

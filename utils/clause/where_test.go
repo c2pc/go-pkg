@@ -45,6 +45,60 @@ func TestWhereFilter_AllCases(t *testing.T) {
 		assert.Equal(t, emptyJoins, joins)
 	})
 
+	// Nested expression test
+	t.Run("nested expressions", func(t *testing.T) {
+		fieldSearchable := FieldSearchable{
+			"a": {Column: "a", Type: Int},
+			"b": {Column: "b", Type: String},
+			"c": {Column: "c", Type: Int},
+			"d": {Column: "d", Type: Int},
+			"e": {Column: "e", Type: Int},
+			"f": {Column: "f", Type: Int},
+			"g": {Column: "g", Type: Int},
+			"h": {Column: "h", Type: Int},
+			"i": {Column: "i", Type: Int},
+		}
+
+		expr := &ExpressionWhere{
+			Expressions: []ExpressionWhere{
+				{Column: "a", Operation: "=", Value: "1"},
+				{Operation: "and"},
+				{
+					Expressions: []ExpressionWhere{
+						{Column: "b", Operation: "co", Value: "`test`"},
+						{Operation: "or"},
+						{Column: "c", Operation: "=", Value: "10"},
+					},
+				},
+				{Operation: "or"},
+				{
+					Expressions: []ExpressionWhere{
+						{Column: "d", Operation: "=", Value: "20"},
+						{Operation: "and"},
+						{
+							Expressions: []ExpressionWhere{
+								{Column: "e", Operation: ">", Value: "30"},
+								{Operation: "and"},
+								{Column: "f", Operation: "<", Value: "40"},
+								{Operation: "and"},
+								{Column: "g", Operation: "pt", Value: ""},
+							},
+						},
+						{Operation: "or"},
+						{Column: "h", Operation: "np", Value: ""},
+						{Operation: "and"},
+						{Column: "i", Operation: ">=", Value: "20"},
+					},
+				},
+			},
+		}
+		query, args, joins, err := WhereFilter(quoteTo, expr, fieldSearchable)
+		assert.NoError(t, err)
+		assert.Equal(t, "a = ? AND (b LIKE ? OR c = ?) OR (d = ? AND (e > ? AND f < ? AND (g IS NULL OR g = 0)) OR (h IS NOT NULL AND h <> 0) AND i >= ?)", query)
+		assert.Equal(t, []interface{}{1, "%test%", 10, 20, 30, 40, 20}, args)
+		assert.Equal(t, emptyJoins, joins)
+	})
+
 	// Invalid operator inside nested expressions
 	t.Run("invalid operator in nested expressions", func(t *testing.T) {
 		expr := &ExpressionWhere{
