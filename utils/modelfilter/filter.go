@@ -145,12 +145,14 @@ func evaluateOperation(
 			return evaluateIntOperation(v, operator, value)
 		case *int:
 			if v == nil {
-				return evaluateIntOperation(0, operator, value)
+				return evaluateIntOperation(*v, operator, value)
 			}
+			return evaluateIntOperation(0, operator, value)
 		case *int64:
 			if v == nil {
 				return evaluateIntOperation(0, operator, value)
 			}
+			return evaluateIntOperation(int(*v), operator, value)
 		default:
 			return false, clause.ErrFilterInvalidValue.WithErrorText(value)
 		}
