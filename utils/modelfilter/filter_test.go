@@ -114,12 +114,27 @@ func TestApplyFilters_String(t *testing.T) {
 			{ID: "ccc", DBId: "db2", State: 30, UserFlags: "baz"},
 		}
 		expr, err := request.ParseWhere("UserFlags eq bar")
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		assert.Equal(t, []ActiveCall{{ID: "bbb", DBId: "db2", State: 20, UserFlags: "bar"}}, got)
+	})
+
+	t.Run("empty expressions", func(t *testing.T) {
+		calls := []ActiveCall{
+			{ID: "aaa", DBId: "db1", State: 10, UserFlags: "foo"},
+			{ID: "bbb", DBId: "db2", State: 20, UserFlags: "bar"},
+			{ID: "ccc", DBId: "db2", State: 30, UserFlags: "baz"},
+		}
+		expr, err := request.ParseWhere("")
+
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assert.Equal(t, calls, got)
 	})
 
 	t.Run("ne string test", func(t *testing.T) {
@@ -129,8 +144,8 @@ func TestApplyFilters_String(t *testing.T) {
 			{ID: "ccc", DBId: "db2", State: 30, UserFlags: "baz"},
 		}
 		expr, err := request.ParseWhere("UserFlags = bar")
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -148,8 +163,7 @@ func TestApplyFilters_String(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -168,8 +182,7 @@ func TestApplyFilters_String(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -188,8 +201,7 @@ func TestApplyFilters_String(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -209,8 +221,7 @@ func TestApplyFilters_String(t *testing.T) {
 		}
 		fmt.Printf("%+v", expr)
 
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -230,8 +241,7 @@ func TestApplyFilters_String(t *testing.T) {
 		}
 		fmt.Printf("%+v", expr)
 
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -250,9 +260,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state > 10")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -269,9 +278,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state >= 15")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -288,9 +296,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state < 15")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -307,9 +314,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state <= 15")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -326,9 +332,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state eq 15")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -345,9 +350,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state = 15")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -364,9 +368,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state in `15,10`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -383,9 +386,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state nin `10`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -402,9 +404,8 @@ func TestApplyFilters_Int(t *testing.T) {
 
 		expr, err := request.ParseWhere("state <> 15")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -425,9 +426,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart >= `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -445,9 +445,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart > `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -465,9 +464,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart < `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -485,9 +483,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart <= `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -505,9 +502,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart eq `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -525,9 +521,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart = `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -545,9 +540,8 @@ func TestApplyFilters_DateTime(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("Datestart <> `2023-01-03 16:00:00`")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -572,9 +566,7 @@ func TestApplyFilters_Bool(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("active <> true")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
-
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -596,9 +588,8 @@ func TestApplyFilters_Bool(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("active = false")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -620,9 +611,8 @@ func TestApplyFilters_Bool(t *testing.T) {
 		}
 		expr, err := request.ParseWhere("active eq false")
 		fmt.Printf("%+v", expr)
-		exprs := append([]clause.ExpressionWhere{}, *expr)
 
-		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -648,9 +638,8 @@ func TestApplyFilters_ComplexExpressions(t *testing.T) {
 	}
 	expr, err := request.ParseWhere("Callid pt and            ((id eq 1 or id eq 2 or id eq 3 or id eq 4 or id eq 5) and (state > 10 and Datestart <= `2023-06-30 15:00:00`)) or state = 1")
 	fmt.Printf("%+v \n", expr.Expressions)
-	exprs := append([]clause.ExpressionWhere{}, *expr)
 
-	got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+	got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, expr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v\n", err)
 	}
@@ -670,7 +659,6 @@ func TestApplyFilters_StringExpressions(t *testing.T) {
 	calls := []string{"ggj", "hhhh"}
 	expr, err := request.ParseWhere("id co `h`")
 	fmt.Printf("%+v \n", expr.Expressions)
-	exprs := append([]clause.ExpressionWhere{}, *expr)
 
 	ActiveIDFieldSearchable2 := clause.FieldSearchable{
 		"id": {Column: "id", Type: clause.String},
@@ -680,7 +668,7 @@ func TestApplyFilters_StringExpressions(t *testing.T) {
 		return id, nil
 	}
 
-	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, expr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v\n", err)
 	}
@@ -693,7 +681,6 @@ func TestApplyFilters_DateTimeExpressions(t *testing.T) {
 	calls := []time.Time{time.Now(), tm}
 	expr, err := request.ParseWhere(fmt.Sprintf("id  > `%s`", time.Now().Add(time.Second).Format("2006-01-02 15:04:05")))
 	fmt.Printf("%+v \n", expr.Expressions)
-	exprs := append([]clause.ExpressionWhere{}, *expr)
 
 	ActiveIDFieldSearchable2 := clause.FieldSearchable{
 		"id": {Column: "id", Type: clause.DateTime},
@@ -703,7 +690,7 @@ func TestApplyFilters_DateTimeExpressions(t *testing.T) {
 		return id.Format("2006-01-02 15:04:05"), nil
 	}
 
-	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, expr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v\n", err)
 	}
@@ -721,7 +708,6 @@ func TestApplyFilters_IntExpressions(t *testing.T) {
 	calls := []int{1, 2, 3, 4, 5, 6, 7}
 	expr, err := request.ParseWhere("id >= 5")
 	fmt.Printf("%+v \n", expr.Expressions)
-	exprs := append([]clause.ExpressionWhere{}, *expr)
 
 	ActiveIDFieldSearchable2 := clause.FieldSearchable{
 		"id": {Column: "id", Type: clause.Int},
@@ -731,7 +717,7 @@ func TestApplyFilters_IntExpressions(t *testing.T) {
 		return id, nil
 	}
 
-	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, expr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v\n", err)
 	}
@@ -744,7 +730,6 @@ func TestApplyFilters_BoolExpressions(t *testing.T) {
 	calls := []bool{true, false, true, false, true, false, true}
 	expr, err := request.ParseWhere("id eq true")
 	fmt.Printf("%+v \n", expr.Expressions)
-	exprs := append([]clause.ExpressionWhere{}, *expr)
 
 	ActiveIDFieldSearchable2 := clause.FieldSearchable{
 		"id": {Column: "id", Type: clause.Bool},
@@ -754,7 +739,7 @@ func TestApplyFilters_BoolExpressions(t *testing.T) {
 		return id, nil
 	}
 
-	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, expr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v\n", err)
 	}
