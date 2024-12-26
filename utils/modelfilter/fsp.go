@@ -11,23 +11,25 @@ func FSP[T any](objs []T,
 	SorterFunc GetFieldValueFunc[T],
 	m model.Meta[T],
 ) error {
-	filterObjs, err := ApplyFilters[T](objs, searchable, FilterFunc, m.Where.Expressions)
-	if err != nil {
-		return err
+	var err error
+	if m.Where.Expressions != nil {
+		objs, err = ApplyFilters[T](objs, searchable, FilterFunc, m.Where.Expressions)
+		if err != nil {
+			return err
+		}
 	}
 
 	if m.MustReturnTotalRows {
-		m.TotalRows = int64(len(filterObjs))
+		m.TotalRows = int64(len(objs))
+	}
+	if m.OrderBy != nil {
+		err = SortSlice[T](objs, m.OrderBy, searchable, SorterFunc)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = SortSlice[T](filterObjs, m.OrderBy, searchable, SorterFunc)
-	if err != nil {
-		return err
-	}
-
-	limitobjs := ApplyLimits[T](filterObjs, m.Offset, m.Limit)
-
-	m.Rows = limitobjs
+	m.Rows = ApplyLimits[T](objs, m.Offset, m.Limit)
 
 	return nil
 }
