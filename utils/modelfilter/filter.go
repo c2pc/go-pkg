@@ -287,6 +287,8 @@ func evaluateBoolOperation(fieldValue bool, operator, value string) (bool, error
 	case clause.OpEq:
 		return fieldValue == boolValue, nil
 	case clause.OpNe:
+		return fieldValue == boolValue, nil
+	case clause.OpNne:
 		return fieldValue != boolValue, nil
 	default:
 		return false, clause.ErrFilterInvalidOperator
@@ -295,12 +297,12 @@ func evaluateBoolOperation(fieldValue bool, operator, value string) (bool, error
 
 func evaluateDateTimeOperation(fieldValue string, operator, value string) (bool, error) {
 	trimmedValue := trimBackticks(value)
-	tm, err := time.Parse("2006-01-02 15:04:05", trimmedValue)
+	tm, err := time.Parse(clause.TypeTime, trimmedValue)
 	if err != nil {
 		return false, clause.ErrFilterInvalidValue.WithErrorText(err.Error())
 	}
 
-	fieldTime, err := time.Parse("2006-01-02 15:04:05", fieldValue)
+	fieldTime, err := time.Parse(clause.TypeTime, fieldValue)
 	if err != nil {
 		return false, clause.ErrFilterInvalidValue.WithErrorText(err.Error())
 	}

@@ -5,6 +5,7 @@ import (
 	"github.com/go-playground/assert/v2"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/request"
@@ -12,6 +13,7 @@ import (
 
 type ActiveCall struct {
 	ID             string  `json:"id"`
+	Active         bool    `json:"active"`
 	DBId           string  `json:"db_id"`
 	State          int     `json:"state"`
 	UserFlags      string  `json:"user_flags"`
@@ -36,6 +38,7 @@ type ActiveCall struct {
 
 var ActiveCallFieldSearchable = clause.FieldSearchable{
 	"id":             {Column: "id", Type: clause.String},
+	"active":         {Column: "active", Type: clause.Bool},
 	"db_id":          {Column: "db_id", Type: clause.String},
 	"ggg.hhh":        {Column: "ggg.hhh", Type: clause.Int},
 	"state":          {Column: "state", Type: clause.Int},
@@ -60,6 +63,8 @@ func getFieldValue(call ActiveCall, field string) (interface{}, error) {
 	switch field {
 	case "id":
 		return call.ID, nil
+	case "active":
+		return call.Active, nil
 	case "db_id", "DBId":
 		return call.DBId, nil
 	case "state", "State":
@@ -553,7 +558,80 @@ func TestApplyFilters_DateTime(t *testing.T) {
 			{ID: "6", Datestart: "2023-01-03 20:00:00"},
 		}, got)
 	})
+}
 
+func TestApplyFilters_Bool(t *testing.T) {
+	t.Run("<> bool test", func(t *testing.T) {
+		calls := []ActiveCall{
+			{ID: "1", Datestart: "2023-01-01 10:00:00", Active: true},
+			{ID: "2", Datestart: "2023-01-02 15:00:00", Active: false},
+			{ID: "3", Datestart: "2023-01-03 15:00:00", Active: true},
+			{ID: "4", Datestart: "2023-01-03 16:00:00", Active: false},
+			{ID: "5", Datestart: "2023-01-03 16:02:00", Active: true},
+			{ID: "6", Datestart: "2023-01-03 20:00:00", Active: false},
+		}
+		expr, err := request.ParseWhere("active <> true")
+		fmt.Printf("%+v", expr)
+		exprs := append([]clause.ExpressionWhere{}, *expr)
+
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assert.Equal(t, []ActiveCall{
+			{ID: "2", Datestart: "2023-01-02 15:00:00", Active: false},
+			{ID: "4", Datestart: "2023-01-03 16:00:00", Active: false},
+			{ID: "6", Datestart: "2023-01-03 20:00:00", Active: false},
+		}, got)
+	})
+
+	t.Run("= bool test", func(t *testing.T) {
+		calls := []ActiveCall{
+			{ID: "1", Datestart: "2023-01-01 10:00:00", Active: true},
+			{ID: "2", Datestart: "2023-01-02 15:00:00", Active: false},
+			{ID: "3", Datestart: "2023-01-03 15:00:00", Active: true},
+			{ID: "4", Datestart: "2023-01-03 16:00:00", Active: false},
+			{ID: "5", Datestart: "2023-01-03 16:02:00", Active: true},
+			{ID: "6", Datestart: "2023-01-03 20:00:00", Active: false},
+		}
+		expr, err := request.ParseWhere("active = false")
+		fmt.Printf("%+v", expr)
+		exprs := append([]clause.ExpressionWhere{}, *expr)
+
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assert.Equal(t, []ActiveCall{
+			{ID: "2", Datestart: "2023-01-02 15:00:00", Active: false},
+			{ID: "4", Datestart: "2023-01-03 16:00:00", Active: false},
+			{ID: "6", Datestart: "2023-01-03 20:00:00", Active: false},
+		}, got)
+	})
+
+	t.Run("eq bool test", func(t *testing.T) {
+		calls := []ActiveCall{
+			{ID: "1", Datestart: "2023-01-01 10:00:00", Active: true},
+			{ID: "2", Datestart: "2023-01-02 15:00:00", Active: false},
+			{ID: "3", Datestart: "2023-01-03 15:00:00", Active: true},
+			{ID: "4", Datestart: "2023-01-03 16:00:00", Active: false},
+			{ID: "5", Datestart: "2023-01-03 16:02:00", Active: true},
+			{ID: "6", Datestart: "2023-01-03 20:00:00", Active: false},
+		}
+		expr, err := request.ParseWhere("active eq false")
+		fmt.Printf("%+v", expr)
+		exprs := append([]clause.ExpressionWhere{}, *expr)
+
+		got, err := ApplyFilters(calls, ActiveCallFieldSearchable, getFieldValue, exprs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assert.Equal(t, []ActiveCall{
+			{ID: "2", Datestart: "2023-01-02 15:00:00", Active: false},
+			{ID: "4", Datestart: "2023-01-03 16:00:00", Active: false},
+			{ID: "6", Datestart: "2023-01-03 20:00:00", Active: false},
+		}, got)
+	})
 }
 
 func TestApplyFilters_ComplexExpressions(t *testing.T) {
@@ -586,4 +664,100 @@ func TestApplyFilters_ComplexExpressions(t *testing.T) {
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Errorf("ожидалось %v, получили %v", wantIDs, gotIDs)
 	}
+}
+
+func TestApplyFilters_StringExpressions(t *testing.T) {
+	calls := []string{"ggj", "hhhh"}
+	expr, err := request.ParseWhere("id co `h`")
+	fmt.Printf("%+v \n", expr.Expressions)
+	exprs := append([]clause.ExpressionWhere{}, *expr)
+
+	ActiveIDFieldSearchable2 := clause.FieldSearchable{
+		"id": {Column: "id", Type: clause.String},
+	}
+
+	getFieldValue2 := func(id string, field string) (interface{}, error) {
+		return id, nil
+	}
+
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n", err)
+	}
+
+	assert.Equal(t, []string{"hhhh"}, got)
+}
+
+func TestApplyFilters_DateTimeExpressions(t *testing.T) {
+	tm := time.Now().Add(time.Minute)
+	calls := []time.Time{time.Now(), tm}
+	expr, err := request.ParseWhere(fmt.Sprintf("id  > `%s`", time.Now().Add(time.Second).Format("2006-01-02 15:04:05")))
+	fmt.Printf("%+v \n", expr.Expressions)
+	exprs := append([]clause.ExpressionWhere{}, *expr)
+
+	ActiveIDFieldSearchable2 := clause.FieldSearchable{
+		"id": {Column: "id", Type: clause.DateTime},
+	}
+
+	getFieldValue2 := func(id time.Time, field string) (interface{}, error) {
+		return id.Format("2006-01-02 15:04:05"), nil
+	}
+
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n", err)
+	}
+
+	var got2 []string
+	for _, c := range got {
+		got2 = append(got2, c.Format("2006-01-02 15:04:05"))
+	}
+
+	assert.Equal(t, []string{tm.Format("2006-01-02 15:04:05")}, got2)
+}
+
+func TestApplyFilters_IntExpressions(t *testing.T) {
+
+	calls := []int{1, 2, 3, 4, 5, 6, 7}
+	expr, err := request.ParseWhere("id >= 5")
+	fmt.Printf("%+v \n", expr.Expressions)
+	exprs := append([]clause.ExpressionWhere{}, *expr)
+
+	ActiveIDFieldSearchable2 := clause.FieldSearchable{
+		"id": {Column: "id", Type: clause.Int},
+	}
+
+	getFieldValue2 := func(id int, field string) (interface{}, error) {
+		return id, nil
+	}
+
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n", err)
+	}
+
+	assert.Equal(t, []int{5, 6, 7}, got)
+}
+
+func TestApplyFilters_BoolExpressions(t *testing.T) {
+
+	calls := []bool{true, false, true, false, true, false, true}
+	expr, err := request.ParseWhere("id eq true")
+	fmt.Printf("%+v \n", expr.Expressions)
+	exprs := append([]clause.ExpressionWhere{}, *expr)
+
+	ActiveIDFieldSearchable2 := clause.FieldSearchable{
+		"id": {Column: "id", Type: clause.Bool},
+	}
+
+	getFieldValue2 := func(id bool, field string) (interface{}, error) {
+		return id, nil
+	}
+
+	got, err := ApplyFilters(calls, ActiveIDFieldSearchable2, getFieldValue2, exprs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v\n", err)
+	}
+
+	assert.Equal(t, []bool{true, true, true, true}, got)
 }

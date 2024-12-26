@@ -5,6 +5,7 @@ go 1.22.3
 require (
 	github.com/dtm-labs/rockscache v0.1.1
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-playground/assert/v2 v2.2.0
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.22.0

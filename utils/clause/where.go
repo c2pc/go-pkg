@@ -11,6 +11,10 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
 )
 
+const (
+	TypeTime = "2006-01-02 15:04:05"
+)
+
 // Ошибки для фильтрации
 var (
 	ErrFilterUnknownOperator = apperr.New("filter_unknown_operator", apperr.WithTextTranslate(i18n.ErrFilterUnknownOperator), apperr.WithCode(code.InvalidArgument))
@@ -294,12 +298,12 @@ func formatDateTimeWhere(expr ExpressionWhere, column string) (string, interface
 	if len(expr.Value) < 3 || expr.Value[0] != '`' || expr.Value[len(expr.Value)-1] != '`' {
 		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("datetime len(expr.Value) < 3")
 	}
-	tm, err := time.Parse("2006-01-02 15:04:05", strings.ReplaceAll(expr.Value, "`", ""))
+	tm, err := time.Parse(TypeTime, strings.ReplaceAll(expr.Value, "`", ""))
 	if err != nil {
 		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
 	}
 
-	value := tm.Format("2006-01-02 15:04:05")
+	value := tm.Format(TypeTime)
 
 	switch expr.Operation {
 	case OpGt:
