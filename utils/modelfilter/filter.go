@@ -15,15 +15,15 @@ func ApplyFilters[T any](
 	calls []T,
 	searchable clause.FieldSearchable,
 	getFieldValueFunc GetFieldValueFunc[T],
-	expressions []clause.ExpressionWhere,
+	expression *clause.ExpressionWhere,
 ) ([]T, error) {
-	if len(expressions) == 0 {
+	if expression == nil {
 		return calls, nil
 	}
 
 	var filtered []T
 	for _, call := range calls {
-		match, err := evaluateExpressionsChain(call, searchable, getFieldValueFunc, expressions)
+		match, err := evaluateExpressionsChain(call, searchable, getFieldValueFunc, []clause.ExpressionWhere{*expression})
 		if err != nil {
 			return nil, err
 		}

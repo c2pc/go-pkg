@@ -11,12 +11,9 @@ func FSP[T any](objs []T,
 	SorterFunc GetFieldValueFunc[T],
 	m model.Meta[T],
 ) error {
-	var err error
-	if m.Where.Expressions != nil {
-		objs, err = ApplyFilters[T](objs, searchable, FilterFunc, m.Where.Expressions)
-		if err != nil {
-			return err
-		}
+	objs, err := ApplyFilters[T](objs, searchable, FilterFunc, m.Where)
+	if err != nil {
+		return err
 	}
 
 	if m.MustReturnTotalRows {
