@@ -83,7 +83,7 @@ func orderByToMap(str string) []clause.ExpressionOrderBy {
 			} else {
 				filter = append(filter, clause.ExpressionOrderBy{
 					Column: v,
-					Order:  clause.OrderByDesc,
+					Order:  clause.OrderByAsc,
 				})
 			}
 		}
