@@ -9,7 +9,7 @@ func FSP[T any](objs []T,
 	searchable clause.FieldSearchable,
 	FilterFunc GetFieldValueFunc[T],
 	SorterFunc GetFieldValueFunc[T],
-	m model.Meta[T],
+	m *model.Meta[T],
 ) error {
 	objs, err := ApplyFilters[T](objs, searchable, FilterFunc, m.Where)
 	if err != nil {
