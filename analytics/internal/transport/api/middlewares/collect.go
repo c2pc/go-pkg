@@ -73,6 +73,7 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 }
 
 func (l *logger) middleware(c *gin.Context) {
+	startTime := time.Now()
 	var requestBody []byte
 	if c.Request.Method == http.MethodGet {
 		query := c.Request.URL.Query()
@@ -92,6 +93,8 @@ func (l *logger) middleware(c *gin.Context) {
 	c.Writer = w
 
 	c.Next()
+
+	duration := time.Since(startTime)
 
 	ctx := c.Request.Context()
 
@@ -123,6 +126,7 @@ func (l *logger) middleware(c *gin.Context) {
 		ClientIP:     clientIP,
 		RequestBody:  compressedRequest,
 		ResponseBody: compressedResponse,
+		Duration:     duration,
 	}
 
 	l.addEntry(entry)

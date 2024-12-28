@@ -12,6 +12,7 @@ CREATE TABLE auth_analytics (
     first_name  varchar(256)         not null,
     second_name varchar(256)         null,
     last_name   varchar(256)         null,
+    duration BIGINT NOT NULL,
 
     FOREIGN KEY (user_id) REFERENCES auth_users (id) ON DELETE SET NULl ON UPDATE CASCADE
 );
