@@ -5,20 +5,20 @@ import (
 )
 
 type Analytics struct {
-	ID           uint          `json:"id" gorm:"primary_key"`
-	OperationID  string        `json:"operation_id"`
-	Path         string        `json:"path"`
-	UserID       *int          `json:"user_id"`
-	Method       string        `json:"method"`
-	StatusCode   int           `json:"status_code"`
-	ClientIP     string        `json:"client_ip"`
-	RequestBody  []byte        `json:"request_body"`
-	ResponseBody []byte        `json:"response_body"`
-	CreatedAt    time.Time     `json:"created_at"  gorm:"autoCreateTime"`
-	FirstName    string        `json:"first_name"`
-	SecondName   string        `json:"second_name"`
-	LastName     string        `json:"last_name"`
-	Duration     time.Duration `json:"duration"`
+	ID           uint      `json:"id" gorm:"primary_key"`
+	OperationID  string    `json:"operation_id"`
+	Path         string    `json:"path"`
+	UserID       *int      `json:"user_id"`
+	Method       string    `json:"method"`
+	StatusCode   int       `json:"status_code"`
+	ClientIP     string    `json:"client_ip"`
+	RequestBody  *[]byte   `json:"request_body" gorm:"type:bytea;null"`
+	ResponseBody *[]byte   `json:"response_body" gorm:"type:bytea;null"`
+	CreatedAt    time.Time `json:"created_at"  gorm:"autoCreateTime"`
+	FirstName    string    `json:"first_name"`
+	SecondName   string    `json:"second_name"`
+	LastName     string    `json:"last_name"`
+	Duration     int64     `json:"duration"`
 
 	User *User `json:"user"`
 }

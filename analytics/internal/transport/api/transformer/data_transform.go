@@ -12,11 +12,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func decompressGzip(compressedData []byte) string {
+func decompressGzip(compressedData *[]byte) string {
 	if compressedData == nil {
 		return ""
 	}
-	reader, err := gzip.NewReader(bytes.NewReader(compressedData))
+	reader, err := gzip.NewReader(bytes.NewReader(*compressedData))
 	if err != nil {
 		return ""
 	}
