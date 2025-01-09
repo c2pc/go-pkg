@@ -6,13 +6,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
@@ -122,7 +123,7 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 	}
 
 	return s.taskRepository.Omit("input", "output").List(ctx, &model2.Filter{
-		OrderBy: map[string]string{"created_at": clause.OrderByAsc},
+		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 }
 
@@ -321,7 +322,7 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 	}
 
 	tasks, err := s.taskRepository.Omit("output").List(ctx, &model2.Filter{
-		OrderBy: map[string]string{"created_at": clause.OrderByAsc},
+		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 	if err != nil {
 		return err
