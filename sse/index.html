@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>SSE Test</title>
+</head>
+<body>
+<h1>
+    SSE Test
+</h1>
+<div id="messages"></div>
+<script>
+    const evtSource = new EventSource("/sse/stream");
+    evtSource.addEventListener('message', function(e) {
+        const data = JSON.parse(e.data);
+        const div = document.getElementById("messages");
+        const p = document.createElement("p");
+        p.innerText = JSON.stringify(data);
+        div.appendChild(p);
+    });
+    evtSource.onerror = function (err) {
+        console.error("ev source failed", err);
+    };
+</script>
+</body>
+</html>
