@@ -35,6 +35,13 @@ const (
 	TaskMessage = "task"
 )
 
+type MessageTask struct {
+	Status string `json:"status"`
+	Id     int    `json:"id"`
+	Name   string `json:"name"`
+	Type   string `json:"type"`
+}
+
 var (
 	ErrTaskNotFound         = apperr.New("task_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача не найдена", translator.EN: "Task not found"}), apperr.WithCode(code.NotFound))
 	ErrTaskTypeNotFound     = apperr.New("task_type_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Тип задачи не найден", translator.EN: "Task's type not found"}), apperr.WithCode(code.NotFound))
@@ -257,12 +264,8 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
-	type TaskRerun struct {
-		Id int `json:"id"`
-	}
-
 	msg := models.Message{
-		Message: TaskRerun{
+		Message: MessageTask{
 			Id: task.ID,
 		},
 	}
@@ -319,13 +322,8 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 			return err
 		}
 
-		type UpdateTask struct {
-			Id     int    `json:"id"`
-			Status string `json:"status"`
-		}
-
 		msg := models.Message{
-			Message: UpdateTask{
+			Message: MessageTask{
 				Id:     id,
 				Status: *input.Status,
 			},
@@ -354,22 +352,6 @@ func (s TaskService) UpdateStatus(ctx context.Context, status string, ids ...int
 	}
 
 	if err := s.taskRepository.Update(ctx, &model.Task{Status: status}, []interface{}{"status"}, `id IN (?)`, ids2); err != nil {
-		return err
-	}
-
-	type UpdateStatus struct {
-		Status string `json:"status"`
-		Ids    []int  `json:"ids"`
-	}
-
-	msg := models.Message{
-		Message: UpdateStatus{
-			Status: status,
-			Ids:    ids,
-		},
-	}
-
-	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 		return err
 	}
 
@@ -422,21 +404,6 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 	for _, data := range runnerData {
 		s.queue.Run(data)
 	}
-	type RunTasks struct {
-		Statuses []string `json:"statuses"`
-		Ids      []int    `json:"ids"`
-	}
-
-	msg := models.Message{
-		Message: RunTasks{
-			Statuses: statuses,
-			Ids:      ids,
-		},
-	}
-
-	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -477,15 +444,8 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		return nil, err
 	}
 
-	type CreateTask struct {
-		Status string `json:"status"`
-		Id     int    `json:"id"`
-		Name   string `json:"name"`
-		Type   string `json:"type"`
-	}
-
 	msg := models.Message{
-		Message: CreateTask{
+		Message: MessageTask{
 			Status: model.StatusPending,
 			Id:     task.ID,
 			Name:   task.Name,
