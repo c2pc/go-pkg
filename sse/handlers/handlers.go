@@ -49,9 +49,10 @@ func (s *SSE) Stream(c *gin.Context) {
 	})
 }
 
-func (s *SSE) SendMessage(ctx context.Context, m models.Message) error {
+func (s *SSE) SendMessage(ctx context.Context, messageType string, m models.Message) error {
 	data := models.Data{
-		Message: m.Message,
+		Message:     m.Message,
+		MessageType: messageType,
 	}
 	if m.Topic != nil {
 		data.Topic = string(*m.Topic)

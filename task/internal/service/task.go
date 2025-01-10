@@ -31,6 +31,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	TaskMessage = "task"
+)
+
 var (
 	ErrTaskNotFound         = apperr.New("task_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача не найдена", translator.EN: "Task not found"}), apperr.WithCode(code.NotFound))
 	ErrTaskTypeNotFound     = apperr.New("task_type_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Тип задачи не найден", translator.EN: "Task's type not found"}), apperr.WithCode(code.NotFound))
@@ -206,11 +210,17 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 
 	s.queue.Stop(task.ID)
 
-	msg := models.Message{
-		Message: "задача остановлена",
+	type TaskStop struct {
+		Id int `json:"id"`
 	}
 
-	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+	msg := models.Message{
+		Message: TaskStop{
+			Id: task.ID,
+		},
+	}
+
+	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 		return err
 	}
 
@@ -247,11 +257,17 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
-	msg := models.Message{
-		Message: "задача перезапущена",
+	type TaskRerun struct {
+		Id int `json:"id"`
 	}
 
-	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+	msg := models.Message{
+		Message: TaskRerun{
+			Id: task.ID,
+		},
+	}
+
+	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 		return nil, err
 	}
 
@@ -303,11 +319,19 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 			return err
 		}
 
-		msg := models.Message{
-			Message: "задача обновлена",
+		type UpdateTask struct {
+			Id     int    `json:"id"`
+			Status string `json:"status"`
 		}
 
-		if err = s.sseService.SendMessage(ctx, msg); err != nil {
+		msg := models.Message{
+			Message: UpdateTask{
+				Id:     id,
+				Status: *input.Status,
+			},
+		}
+
+		if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 			return err
 		}
 
@@ -333,11 +357,19 @@ func (s TaskService) UpdateStatus(ctx context.Context, status string, ids ...int
 		return err
 	}
 
-	msg := models.Message{
-		Message: "статус задачи обновлен",
+	type UpdateStatus struct {
+		Status string `json:"status"`
+		Ids    []int  `json:"ids"`
 	}
 
-	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+	msg := models.Message{
+		Message: UpdateStatus{
+			Status: status,
+			Ids:    ids,
+		},
+	}
+
+	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 		return err
 	}
 
@@ -390,12 +422,19 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 	for _, data := range runnerData {
 		s.queue.Run(data)
 	}
-
-	msg := models.Message{
-		Message: "задачи запущены",
+	type RunTasks struct {
+		Statuses []string `json:"statuses"`
+		Ids      []int    `json:"ids"`
 	}
 
-	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+	msg := models.Message{
+		Message: RunTasks{
+			Statuses: statuses,
+			Ids:      ids,
+		},
+	}
+
+	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 		return err
 	}
 
@@ -438,11 +477,23 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		return nil, err
 	}
 
-	msg := models.Message{
-		Message: "задача создана",
+	type CreateTask struct {
+		Status string `json:"status"`
+		Id     int    `json:"id"`
+		Name   string `json:"name"`
+		Type   string `json:"type"`
 	}
 
-	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+	msg := models.Message{
+		Message: CreateTask{
+			Status: model.StatusPending,
+			Id:     task.ID,
+			Name:   task.Name,
+			Type:   task.Type,
+		},
+	}
+
+	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
 		return nil, err
 	}
 
