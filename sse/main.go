@@ -18,8 +18,8 @@ type sseImpl struct {
 	sseHandler *handlers.SSE
 }
 
-func New(LenChan int) SSE {
-	sseManager := service.NewSSEManager(LenChan)
+func New(lenChan int) SSE {
+	sseManager := service.NewSSEManager(lenChan)
 
 	sseHandler := handlers.NewSSE(sseManager)
 

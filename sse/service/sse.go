@@ -64,14 +64,6 @@ func (mgr *SSEManager) run() {
 	}
 }
 
-func (mgr *SSEManager) BroadCast(d models.Data) {
-	select {
-	case mgr.Broadcast <- d:
-	default:
-		mgr.Broadcast <- d
-	}
-}
-
 func (mgr *SSEManager) RegisterClient(c Client) {
 	mgr.newClient <- c
 }

@@ -217,10 +217,6 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 
 	s.queue.Stop(task.ID)
 
-	type TaskStop struct {
-		Id int `json:"id"`
-	}
-
 	msg := models.Message{
 		Message: TaskMessage{
 			Status: task.Status,
@@ -330,7 +326,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 
 		msg := models.Message{
 			Message: TaskMessage{
-				Status: *input.Status,
+				Status: task.Status,
 				Id:     id,
 				Name:   task.Name,
 				Type:   task.Type,
@@ -454,7 +450,7 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 
 	msg := models.Message{
 		Message: TaskMessage{
-			Status: model.StatusPending,
+			Status: task.Status,
 			Id:     task.ID,
 			Name:   task.Name,
 			Type:   task.Type,
