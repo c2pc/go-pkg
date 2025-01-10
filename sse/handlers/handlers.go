@@ -50,18 +50,8 @@ func (s *SSE) Stream(c *gin.Context) {
 }
 
 func (s *SSE) SendMessage(ctx context.Context, m models.Message) error {
-	var fromID, toID int
-	if m.From != nil {
-		fromID = *m.From
-	}
-	if m.To != nil {
-		toID = *m.To
-	}
-
 	data := models.Data{
 		Message: m.Message,
-		From:    fromID,
-		To:      toID,
 	}
 	if m.Topic != nil {
 		data.Topic = string(*m.Topic)

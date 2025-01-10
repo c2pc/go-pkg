@@ -21,6 +21,4 @@ type Data struct {
 	PushType PushType `json:"push_type,omitempty"`
 	Topic    string   `json:"topic,omitempty"`
 	Message  string   `json:"message"`
-	From     int      `json:"from"`
-	To       int      `json:"to"`
 }
