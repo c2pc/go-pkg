@@ -35,7 +35,7 @@ const (
 	TaskMessage = "task"
 )
 
-type MessageTask struct {
+type TaskMsg struct {
 	Status string `json:"status"`
 	Id     int    `json:"id"`
 	Name   string `json:"name"`
@@ -265,8 +265,11 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 	}
 
 	msg := models.Message{
-		Message: MessageTask{
-			Id: task.ID,
+		Message: TaskMsg{
+			Status: task.Status,
+			Id:     task.ID,
+			Name:   task.Name,
+			Type:   task.Type,
 		},
 	}
 
@@ -323,9 +326,11 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		}
 
 		msg := models.Message{
-			Message: MessageTask{
-				Id:     id,
+			Message: TaskMsg{
 				Status: *input.Status,
+				Id:     id,
+				Name:   task.Name,
+				Type:   task.Type,
 			},
 		}
 
@@ -445,7 +450,7 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 	}
 
 	msg := models.Message{
-		Message: MessageTask{
+		Message: TaskMsg{
 			Status: model.StatusPending,
 			Id:     task.ID,
 			Name:   task.Name,
