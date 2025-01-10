@@ -1,57 +1,33 @@
-package main
+package service
 
 import (
+	"github.com/c2pc/go-pkg/v2/sse/models"
 	"sync"
 )
 
-type Topic string
-
-type PushType string
-
-const (
-	PushTypeBackground PushType = "background"
-	PushTypeAlert      PushType = "alert"
-)
-
-type Message struct {
-	PushType *PushType `json:"push_type,omitempty"`
-	Topic    *Topic    `json:"topic,omitempty"`
-	Message  string    `json:"message"`
-	From     *int      `json:"from,omitempty"`
-	To       *int      `json:"to,omitempty"`
-}
-
-type Data struct {
-	PushType PushType `json:"push_type,omitempty"`
-	Topic    string   `json:"topic,omitempty"`
-	Message  string   `json:"message"`
-	From     int      `json:"from"`
-	To       int      `json:"to"`
-}
-
 type Client struct {
 	ID      int
-	Channel chan Data
+	Channel chan models.Data
 }
 
 type SSEManager struct {
 	mu          sync.RWMutex
-	clients     map[int]chan Data
-	broadcast   chan Data
+	clients     map[int]chan models.Data
+	Broadcast   chan models.Data
 	newClient   chan Client
 	closeClient chan Client
 	done        chan struct{}
-	lenChan     int
+	LenChan     int
 }
 
 func NewSSEManager(lenChan int) *SSEManager {
 	mgr := &SSEManager{
-		clients:     make(map[int]chan Data),
-		broadcast:   make(chan Data, lenChan),
+		clients:     make(map[int]chan models.Data),
+		Broadcast:   make(chan models.Data, lenChan),
 		newClient:   make(chan Client, lenChan),
 		closeClient: make(chan Client, lenChan),
 		done:        make(chan struct{}),
-		lenChan:     lenChan,
+		LenChan:     lenChan,
 	}
 
 	go mgr.run()
@@ -78,7 +54,7 @@ func (mgr *SSEManager) run() {
 			}
 			mgr.mu.Unlock()
 
-		case msg := <-mgr.broadcast:
+		case msg := <-mgr.Broadcast:
 			mgr.mu.RLock()
 			for _, ch := range mgr.clients {
 				ch <- msg
@@ -88,11 +64,11 @@ func (mgr *SSEManager) run() {
 	}
 }
 
-func (mgr *SSEManager) Broadcast(d Data) {
+func (mgr *SSEManager) BroadCast(d models.Data) {
 	select {
-	case mgr.broadcast <- d:
+	case mgr.Broadcast <- d:
 	default:
-		mgr.broadcast <- d
+		mgr.Broadcast <- d
 	}
 }
 

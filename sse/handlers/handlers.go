@@ -1,7 +1,9 @@
-package main
+package handlers
 
 import (
 	"context"
+	"github.com/c2pc/go-pkg/v2/sse/models"
+	"github.com/c2pc/go-pkg/v2/sse/service"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -9,51 +11,15 @@ import (
 )
 
 type SSE struct {
-	manager *SSEManager
+	manager *service.SSEManager
 }
 
-func NewSSE(manager *SSEManager) *SSE {
+func NewSSE(manager *service.SSEManager) *SSE {
 	return &SSE{manager: manager}
 }
 
-func (s *SSE) InitHandler(api *gin.RouterGroup) {
-	api.GET("/stream", sseHeadersMiddleware(), s.sseConnMiddleware(), func(c *gin.Context) {
-		v, ok := c.Get("client")
-		if !ok {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		client, ok := v.(Client)
-		if !ok {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		go func() {
-			s.manager.Broadcast(Data{
-				Message:  "new subscriber",
-				From:     0,
-				To:       0,
-				Topic:    "info",
-				PushType: PushTypeBackground,
-			})
-		}()
-
-		c.Stream(func(w io.Writer) bool {
-			select {
-			case msg, ok := <-client.Channel:
-				if !ok {
-					return false
-				}
-				c.SSEvent("message", msg)
-				return true
-
-			case <-c.Request.Context().Done():
-				return false
-			}
-		})
-
-	})
+func (s *SSE) Init(api *gin.RouterGroup) {
+	api.GET("stream", sseHeadersMiddleware(), s.sseConnMiddleware(), s.Stream)
 }
 
 func (s *SSE) Stream(c *gin.Context) {
@@ -62,21 +28,11 @@ func (s *SSE) Stream(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-	client, ok := v.(Client)
+	client, ok := v.(service.Client)
 	if !ok {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-
-	go func() {
-		s.manager.Broadcast(Data{
-			Message:  "New subscriber",
-			From:     0,
-			To:       0,
-			Topic:    "info",
-			PushType: PushTypeBackground,
-		})
-	}()
 
 	c.Stream(func(w io.Writer) bool {
 		select {
@@ -93,7 +49,7 @@ func (s *SSE) Stream(c *gin.Context) {
 	})
 }
 
-func (s *SSE) SendMessage(ctx context.Context, m Message) error {
+func (s *SSE) SendMessage(ctx context.Context, m models.Message) error {
 	var fromID, toID int
 	if m.From != nil {
 		fromID = *m.From
@@ -102,7 +58,7 @@ func (s *SSE) SendMessage(ctx context.Context, m Message) error {
 		toID = *m.To
 	}
 
-	data := Data{
+	data := models.Data{
 		Message: m.Message,
 		From:    fromID,
 		To:      toID,
@@ -116,7 +72,7 @@ func (s *SSE) SendMessage(ctx context.Context, m Message) error {
 	}
 
 	select {
-	case s.manager.broadcast <- data:
+	case s.manager.Broadcast <- data:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -142,9 +98,9 @@ func (s *SSE) sseConnMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		client := Client{
+		client := service.Client{
 			ID:      clientID,
-			Channel: make(chan Data, s.manager.lenChan),
+			Channel: make(chan models.Data, s.manager.LenChan),
 		}
 
 		s.manager.RegisterClient(client)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/c2pc/go-pkg/v2/sse"
 	model3 "github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -58,6 +59,7 @@ type Config struct {
 	Transaction mw.ITransaction
 	Services    Consumers
 	TokenString string
+	SseSvc      sse.SSE
 }
 
 func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
@@ -74,7 +76,7 @@ func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
 		return nil, apperr.New("tokenString is required")
 	}
 
-	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue, cfg.TokenString)
+	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue, cfg.TokenString, cfg.SseSvc)
 
 	handlers := handler.NewHandlers(taskService, cfg.Transaction)
 

@@ -1,34 +1,37 @@
-package main
+package sse
 
 import (
+	"context"
+
+	"github.com/c2pc/go-pkg/v2/sse/handlers"
+	"github.com/c2pc/go-pkg/v2/sse/models"
+	"github.com/c2pc/go-pkg/v2/sse/service"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
-func main() {
-	r := gin.Default()
+type SSE interface {
+	InitHandler(api *gin.RouterGroup)
+	SendMessage(ctx context.Context, m models.Message) error
+}
 
-	manager := NewSSEManager(10)
+type sseImpl struct {
+	sseHandler *handlers.SSE
+}
 
-	sse := NewSSE(manager)
+func New(LenChan int) SSE {
+	sseManager := service.NewSSEManager(LenChan)
 
-	api := r.Group("/sse")
-	sse.InitHandler(api)
-	r.POST("/send", func(c *gin.Context) {
-		var msg Message
-		if err := c.ShouldBindJSON(&msg); err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		if err := sse.SendMessage(c.Request.Context(), msg); err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
+	sseHandler := handlers.NewSSE(sseManager)
 
-		c.Status(http.StatusOK)
-	})
+	return &sseImpl{
+		sseHandler: sseHandler,
+	}
+}
 
-	r.StaticFile("/", "./index.html")
+func (s *sseImpl) InitHandler(api *gin.RouterGroup) {
+	s.sseHandler.Init(api)
+}
 
-	r.Run(":8080")
+func (s *sseImpl) SendMessage(ctx context.Context, m models.Message) error {
+	return s.sseHandler.SendMessage(ctx, m)
 }

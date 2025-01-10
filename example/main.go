@@ -20,6 +20,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api"
 	restHandler "github.com/c2pc/go-pkg/v2/example/internal/transport/api/handler"
+	sse2 "github.com/c2pc/go-pkg/v2/sse"
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
 	database "github.com/c2pc/go-pkg/v2/utils/db"
@@ -125,6 +126,7 @@ func main() {
 
 	repositories := repository.NewRepositories(db)
 	services := service.NewServices(service.Deps{Repositories: repositories})
+	sse := sse2.New(10)
 
 	taskService, err := task.NewTask(ctx2, task.Config{
 		DB:          db,
@@ -134,13 +136,14 @@ func main() {
 			"news": services.NewsService,
 		},
 		TokenString: "787hhjvYTYTcfcr6556tCTTYChgUYy",
+		SseSvc:      sse,
 	})
 	if err != nil {
 		logger.Fatalf("[TASK] %s", err.Error())
 		return
 	}
 
-	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService, analyticService)
+	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService, analyticService, sse)
 	restServer := api.NewServer(api.Input{
 		Host: configs.HTTP.Host,
 		Port: configs.HTTP.Port,

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/sse"
+	"github.com/c2pc/go-pkg/v2/sse/models"
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
@@ -24,6 +25,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
@@ -77,6 +79,7 @@ type TaskService struct {
 	services       Consumers
 	queue          Queue
 	tokenSecret    string
+	sseService     sse.SSE
 }
 
 func NewTaskService(
@@ -84,12 +87,14 @@ func NewTaskService(
 	services Consumers,
 	queue Queue,
 	tokenSecret string,
+	sseService sse.SSE,
 ) TaskService {
 	return TaskService{
 		taskRepository: taskRepository,
 		services:       services,
 		queue:          queue,
 		tokenSecret:    tokenSecret,
+		sseService:     sseService,
 	}
 }
 
@@ -122,7 +127,7 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 	}
 
 	return s.taskRepository.Omit("input", "output").List(ctx, &model2.Filter{
-		OrderBy: map[string]string{"created_at": clause.OrderByAsc},
+		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 }
 
@@ -201,6 +206,14 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 
 	s.queue.Stop(task.ID)
 
+	msg := models.Message{
+		Message: "задача остановлена",
+	}
+
+	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -231,6 +244,14 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 
 	err = s.RunTasks(ctx, []string{model.StatusPending}, task.ID)
 	if err != nil {
+		return nil, err
+	}
+
+	msg := models.Message{
+		Message: "задача перезапущена",
+	}
+
+	if err = s.sseService.SendMessage(ctx, msg); err != nil {
 		return nil, err
 	}
 
@@ -281,6 +302,15 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		if err = s.taskRepository.Update(ctx, task, selects, `id = ?`, task.ID); err != nil {
 			return err
 		}
+
+		msg := models.Message{
+			Message: "задача обновлена",
+		}
+
+		if err = s.sseService.SendMessage(ctx, msg); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -303,6 +333,14 @@ func (s TaskService) UpdateStatus(ctx context.Context, status string, ids ...int
 		return err
 	}
 
+	msg := models.Message{
+		Message: "статус задачи обновлен",
+	}
+
+	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -321,7 +359,7 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 	}
 
 	tasks, err := s.taskRepository.Omit("output").List(ctx, &model2.Filter{
-		OrderBy: map[string]string{"created_at": clause.OrderByAsc},
+		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 	if err != nil {
 		return err
@@ -351,6 +389,14 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 
 	for _, data := range runnerData {
 		s.queue.Run(data)
+	}
+
+	msg := models.Message{
+		Message: "задачи запущены",
+	}
+
+	if err = s.sseService.SendMessage(ctx, msg); err != nil {
+		return err
 	}
 
 	return nil
@@ -389,6 +435,14 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		Input:  data,
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	msg := models.Message{
+		Message: "задача создана",
+	}
+
+	if err = s.sseService.SendMessage(ctx, msg); err != nil {
 		return nil, err
 	}
 

@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -96,8 +97,10 @@ func (l *logger) middleware(c *gin.Context) {
 	startTime := time.Now()
 
 	path := c.FullPath()
+	re := regexp.MustCompile(`^/api/v\d+`)
+	cleanedPath := re.ReplaceAllString(path, "")
 	skipBodies := false
-	if _, excluded := l.excludePaths[path]; excluded {
+	if _, excluded := l.excludePaths[cleanedPath]; excluded {
 		skipBodies = true
 	}
 
@@ -147,18 +150,18 @@ func (l *logger) middleware(c *gin.Context) {
 
 	operationID, _ := mcontext.GetOperationID(ctx)
 
-	var compressedRequest *[]byte
+	var compressedRequest []byte
 	if len(requestBody) > 0 {
 		data := compressData(requestBody)
-		compressedRequest = &data
+		compressedRequest = data
 	} else {
 		compressedRequest = nil
 	}
 
-	var compressedResponse *[]byte
+	var compressedResponse []byte
 	if w.flag && w.body != nil && w.body.Len() > 0 {
 		data := compressData(w.body.Bytes())
-		compressedResponse = &data
+		compressedResponse = data
 	} else {
 		compressedResponse = nil
 	}
