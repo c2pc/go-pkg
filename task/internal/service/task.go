@@ -32,10 +32,10 @@ import (
 )
 
 const (
-	TaskMessage = "task"
+	TaskMessageType = "task"
 )
 
-type TaskMsg struct {
+type TaskMessage struct {
 	Status string `json:"status"`
 	Id     int    `json:"id"`
 	Name   string `json:"name"`
@@ -222,12 +222,15 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 	}
 
 	msg := models.Message{
-		Message: TaskStop{
-			Id: task.ID,
+		Message: TaskMessage{
+			Status: task.Status,
+			Id:     task.ID,
+			Name:   task.Name,
+			Type:   task.Type,
 		},
 	}
 
-	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
+	if err = s.sseService.SendMessage(ctx, TaskMessageType, msg); err != nil {
 		return err
 	}
 
@@ -265,7 +268,7 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 	}
 
 	msg := models.Message{
-		Message: TaskMsg{
+		Message: TaskMessage{
 			Status: task.Status,
 			Id:     task.ID,
 			Name:   task.Name,
@@ -273,7 +276,7 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		},
 	}
 
-	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
+	if err = s.sseService.SendMessage(ctx, TaskMessageType, msg); err != nil {
 		return nil, err
 	}
 
@@ -326,7 +329,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		}
 
 		msg := models.Message{
-			Message: TaskMsg{
+			Message: TaskMessage{
 				Status: *input.Status,
 				Id:     id,
 				Name:   task.Name,
@@ -334,7 +337,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 			},
 		}
 
-		if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
+		if err = s.sseService.SendMessage(ctx, TaskMessageType, msg); err != nil {
 			return err
 		}
 
@@ -450,7 +453,7 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 	}
 
 	msg := models.Message{
-		Message: TaskMsg{
+		Message: TaskMessage{
 			Status: model.StatusPending,
 			Id:     task.ID,
 			Name:   task.Name,
@@ -458,7 +461,7 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		},
 	}
 
-	if err = s.sseService.SendMessage(ctx, TaskMessage, msg); err != nil {
+	if err = s.sseService.SendMessage(ctx, TaskMessageType, msg); err != nil {
 		return nil, err
 	}
 
