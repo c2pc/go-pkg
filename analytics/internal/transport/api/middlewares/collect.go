@@ -6,8 +6,11 @@ import (
 	"context"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +24,7 @@ type LoggerConfig struct {
 	DB            *gorm.DB
 	FlushInterval int
 	BatchSize     int
+	ExcludePaths  []string
 }
 
 type logger struct {
@@ -32,19 +36,30 @@ type logger struct {
 	flushInterval time.Duration
 	ticker        *time.Ticker
 	cancelFunc    context.CancelFunc
+	excludePaths  map[string]struct{}
 }
 
 type responseWriter struct {
 	gin.ResponseWriter
 	body *bytes.Buffer
+	flag bool
+}
+
+func (rw *responseWriter) WriteHeader(statusCode int) {
+	contentType := rw.Header().Get("Content-Type")
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err == nil && mediaType == "application/json" {
+		rw.flag = true
+		rw.body = &bytes.Buffer{}
+	}
+	rw.ResponseWriter.WriteHeader(statusCode)
 }
 
 func (rw *responseWriter) Write(b []byte) (int, error) {
-	n, err := rw.ResponseWriter.Write(b)
-	if err == nil {
+	if rw.flag {
 		rw.body.Write(b)
 	}
-	return n, err
+	return rw.ResponseWriter.Write(b)
 }
 
 func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
@@ -55,12 +70,18 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 		cfg.BatchSize = 100
 	}
 
+	excludeMap := make(map[string]struct{})
+	for _, p := range cfg.ExcludePaths {
+		excludeMap[p] = struct{}{}
+	}
+
 	l := &logger{
 		db:            cfg.DB,
 		batchSize:     cfg.BatchSize,
 		entries:       make([]models.Analytics, 0, cfg.BatchSize),
 		userIDMap:     make(map[int]struct{}),
 		flushInterval: time.Duration(cfg.FlushInterval) * time.Second,
+		excludePaths:  excludeMap,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -73,29 +94,50 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 }
 
 func (l *logger) middleware(c *gin.Context) {
-	var requestBody []byte
-	if c.Request.Method == http.MethodGet {
-		query := c.Request.URL.Query()
-		if query.Encode() != "" {
-			q, _ := url.QueryUnescape(query.Encode())
-			requestBody = []byte(q)
-		}
-	} else if c.Request.Body != nil && c.Request.Body != http.NoBody && c.Request.Header.Get("Content-Type") == "application/json" {
-		requestBody, _ = io.ReadAll(c.Request.Body)
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	startTime := time.Now()
+
+	path := c.FullPath()
+	re := regexp.MustCompile(`^/api/v\d+`)
+	cleanedPath := re.ReplaceAllString(path, "")
+	skipBodies := false
+	if _, excluded := l.excludePaths[cleanedPath]; excluded {
+		skipBodies = true
 	}
 
-	w := &responseWriter{
-		ResponseWriter: c.Writer,
-		body:           bytes.NewBuffer(nil),
+	var requestBody []byte
+	if !skipBodies {
+		if c.Request.Method == http.MethodGet {
+			query := c.Request.URL.Query()
+			if query.Encode() != "" {
+				q, _ := url.QueryUnescape(query.Encode())
+				requestBody = []byte(q)
+			}
+		} else if c.Request.Body != nil && c.Request.Body != http.NoBody && strings.Contains(c.Request.Header.Get("Content-Type"), "application/json") {
+			var err error
+			requestBody, err = io.ReadAll(c.Request.Body)
+			if err == nil {
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+			} else {
+				requestBody = nil
+			}
+		}
 	}
-	c.Writer = w
+
+	var w *responseWriter
+	if !skipBodies {
+		w = &responseWriter{
+			ResponseWriter: c.Writer,
+		}
+		c.Writer = w
+	}
 
 	c.Next()
 
+	duration := time.Since(startTime).Milliseconds()
+
 	ctx := c.Request.Context()
 
-	path := c.Request.URL.Path
+	realPath := c.Request.URL.Path
 	method := c.Request.Method
 	status := c.Writer.Status()
 	clientIP := c.ClientIP()
@@ -108,21 +150,32 @@ func (l *logger) middleware(c *gin.Context) {
 
 	operationID, _ := mcontext.GetOperationID(ctx)
 
-	compressedRequest := compressData(requestBody)
+	var compressedRequest []byte
+	if len(requestBody) > 0 {
+		data := compressData(requestBody)
+		compressedRequest = data
+	} else {
+		compressedRequest = nil
+	}
+
 	var compressedResponse []byte
-	if w.Header().Get("Content-Type") == "application/json" {
-		compressedResponse = compressData(w.body.Bytes())
+	if w.flag && w.body != nil && w.body.Len() > 0 {
+		data := compressData(w.body.Bytes())
+		compressedResponse = data
+	} else {
+		compressedResponse = nil
 	}
 
 	entry := models.Analytics{
 		OperationID:  operationID,
-		Path:         path,
+		Path:         realPath,
 		UserID:       userID,
 		Method:       method,
 		StatusCode:   status,
 		ClientIP:     clientIP,
 		RequestBody:  compressedRequest,
 		ResponseBody: compressedResponse,
+		Duration:     duration,
 	}
 
 	l.addEntry(entry)
@@ -134,8 +187,16 @@ func compressData(data []byte) []byte {
 	}
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
-	_, _ = gz.Write(data)
-	gz.Close()
+	_, err := gz.Write(data)
+	if err != nil {
+		log.Printf("gzip write error: %v", err)
+		return nil
+	}
+	err = gz.Close()
+	if err != nil {
+		log.Printf("gzip close error: %v", err)
+		return nil
+	}
 	return buf.Bytes()
 }
 
@@ -232,5 +293,6 @@ func (l *logger) shutdown() {
 		}
 		l.entries = l.entries[:0]
 		l.userIDMap = make(map[int]struct{})
+		l.excludePaths = make(map[string]struct{})
 	}
 }

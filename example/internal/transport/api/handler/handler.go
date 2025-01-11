@@ -6,6 +6,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
+	"github.com/c2pc/go-pkg/v2/sse"
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/level"
@@ -20,15 +21,23 @@ type Handler struct {
 	analyticService analytics.Analytics
 	services        service.Services
 	trx             mw.ITransaction
+	sseService      sse.SSE
 }
 
-func NewHandlers(authService auth.IAuth, services service.Services, trx mw.ITransaction, taskService task.Tasker, analyticService analytics.Analytics) *Handler {
+func NewHandlers(authService auth.IAuth,
+	services service.Services,
+	trx mw.ITransaction,
+	taskService task.Tasker,
+	analyticService analytics.Analytics,
+	sseService sse.SSE,
+) *Handler {
 	return &Handler{
 		authService:     authService,
 		services:        services,
 		trx:             trx,
 		taskService:     taskService,
 		analyticService: analyticService,
+		sseService:      sseService,
 	}
 }
 
@@ -79,7 +88,7 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 		{
 
 			h.analyticService.InitHandler(secure)
-
+			h.sseService.InitHandler(secure)
 			withLimiter := secure.Group("", h.analyticService.CollectAnalytic)
 			{
 				h.taskService.InitHandler(withLimiter, unsecured)

@@ -12,12 +12,13 @@ type Analytics struct {
 	Method       string    `json:"method"`
 	StatusCode   int       `json:"status_code"`
 	ClientIP     string    `json:"client_ip"`
-	RequestBody  []byte    `json:"request_body"`
-	ResponseBody []byte    `json:"response_body"`
+	RequestBody  []byte    `json:"request_body" gorm:"type:bytea;null"`
+	ResponseBody []byte    `json:"response_body" gorm:"type:bytea;null"`
 	CreatedAt    time.Time `json:"created_at"  gorm:"autoCreateTime"`
 	FirstName    string    `json:"first_name"`
 	SecondName   string    `json:"second_name"`
 	LastName     string    `json:"last_name"`
+	Duration     int64     `json:"duration"`
 
 	User *User `json:"user"`
 }

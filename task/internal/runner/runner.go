@@ -28,7 +28,7 @@ type Task struct {
 
 type TaskResult struct {
 	Task
-	Status  string
+	Status  *string
 	Message *model.Message
 	Error   error
 }
@@ -108,7 +108,8 @@ func (r *Runner) run(data Data) {
 	}
 
 	task := Task{ID: data.ID, ClientID: data.ClientID, Name: data.Name, Type: data.Type, RanAt: time.Now()}
-	r.taskResults <- TaskResult{Task: task, Status: StatusRunning}
+	status := StatusRunning
+	r.taskResults <- TaskResult{Task: task, Status: &status}
 
 	ctx, cancel := context.WithCancel(context.WithValue(r.ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", task.ID)))
 	defer cancel()
@@ -119,15 +120,18 @@ func (r *Runner) run(data Data) {
 		msg, err := data.RunFunc(ctx, data.Data)
 		task.EndedAt = time.Now()
 		if err != nil {
-			r.taskResults <- TaskResult{Task: task, Status: StatusFailed, Error: err}
+			status := StatusFailed
+			r.taskResults <- TaskResult{Task: task, Status: &status, Error: err}
 			r.deleteActiveTasks(task.ID)
 			return
 		}
 
 		if ctx.Err() != nil {
-			r.taskResults <- TaskResult{Task: task, Status: StatusStopped, Message: msg}
+			status := StatusStopped
+			r.taskResults <- TaskResult{Task: task, Status: &status, Message: msg}
 		} else {
-			r.taskResults <- TaskResult{Task: task, Status: StatusCompleted, Message: msg}
+			status := StatusCompleted
+			r.taskResults <- TaskResult{Task: task, Status: &status, Message: msg}
 		}
 		r.deleteActiveTasks(task.ID)
 		close(done)

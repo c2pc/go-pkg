@@ -2,8 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"net/http"
-
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api/dto"
@@ -18,6 +16,7 @@ import (
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 type NewsHandler struct {

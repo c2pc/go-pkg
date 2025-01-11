@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/sse"
+	"github.com/c2pc/go-pkg/v2/sse/models"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
-
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
@@ -25,6 +26,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
@@ -78,6 +80,7 @@ type TaskService struct {
 	services       Consumers
 	queue          Queue
 	tokenSecret    string
+	sseService     sse.SSE
 }
 
 func NewTaskService(
@@ -85,12 +88,14 @@ func NewTaskService(
 	services Consumers,
 	queue Queue,
 	tokenSecret string,
+	sseService sse.SSE,
 ) TaskService {
 	return TaskService{
 		taskRepository: taskRepository,
 		services:       services,
 		queue:          queue,
 		tokenSecret:    tokenSecret,
+		sseService:     sseService,
 	}
 }
 
@@ -202,6 +207,8 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 
 	s.queue.Stop(task.ID)
 
+	_ = s.sendStatusChangedMessage(ctx, task)
+
 	return nil
 }
 
@@ -235,6 +242,8 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
+	_ = s.sendStatusChangedMessage(ctx, task)
+
 	return task, nil
 }
 
@@ -253,6 +262,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 	}
 
 	var selects []interface{}
+
 	if input.Status != nil && *input.Status != "" {
 		task.Status = *input.Status
 		selects = append(selects, "status")
@@ -282,6 +292,10 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		if err = s.taskRepository.Update(ctx, task, selects, `id = ?`, task.ID); err != nil {
 			return err
 		}
+	}
+
+	if input.Status != nil && *input.Status != "" {
+		_ = s.sendStatusChangedMessage(ctx, task)
 	}
 
 	return nil
@@ -393,6 +407,8 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		return nil, err
 	}
 
+	_ = s.sendStatusChangedMessage(ctx, task)
+
 	return task, nil
 }
 
@@ -457,7 +473,7 @@ func (s TaskService) writeToFile(task *model.Task, data []byte) (string, error) 
 		return "", err
 	}
 
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		return "", err
 	}
@@ -502,7 +518,7 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString string, id int) error {
 	claims, err := tokenverify.GetLinkClaimFromToken(tokenString, tokenverify.Secret(s.tokenSecret))
 	if err != nil {
-		return err
+		return ErrInvalidLink.WithError(err)
 	}
 
 	taskID, err := strconv.Atoi(claims.Link)
@@ -511,4 +527,20 @@ func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString stri
 	}
 
 	return nil
+}
+
+func (s TaskService) sendStatusChangedMessage(ctx context.Context, task *model.Task) error {
+	msg := models.Message{
+		Type:   model.TaskMessageType,
+		Action: model.TaskStatusChangedMessageAction,
+		Message: model.TaskMessage{
+			Status: task.Status,
+			Id:     task.ID,
+			Name:   task.Name,
+			Type:   task.Type,
+		},
+		To: &task.UserID,
+	}
+
+	return s.sseService.SendMessage(ctx, msg)
 }
