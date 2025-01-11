@@ -7,4 +7,5 @@ import (
 
 var Permissions = []model2.Permission{
 	{Method: "news", Desc: i18n.NewsPermission},
+	{Method: "stream", Desc: i18n.StreamPermission},
 }

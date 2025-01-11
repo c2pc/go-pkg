@@ -10,6 +10,8 @@ const (
 )
 
 type Message struct {
+	Type     string      `json:"type"`
+	Action   string      `json:"action"`
 	PushType *PushType   `json:"push_type,omitempty"`
 	Topic    *Topic      `json:"topic,omitempty"`
 	Message  interface{} `json:"message"`
@@ -18,8 +20,11 @@ type Message struct {
 }
 
 type Data struct {
-	PushType    PushType    `json:"push_type,omitempty"`
-	Topic       string      `json:"topic,omitempty"`
-	Message     interface{} `json:"message"`
-	MessageType string      `json:"message_type,omitempty"`
+	PushType      PushType    `json:"push_type,omitempty"`
+	Topic         string      `json:"topic,omitempty"`
+	Message       interface{} `json:"message"`
+	MessageType   string      `json:"message_type"`
+	MessageAction string      `json:"message_action"`
+	From          *int        `json:"-"`
+	To            *int        `json:"-"`
 }

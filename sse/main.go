@@ -11,7 +11,7 @@ import (
 
 type SSE interface {
 	InitHandler(api *gin.RouterGroup)
-	SendMessage(ctx context.Context, messageType string, m models.Message) error
+	SendMessage(ctx context.Context, m models.Message) error
 }
 
 type sseImpl struct {
@@ -32,6 +32,6 @@ func (s *sseImpl) InitHandler(api *gin.RouterGroup) {
 	s.sseHandler.Init(api)
 }
 
-func (s *sseImpl) SendMessage(ctx context.Context, messageType string, m models.Message) error {
-	return s.sseHandler.SendMessage(ctx, messageType, m)
+func (s *sseImpl) SendMessage(ctx context.Context, m models.Message) error {
+	return s.sseHandler.SendMessage(ctx, m)
 }

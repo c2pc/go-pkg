@@ -2,12 +2,15 @@ package handlers
 
 import (
 	"context"
-	"github.com/c2pc/go-pkg/v2/sse/models"
-	"github.com/c2pc/go-pkg/v2/sse/service"
-	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
+
+	"github.com/c2pc/go-pkg/v2/sse/models"
+	"github.com/c2pc/go-pkg/v2/sse/service"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
+	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/gin-gonic/gin"
 )
 
 type SSE struct {
@@ -49,10 +52,13 @@ func (s *SSE) Stream(c *gin.Context) {
 	})
 }
 
-func (s *SSE) SendMessage(ctx context.Context, messageType string, m models.Message) error {
+func (s *SSE) SendMessage(ctx context.Context, m models.Message) error {
 	data := models.Data{
-		Message:     m.Message,
-		MessageType: messageType,
+		Message:       m.Message,
+		MessageType:   m.Type,
+		MessageAction: m.Action,
+		From:          m.From,
+		To:            m.To,
 	}
 	if m.Topic != nil {
 		data.Topic = string(*m.Topic)
@@ -85,8 +91,7 @@ func (s *SSE) sseConnMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clientID, ok := mcontext.GetOpUserID(c.Request.Context())
 		if !ok {
-			c.Status(http.StatusInternalServerError)
-			return
+			response.Response(c, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty"))
 		}
 
 		client := service.Client{

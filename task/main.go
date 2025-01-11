@@ -105,9 +105,11 @@ func (e *Task) listen(ctx context.Context) {
 		case result := <-e.runner.TaskResults():
 			ctx2 := context.WithValue(ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", result.ID))
 
-			status := e.getStatus(result.Status)
-			input := service.TaskUpdateInput{
-				Status: &status,
+			var input service.TaskUpdateInput
+
+			if result.Status != nil {
+				status := e.getStatus(*result.Status)
+				input.Status = &status
 			}
 
 			msg := model3.NewMessage()

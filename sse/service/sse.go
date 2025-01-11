@@ -1,8 +1,9 @@
 package service
 
 import (
-	"github.com/c2pc/go-pkg/v2/sse/models"
 	"sync"
+
+	"github.com/c2pc/go-pkg/v2/sse/models"
 )
 
 type Client struct {
@@ -56,8 +57,14 @@ func (mgr *SSEManager) run() {
 
 		case msg := <-mgr.Broadcast:
 			mgr.mu.RLock()
-			for _, ch := range mgr.clients {
-				ch <- msg
+			if msg.To != nil {
+				if ch, ok := mgr.clients[*msg.To]; ok {
+					ch <- msg
+				}
+			} else {
+				for _, ch := range mgr.clients {
+					ch <- msg
+				}
 			}
 			mgr.mu.RUnlock()
 		}
