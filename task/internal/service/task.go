@@ -260,8 +260,8 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		return err
 	}
 
+	prevStatus := task.Status
 	var selects []interface{}
-
 	if input.Status != nil && *input.Status != "" {
 		task.Status = *input.Status
 		selects = append(selects, "status")
@@ -294,7 +294,9 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 	}
 
 	if input.Status != nil && *input.Status != "" {
-		_ = s.sendStatusChangedMessage(ctx, task)
+		if *input.Status != prevStatus {
+			_ = s.sendStatusChangedMessage(ctx, task)
+		}
 	}
 
 	return nil
