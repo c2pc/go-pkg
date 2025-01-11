@@ -115,6 +115,7 @@ func main() {
 		DB:            db,
 		FlushInterval: 10,
 		BatchSize:     20,
+		ExcludePaths:  make([]string, 0),
 	})
 	defer analyticService.ShutDown()
 

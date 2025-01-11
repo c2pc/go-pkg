@@ -25,6 +25,7 @@ type Config struct {
 	DB            *gorm.DB
 	FlushInterval int
 	BatchSize     int
+	ExcludePaths  []string
 }
 
 func New(config Config) Analytics {
@@ -38,6 +39,7 @@ func New(config Config) Analytics {
 		DB:            config.DB,
 		FlushInterval: config.FlushInterval,
 		BatchSize:     config.BatchSize,
+		ExcludePaths:  config.ExcludePaths,
 	}
 
 	middleware, shutdown := collector.New(collectorConfig)
