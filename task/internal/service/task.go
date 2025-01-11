@@ -15,7 +15,6 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/sse"
 	"github.com/c2pc/go-pkg/v2/sse/models"
-	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
