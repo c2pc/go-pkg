@@ -78,7 +78,6 @@ func (r *Runner) Run(data Data) {
 	}
 	r.setActiveTasks(data.ID)
 	r.runner <- data
-
 }
 
 func (r *Runner) Stop(id int) {

@@ -106,9 +106,9 @@ func (e *Task) listen(ctx context.Context) {
 			ctx2 := context.WithValue(ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", result.ID))
 
 			var input service.TaskUpdateInput
-
+			var status string
 			if result.Status != nil {
-				status := e.getStatus(*result.Status)
+				status = e.getStatus(*result.Status)
 				input.Status = &status
 			}
 
@@ -124,7 +124,7 @@ func (e *Task) listen(ctx context.Context) {
 
 			if level.Is(e.debug, level.TEST) {
 				logger.LogInfo(ctx2, "TYPE - %s | ID - %d | STATUS - %s | NAME - %s | CLIENT_ID - %d | ERROR - %v",
-					result.Type, result.ID, result.Status, result.Name, result.ClientID, err)
+					result.Type, result.ID, status, result.Name, result.ClientID, err)
 			}
 		}
 	}

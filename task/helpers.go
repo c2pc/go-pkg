@@ -39,7 +39,7 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 		continue
 	}
 
-	for _, id := range ids {
+	for _, id := range pluckedIds {
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -83,7 +83,7 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 		continue
 	}
 
-	for _, id := range ids {
+	for _, id := range pluckedIds {
 		if ctx.Err() != nil {
 			return msg, nil
 		}
