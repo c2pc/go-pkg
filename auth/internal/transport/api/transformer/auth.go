@@ -2,6 +2,7 @@ package transformer
 
 import (
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 )
 
@@ -15,14 +16,14 @@ type AuthTokenTransformer struct {
 	User *AuthAccountTransformer `json:"user"`
 }
 
-func AuthTokenTransform(m *model2.AuthToken) *AuthTokenTransformer {
+func AuthTokenTransform[Model any](m *model2.AuthToken, profileTransformer profile.ITransformer[Model]) *AuthTokenTransformer {
 	return &AuthTokenTransformer{
 		Token:        m.Auth.Token,
 		RefreshToken: m.Auth.RefreshToken,
 		ExpiresAt:    m.Auth.ExpiresAt,
 		TokenType:    m.Auth.TokenType,
 		UserID:       m.Auth.UserID,
-		User:         AuthAccountTransform(&m.User),
+		User:         AuthAccountTransform(&m.User, profileTransformer),
 	}
 }
 
@@ -35,10 +36,11 @@ type AuthAccountTransformer struct {
 	Email      *string `json:"email"`
 	Phone      *string `json:"phone"`
 
-	Roles []*RoleTransformer `json:"roles"`
+	Roles   []*RoleTransformer `json:"roles"`
+	Profile interface{}        `json:"profile,omitempty"`
 }
 
-func AuthAccountTransform(m *model2.User) *AuthAccountTransformer {
+func AuthAccountTransform[Model any](m *model2.User, profileTransformer profile.ITransformer[Model]) *AuthAccountTransformer {
 	r := &AuthAccountTransformer{
 		ID:         m.ID,
 		Login:      m.Login,
@@ -48,6 +50,12 @@ func AuthAccountTransform(m *model2.User) *AuthAccountTransformer {
 		Email:      m.Email,
 		Phone:      m.Phone,
 		Roles:      transformer.Array(m.Roles, RoleWithNameTransform),
+	}
+
+	if profileTransformer != nil && m.Profile != nil {
+		if prof, ok := m.Profile.(*Model); ok {
+			r.Profile = profileTransformer.TransformProfile(prof)
+		}
 	}
 
 	return r
