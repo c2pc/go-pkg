@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"strconv"
 	"time"
 
@@ -45,7 +46,7 @@ type Config struct {
 	MaxAttempts   int
 }
 
-func New(cfg Config) (IAuth, error) {
+func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
 	model2.SetPermissions(cfg.Permissions)
 	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
 
@@ -63,10 +64,37 @@ func New(cfg Config) (IAuth, error) {
 	permissionCache := cache3.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
 	limiterCache := cache3.NewLimiterCache(cfg.Rdb)
 
-	authService := service2.NewAuthService(repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
+	var profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+	if prof != nil {
+		profileService = prof.Service
+	} else {
+		profileService = nil
+	}
+
+	var profileTransformer profile.ITransformer[Model]
+	if prof != nil {
+		profileTransformer = prof.Transformer
+	} else {
+		profileTransformer = nil
+	}
+
+	var profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
+	if prof != nil {
+		profileRequest = prof.Request
+	} else {
+		profileRequest = nil
+	}
+
+	if profileService == nil || profileTransformer == nil || profileRequest == nil {
+		profileService = nil
+		profileTransformer = nil
+		profileRequest = nil
+	}
+
+	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
 	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
 	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
-	userService := service2.NewUserService(repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
+	userService := service2.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
 	settingService := service2.NewSettingService(repositories.SettingRepository)
 	sessionService := service2.NewSessionService(repositories.TokenRepository, tokenCache, userCache, cfg.RefreshExpire)
 
@@ -76,7 +104,7 @@ func New(cfg Config) (IAuth, error) {
 		MaxAttempts: cfg.MaxAttempts,
 		TTL:         cfg.TTL,
 	}, limiterCache, cfg.Debug)
-	handlers := handler.NewHandlers(authService, permissionService, roleService, userService, settingService, sessionService, cfg.Transaction, tokenMiddleware, permissionMiddleware)
+	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](authService, permissionService, roleService, userService, settingService, sessionService, cfg.Transaction, tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest)
 
 	return Auth{
 		handler:              handlers,

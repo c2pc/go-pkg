@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	profile2 "github.com/c2pc/go-pkg/v2/auth/profile"
+	profile3 "github.com/c2pc/go-pkg/v2/example/profile"
 	"log"
 	"net/http"
 	"os"
@@ -93,7 +95,9 @@ func main() {
 
 	trx := mw.NewTransaction(db)
 
-	authService, err := auth.New(auth.Config{
+	profileRepo := profile3.NewProfileRepository(db)
+
+	authService, err := auth.New[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](auth.Config{
 		Debug:         configs.LOG.Debug,
 		DB:            db,
 		Rdb:           rdb,
@@ -105,7 +109,11 @@ func main() {
 		Permissions:   model.Permissions,
 		TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
 		MaxAttempts:   configs.LIMITER.MaxAttempts,
-	})
+	}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{
+		Service:     profile3.NewService[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput](profileRepo),
+		Request:     profile3.NewRequest[profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](),
+		Transformer: profile3.NewTransformer[profile3.Profile]()})
+
 	if err != nil {
 		logger.Fatalf("[AUTH] %s", err.Error())
 		return
@@ -120,7 +128,7 @@ func main() {
 	defer analyticService.ShutDown()
 
 	ctx2 := mcontext.WithOperationIDContext(ctx, strconv.Itoa(int(time.Now().UTC().Unix())))
-	if err := database3.SeedersRun(ctx, db, authService.GetAdminID()); err != nil {
+	if err := database3.SeedersRun(ctx, db, profileRepo, authService.GetAdminID()); err != nil {
 		logger.Fatalf("[DB] %s", err.Error())
 		return
 	}
