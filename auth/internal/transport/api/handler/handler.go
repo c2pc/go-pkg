@@ -19,7 +19,7 @@ type IHandler interface {
 	Init(api *gin.RouterGroup)
 }
 
-type Handler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+type Handler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
 	authService          service2.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	permissionService    service2.IPermissionService
 	roleService          service2.IRoleService
@@ -33,7 +33,7 @@ type Handler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
 	profileRequest       profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 }
 
-func NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
 	authService service2.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	permissionService service2.IPermissionService,
 	roleService service2.IRoleService,

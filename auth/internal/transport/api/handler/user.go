@@ -15,14 +15,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+type UserHandler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
 	userService        service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	tr                 mw.ITransaction
 	profileTransformer profile.ITransformer[Model]
 	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 }
 
-func NewUserHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+func NewUserHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
 	userService service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	tr mw.ITransaction,
 	profileTransformer profile.ITransformer[Model],

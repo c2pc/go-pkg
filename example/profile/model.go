@@ -12,3 +12,7 @@ type Profile struct {
 func (m Profile) TableName() string {
 	return "auth_profiles"
 }
+
+func (m Profile) GetUserId() int {
+	return m.UserID
+}

@@ -6,7 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type Profile[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+type IModel interface {
+	GetUserId() int
+}
+
+type Profile[Model IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
 	Service     IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	Request     IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 	Transformer ITransformer[Model]

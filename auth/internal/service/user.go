@@ -23,7 +23,7 @@ var (
 	ErrUserCannotBeDeleted      = apperr.New("user_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrUserCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 )
 
-type IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
+type IUserService[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] interface {
 	Trx(db *gorm.DB) IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	List(ctx context.Context, m *model2.Meta[model.User]) error
 	GetById(ctx context.Context, id int) (*model.User, error)
@@ -32,7 +32,7 @@ type IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput any] inter
 	Delete(ctx context.Context, id int) error
 }
 
-type UserService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+type UserService[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
 	profileService     profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	userRepository     repository2.IUserRepository
 	roleRepository     repository2.IRoleRepository
@@ -43,7 +43,7 @@ type UserService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct
 	db                 *gorm.DB
 }
 
-func NewUserService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+func NewUserService[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
 	profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	userRepository repository2.IUserRepository,
 	roleRepository repository2.IRoleRepository,
@@ -74,22 +74,30 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c
 		return err
 	}
 
-	Users := m.Rows
-	ids := make([]int, len(Users))
-	for i, User := range Users {
-		ids[i] = User.ID
-	}
+	if s.profileService != nil {
+		Users := m.Rows
+		ids := make([]int, len(Users))
+		for i, User := range Users {
+			ids[i] = User.ID
+		}
 
-	profiles, err := s.profileService.GetByIds(ctx, ids...)
-	if err != nil {
-		return err
-	}
+		profiles, err := s.profileService.GetByIds(ctx, ids...)
+		if err != nil {
+			return err
+		}
+		profilesMap := make(map[int]Model)
+		for _, profile := range profiles {
+			profilesMap[profile.GetUserId()] = profile
+		}
 
-	for i, User := range Users {
-		User.Profile = profiles[i]
-	}
+		for _, User := range Users {
+			if prof, ok := profilesMap[User.ID]; ok {
+				User.Profile = prof
+			}
+		}
 
-	m.Rows = Users
+		m.Rows = Users
+	}
 
 	return nil
 }

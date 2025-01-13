@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
+type AuthHandler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
 	authService        service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	tr                 mw.ITransaction
 	tokenMiddleware    middleware.ITokenMiddleware
@@ -23,7 +23,7 @@ type AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct
 	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 }
 
-func NewAuthHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput any](
+func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
 	authService service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	tr mw.ITransaction,
 	tokenMiddleware middleware.ITokenMiddleware,
