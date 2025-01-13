@@ -18,7 +18,7 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 	var input T
 	err := json.Unmarshal(data, &input)
 	if err != nil {
-		return nil, err
+		return nil, apperr.ErrInternal.WithError(err)
 	}
 
 	ids := idsFn(input)
@@ -62,7 +62,7 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 	var input T
 	err := json.Unmarshal(data, &input)
 	if err != nil {
-		return nil, err
+		return nil, apperr.ErrInternal.WithError(err)
 	}
 
 	ids := idsFn(input)
@@ -106,7 +106,7 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn f
 	var input T
 	err := json.Unmarshal(data, &input)
 	if err != nil {
-		return nil, err
+		return nil, apperr.ErrInternal.WithError(err)
 	}
 
 	elements := dataFn(input)
@@ -139,7 +139,7 @@ func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error,
 	var input N
 	err := json.Unmarshal(data, &input)
 	if err != nil {
-		return nil, err
+		return nil, apperr.ErrInternal.WithError(err)
 	}
 
 	list, err := listFn(ctx, input)
@@ -169,7 +169,7 @@ func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error,
 
 	b, err := csvutil.Marshal(export)
 	if err != nil {
-		return nil, err
+		return nil, apperr.ErrInternal.WithError(err)
 	}
 
 	msg.SetData(b)
