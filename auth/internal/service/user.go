@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 
 	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
@@ -75,10 +76,10 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c
 	}
 
 	if s.profileService != nil {
-		Users := m.Rows
-		ids := make([]int, len(Users))
-		for i, User := range Users {
-			ids[i] = User.ID
+		users := m.Rows
+		ids := make([]int, len(users))
+		for i, user := range users {
+			ids[i] = user.ID
 		}
 
 		profiles, err := s.profileService.GetByIds(ctx, ids...)
@@ -90,13 +91,13 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c
 			profilesMap[profile.GetUserId()] = profile
 		}
 
-		for _, User := range Users {
-			if prof, ok := profilesMap[User.ID]; ok {
-				User.Profile = prof
+		for _, user := range users {
+			if prof, ok := profilesMap[user.ID]; ok {
+				user.Profile = prof
 			}
 		}
 
-		m.Rows = Users
+		m.Rows = users
 	}
 
 	return nil
