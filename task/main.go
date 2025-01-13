@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -113,8 +114,12 @@ func (e *Task) listen(ctx context.Context) {
 			}
 
 			msg := model3.NewMessage()
+			var appError apperr.Error
 			if result.Error != nil {
-				msg.SetError(apperr.Translate(result.Error, translator.EN.String()))
+				if !errors.As(result.Error, &appError) {
+					appError = apperr.ErrInternal.WithError(result.Error)
+				}
+				msg.SetError(apperr.Translate(appError, translator.EN.String()))
 				input.Output = msg
 			} else {
 				input.Output = result.Message
@@ -123,8 +128,8 @@ func (e *Task) listen(ctx context.Context) {
 			err := e.taskService.Update(ctx2, result.ID, input)
 
 			if level.Is(e.debug, level.TEST) {
-				logger.LogInfo(ctx2, "TYPE - %s | ID - %d | STATUS - %s | NAME - %s | CLIENT_ID - %d | ERROR - %v",
-					result.Type, result.ID, status, result.Name, result.ClientID, err)
+				logger.LogInfo(ctx2, "TYPE - %s | ID - %d | STATUS - %s | NAME - %s | CLIENT_ID - %d | TASK_ERROR - %v | UPDATE_ERROR - %v",
+					result.Type, result.ID, status, result.Name, result.ClientID, appError, err)
 			}
 		}
 	}
