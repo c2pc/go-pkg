@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -34,6 +35,6 @@ type IRequest[CreateInput, UpdateInput, UpdateProfileInput any] interface {
 
 type ITransformer[Model any] interface {
 	Transform(m *Model) interface{}
-	TransformList(m *Model) interface{}
+	TransformList(models []Model) []interface{}
 	TransformProfile(m *Model) interface{}
 }

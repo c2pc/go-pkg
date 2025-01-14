@@ -27,18 +27,22 @@ func (r Transformer[Model]) Transform(m *Model) interface{} {
 	}
 }
 
-func (r Transformer[Model]) TransformList(m *Model) interface{} {
-	if m == nil {
+func (r Transformer[Model]) TransformList(models []Model) []interface{} {
+	if models == nil {
 		return nil
 	}
 
-	prof := Profile(*m)
-
-	return &Transform{
-		Age:     prof.Age,
-		Height:  prof.Height,
-		Address: prof.Address,
+	transformed := make([]interface{}, 0, len(models))
+	for _, model := range models {
+		prof := Profile(model)
+		transformed = append(transformed, Transform{
+			Age:     prof.Age,
+			Height:  prof.Height,
+			Address: prof.Address,
+		})
 	}
+
+	return transformed
 }
 
 func (r Transformer[Model]) TransformProfile(m *Model) interface{} {
