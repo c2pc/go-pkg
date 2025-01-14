@@ -5,27 +5,48 @@ import (
 	"strings"
 )
 
-type IDs []int
+type IntSlice []int
 
-func (m *IDs) MarshalCSV() ([]byte, error) {
-	var ids []string
-	for id := range *m {
-		ids = append(ids, strconv.Itoa(id))
+func (m *IntSlice) MarshalCSV() ([]byte, error) {
+	var d []string
+	for _, n := range *m {
+		d = append(d, strconv.Itoa(n))
 	}
 
-	return []byte(strings.Join(ids, ",")), nil
+	return []byte(strings.Join(d, ",")), nil
 }
 
-func (m *IDs) UnmarshalCSV(data []byte) error {
-	var ids []int
+func (m *IntSlice) UnmarshalCSV(data []byte) error {
+	var d []int
 	spl := strings.Split(string(data), ",")
 	for _, str := range spl {
-		id, err := strconv.Atoi(str)
+		n, err := strconv.Atoi(strings.TrimSpace(str))
 		if err != nil {
 			return err
 		}
-		ids = append(ids, id)
+		d = append(d, n)
 	}
-	*m = ids
+	*m = d
+	return nil
+}
+
+type StringSlice []string
+
+func (m *StringSlice) MarshalCSV() ([]byte, error) {
+	var d []string
+	for _, n := range *m {
+		d = append(d, n)
+	}
+
+	return []byte(strings.Join(d, ",")), nil
+}
+
+func (m *StringSlice) UnmarshalCSV(data []byte) error {
+	var d []string
+	spl := strings.Split(string(data), ",")
+	for _, str := range spl {
+		d = append(d, str)
+	}
+	*m = d
 	return nil
 }
