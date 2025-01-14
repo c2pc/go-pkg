@@ -107,11 +107,18 @@ func (r *Runner) run(data Data) {
 	}
 
 	task := Task{ID: data.ID, ClientID: data.ClientID, Name: data.Name, Type: data.Type, RanAt: time.Now()}
-	status := StatusRunning
-	r.taskResults <- TaskResult{Task: task, Status: &status}
+
+	if r.ctx.Err() != nil {
+		status := StatusStopped
+		r.taskResults <- TaskResult{Task: task, Status: &status}
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.WithValue(r.ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", task.ID)))
 	defer cancel()
+
+	status := StatusRunning
+	r.taskResults <- TaskResult{Task: task, Status: &status}
 
 	done := make(chan struct{})
 
@@ -121,11 +128,7 @@ func (r *Runner) run(data Data) {
 		if err != nil {
 			status := StatusFailed
 			r.taskResults <- TaskResult{Task: task, Status: &status, Error: err}
-			r.deleteActiveTasks(task.ID)
-			return
-		}
-
-		if ctx.Err() != nil {
+		} else if ctx.Err() != nil {
 			status := StatusStopped
 			r.taskResults <- TaskResult{Task: task, Status: &status, Message: msg}
 		} else {
