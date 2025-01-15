@@ -64,7 +64,7 @@ type Config struct {
 }
 
 func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
-	queue := runner.NewRunner(ctx)
+	queue := runner.NewRunner(ctx, cfg.Debug)
 
 	repositories := repository.NewRepositories(cfg.DB)
 
