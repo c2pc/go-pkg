@@ -3,12 +3,13 @@ package runner
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/task/internal/logger"
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/c2pc/go-pkg/v2/utils/level"
 )
 
 const (
@@ -66,7 +67,9 @@ func NewRunner(ctx context.Context, debug string) *Runner {
 		ctx:         ctx,
 		debug:       debug,
 	}
-	log.Println("Runner initialized")
+
+	runner.printf(runner.ctx, "Runner initialized")
+
 	go runner.listen()
 
 	return runner
@@ -77,7 +80,7 @@ func (r *Runner) TaskResults() chan TaskResult {
 }
 
 func (r *Runner) Run(data Data) {
-	log.Printf("runner-task-%d Received task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ID, data.ClientID, data.Name)
+	r.printf(r.ctx, "Received task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ClientID, data.Name)
 	clientQueue := r.getClientQueue(data.ClientID)
 
 	// Добавляем задачу в очередь клиента
@@ -97,7 +100,7 @@ func (r *Runner) Stop(id int) {
 }
 
 func (r *Runner) Shutdown() {
-	log.Println("Shutting down runner")
+	r.printf(r.ctx, "Shutting Down runner")
 	close(r.runner)
 	close(r.stopper)
 	close(r.taskResults)
@@ -105,7 +108,7 @@ func (r *Runner) Shutdown() {
 }
 
 func (r *Runner) listen() {
-	log.Println("Runner started listening")
+	r.printf(r.ctx, "Runner started listening")
 	for {
 		select {
 		case data := <-r.runner:
@@ -122,7 +125,7 @@ func (r *Runner) listen() {
 func (r *Runner) run(data Data) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			log.Printf("runner-task-%d Recovered from panic in task ID=%d: %v", data.ID, data.ID, rec)
+			r.printf(r.ctx, "Recovered from panic in task ID=%d: %v", data.ID, rec)
 			status := StatusFailed
 			r.taskResults <- TaskResult{Task: Task{ID: data.ID, ClientID: data.ClientID}, Status: &status, Error: fmt.Errorf("panic: %v", rec)}
 			r.deleteActiveTask(data.ID)
@@ -133,7 +136,7 @@ func (r *Runner) run(data Data) {
 	r.setActiveTask(data.ID)
 	defer r.deleteActiveTask(data.ID)
 
-	log.Printf("runner-task-%d Waiting for lock on Name=%s", data.ID, data.Name)
+	r.printf(r.ctx, "Waiting for lock on Name=%s", data.Name)
 	r.lockName(data.Name)
 	defer r.unlockName(data.Name)
 
@@ -150,7 +153,7 @@ func (r *Runner) run(data Data) {
 
 	if _, ok := r.getActiveTask(data.ID); !ok {
 		status := StatusStopped
-		log.Printf("runner-task-%d Context canceled before task start: ID=%d", data.ID, data.ID)
+		r.printf(r.ctx, "Context canceled before task start: ID=%d", data.ID)
 		r.sendTaskResult(TaskResult{Task: task, Status: &status})
 		r.deleteActiveTask(data.ID)
 		return
@@ -165,7 +168,7 @@ func (r *Runner) run(data Data) {
 
 	status := StatusRunning
 	r.sendTaskResult(TaskResult{Task: task, Status: &status})
-	log.Printf("runner-task-%d Running task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ID, data.ClientID, data.Name)
+	r.printf(ctx, "Running task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ClientID, data.Name)
 
 	done := make(chan struct{})
 
@@ -174,34 +177,34 @@ func (r *Runner) run(data Data) {
 		msg, err := data.RunFunc(ctx, data.Data)
 		task.EndedAt = time.Now()
 		if r.ctx.Err() != nil {
-			log.Printf("runner-task-%d Task stopped globally: ID=%d", task.ID, task.ID)
+			r.printf(ctx, "Task stopped globally: ID=%d", task.ID)
 		} else if ctx.Err() != nil {
 			status := StatusStopped
-			log.Printf("runner-task-%d Task stopped: ID=%d", task.ID, task.ID)
+			r.printf(ctx, "Task stopped: ID=%d", task.ID)
 			r.sendTaskResult(TaskResult{Task: task, Status: &status, Message: msg})
 		} else if err != nil {
 			status := StatusFailed
-			log.Printf("runner-task-%d Task failed: ID=%d, Error=%v", task.ID, task.ID, err)
+			r.printf(ctx, "Task failed: ID=%d, Error=%v", task.ID, err)
 			r.sendTaskResult(TaskResult{Task: task, Status: &status, Error: err})
 		} else {
 			status := StatusCompleted
-			log.Printf("runner-task-%d Task completed: ID=%d", task.ID, task.ID)
+			r.printf(ctx, "Task completed: ID=%d", task.ID)
 			r.sendTaskResult(TaskResult{Task: task, Status: &status, Message: msg})
 		}
 	}()
 
 	select {
 	case <-ctx.Done():
-		log.Printf("runner-task-%d Context canceled for task ID=%d", data.ID, data.ID)
+		r.printf(ctx, "Context canceled for task ID=%d", data.ID)
 		return
 	case _, ok := <-r.getActiveTaskChannel(data.ID):
 		if ok {
-			log.Printf("runner-task-%d Task stopped manually: ID=%d", data.ID, data.ID)
+			r.printf(ctx, "Task stopped manually: ID=%d", data.ID)
 			cancel()
 		}
 		return
 	case <-done:
-		log.Printf("runner-task-%d Task completed: ID=%d", data.ID, data.ID)
+		r.printf(ctx, "Task completed: ID=%d", data.ID)
 		return
 	}
 
@@ -213,14 +216,14 @@ func (r *Runner) stop(id int) {
 
 func (r *Runner) setActiveTask(id int) {
 	if _, exists := r.getActiveTask(id); !exists {
-		log.Printf("runner-task-%d Setting active task: ID=%d", id, id)
+		r.printf(r.ctx, "runner-task-%d Setting active task: ID=%d", id, id)
 		r.activeTasks.Store(id, make(chan struct{}))
 	}
 }
 
 func (r *Runner) deleteActiveTask(id int) {
 	if ch, exists := r.getActiveTask(id); exists {
-		log.Printf("runner-task-%d Deleting active task: ID=%d", id, id)
+		r.printf(r.ctx, "runner-task-%d Deleting active task: ID=%d", id, id)
 		select {
 		case <-ch: // Проверяем, что канал еще активен
 		default:
@@ -252,8 +255,8 @@ func (r *Runner) startClientQueueProcessor(clientID int) {
 	queue := r.getClientQueue(clientID)
 	defer r.clientQueues.Delete(clientID)
 
-	log.Printf("Starting client queue processor: ClientID=%d", clientID)
-	defer log.Printf("Client queue processor stopped: ClientID=%d", clientID)
+	r.printf(r.ctx, "Starting client queue processor: ClientID=%d", clientID)
+	defer r.printf(r.ctx, "Client queue processor stopped: ClientID=%d", clientID)
 
 	go func() {
 		for data := range queue {
@@ -273,10 +276,10 @@ func (r *Runner) startClientQueueProcessor(clientID int) {
 func (r *Runner) lockName(name string) {
 	ch, loaded := r.nameLocks.LoadOrStore(name, make(chan struct{}))
 	if loaded {
-		log.Printf("Task with Name=%s is waiting for the lock", name)
+		r.printf(r.ctx, "Task with Name=%s is waiting for the lock", name)
 		<-ch.(chan struct{}) // Ожидаем завершения предыдущей задачи
 	}
-	log.Printf("Task with Name=%s acquired the lock", name)
+	r.printf(r.ctx, "Task with Name=%s acquired the lock", name)
 }
 
 func (r *Runner) unlockName(name string) {
@@ -294,4 +297,10 @@ func (r *Runner) sendTaskResult(data TaskResult) {
 		recover()
 	}()
 	r.taskResults <- data
+}
+
+func (r *Runner) printf(ctx context.Context, format string, v ...any) {
+	if level.Is(r.debug, level.TEST) {
+		logger.LogInfo(ctx, format, v...)
+	}
 }
