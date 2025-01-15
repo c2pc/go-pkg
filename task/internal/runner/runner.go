@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -45,26 +46,29 @@ type Data struct {
 }
 
 type Runner struct {
-	taskResults   chan TaskResult
-	runnerMU      sync.Mutex
-	runner        chan Data
-	stopper       chan int
-	activeTasksMU sync.Mutex
-	activeTasks   map[int]chan struct{}
-	ctx           context.Context
+	taskResults  chan TaskResult
+	runner       chan Data
+	stopper      chan int
+	activeTasks  sync.Map
+	clientQueues sync.Map
+	nameLocks    sync.Map // Prevent simultaneous tasks with the same Name
+	semaphore    chan struct{}
+	ctx          context.Context
+	debug        string
 }
 
-func NewRunner(ctx context.Context) *Runner {
+func NewRunner(ctx context.Context, debug string) *Runner {
 	runner := &Runner{
-		taskResults:   make(chan TaskResult),
-		runnerMU:      sync.Mutex{},
-		runner:        make(chan Data),
-		stopper:       make(chan int),
-		activeTasksMU: sync.Mutex{},
-		activeTasks:   make(map[int]chan struct{}),
-		ctx:           ctx,
+		taskResults: make(chan TaskResult, 100), // Buffered channel for task results
+		runner:      make(chan Data, 50),        // Buffered channel for data
+		stopper:     make(chan int, 50),         // Buffered channel for stopper
+		semaphore:   make(chan struct{}, 15),    // Limit concurrency to 15 tasks
+		ctx:         ctx,
+		debug:       debug,
 	}
+	log.Println("Runner initialized")
 	go runner.listen()
+
 	return runner
 }
 
@@ -73,18 +77,35 @@ func (r *Runner) TaskResults() chan TaskResult {
 }
 
 func (r *Runner) Run(data Data) {
-	if r.checkActiveTask(data.ID) {
-		return
+	log.Printf("runner-task-%d Received task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ID, data.ClientID, data.Name)
+	clientQueue := r.getClientQueue(data.ClientID)
+
+	// Добавляем задачу в очередь клиента
+	clientQueue <- data
+
+	// Запускаем обработчик очереди, если он еще не запущен
+	if len(clientQueue) == 1 {
+		r.startClientQueueProcessor(data.ClientID)
 	}
-	r.setActiveTasks(data.ID)
-	r.runner <- data
 }
 
 func (r *Runner) Stop(id int) {
+	defer func() {
+		recover()
+	}()
 	r.stopper <- id
 }
 
+func (r *Runner) Shutdown() {
+	log.Println("Shutting down runner")
+	close(r.runner)
+	close(r.stopper)
+	close(r.taskResults)
+	close(r.semaphore)
+}
+
 func (r *Runner) listen() {
+	log.Println("Runner started listening")
 	for {
 		select {
 		case data := <-r.runner:
@@ -92,25 +113,50 @@ func (r *Runner) listen() {
 		case id := <-r.stopper:
 			go r.stop(id)
 		case <-r.ctx.Done():
+			r.Shutdown()
 			return
 		}
 	}
 }
 
 func (r *Runner) run(data Data) {
-	r.runnerMU.Lock()
-	defer r.runnerMU.Unlock()
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("runner-task-%d Recovered from panic in task ID=%d: %v", data.ID, data.ID, rec)
+			status := StatusFailed
+			r.taskResults <- TaskResult{Task: Task{ID: data.ID, ClientID: data.ClientID}, Status: &status, Error: fmt.Errorf("panic: %v", rec)}
+			r.deleteActiveTask(data.ID)
+			r.unlockName(data.Name)
+		}
+	}()
 
-	ch, exists := r.getActiveTask(data.ID)
-	if !exists {
+	r.setActiveTask(data.ID)
+	defer r.deleteActiveTask(data.ID)
+
+	log.Printf("runner-task-%d Waiting for lock on Name=%s", data.ID, data.Name)
+	r.lockName(data.Name)
+	defer r.unlockName(data.Name)
+
+	r.semaphore <- struct{}{}
+	defer func() { <-r.semaphore }()
+
+	task := Task{
+		ID:       data.ID,
+		ClientID: data.ClientID,
+		Name:     data.Name,
+		Type:     data.Type,
+		RanAt:    time.Now(),
+	}
+
+	if _, ok := r.getActiveTask(data.ID); !ok {
+		status := StatusStopped
+		log.Printf("runner-task-%d Context canceled before task start: ID=%d", data.ID, data.ID)
+		r.sendTaskResult(TaskResult{Task: task, Status: &status})
+		r.deleteActiveTask(data.ID)
 		return
 	}
 
-	task := Task{ID: data.ID, ClientID: data.ClientID, Name: data.Name, Type: data.Type, RanAt: time.Now()}
-
 	if r.ctx.Err() != nil {
-		status := StatusStopped
-		r.taskResults <- TaskResult{Task: task, Status: &status}
 		return
 	}
 
@@ -118,70 +164,134 @@ func (r *Runner) run(data Data) {
 	defer cancel()
 
 	status := StatusRunning
-	r.taskResults <- TaskResult{Task: task, Status: &status}
+	r.sendTaskResult(TaskResult{Task: task, Status: &status})
+	log.Printf("runner-task-%d Running task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ID, data.ClientID, data.Name)
 
 	done := make(chan struct{})
 
-	go func(ctx context.Context) {
+	go func() {
+		defer close(done)
 		msg, err := data.RunFunc(ctx, data.Data)
 		task.EndedAt = time.Now()
-		if err != nil {
-			status := StatusFailed
-			r.taskResults <- TaskResult{Task: task, Status: &status, Error: err}
+		if r.ctx.Err() != nil {
+			log.Printf("runner-task-%d Task stopped globally: ID=%d", task.ID, task.ID)
 		} else if ctx.Err() != nil {
 			status := StatusStopped
-			r.taskResults <- TaskResult{Task: task, Status: &status, Message: msg}
+			log.Printf("runner-task-%d Task stopped: ID=%d", task.ID, task.ID)
+			r.sendTaskResult(TaskResult{Task: task, Status: &status, Message: msg})
+		} else if err != nil {
+			status := StatusFailed
+			log.Printf("runner-task-%d Task failed: ID=%d, Error=%v", task.ID, task.ID, err)
+			r.sendTaskResult(TaskResult{Task: task, Status: &status, Error: err})
 		} else {
 			status := StatusCompleted
-			r.taskResults <- TaskResult{Task: task, Status: &status, Message: msg}
+			log.Printf("runner-task-%d Task completed: ID=%d", task.ID, task.ID)
+			r.sendTaskResult(TaskResult{Task: task, Status: &status, Message: msg})
 		}
-		r.deleteActiveTasks(task.ID)
-		close(done)
-	}(ctx)
+	}()
 
 	select {
 	case <-ctx.Done():
+		log.Printf("runner-task-%d Context canceled for task ID=%d", data.ID, data.ID)
 		return
-	case <-ch:
-		cancel()
+	case _, ok := <-r.getActiveTaskChannel(data.ID):
+		if ok {
+			log.Printf("runner-task-%d Task stopped manually: ID=%d", data.ID, data.ID)
+			cancel()
+		}
 		return
 	case <-done:
+		log.Printf("runner-task-%d Task completed: ID=%d", data.ID, data.ID)
 		return
 	}
+
 }
 
 func (r *Runner) stop(id int) {
+	r.deleteActiveTask(id)
+}
+
+func (r *Runner) setActiveTask(id int) {
+	if _, exists := r.getActiveTask(id); !exists {
+		log.Printf("runner-task-%d Setting active task: ID=%d", id, id)
+		r.activeTasks.Store(id, make(chan struct{}))
+	}
+}
+
+func (r *Runner) deleteActiveTask(id int) {
 	if ch, exists := r.getActiveTask(id); exists {
-		ch <- struct{}{}
+		log.Printf("runner-task-%d Deleting active task: ID=%d", id, id)
+		select {
+		case <-ch: // Проверяем, что канал еще активен
+		default:
+			close(ch) // Закрываем только если он не был закрыт ранее
+		}
 	}
-}
-
-func (r *Runner) deleteActiveTasks(ids ...int) {
-	r.activeTasksMU.Lock()
-	defer r.activeTasksMU.Unlock()
-	for _, id := range ids {
-		delete(r.activeTasks, id)
-	}
-}
-
-func (r *Runner) setActiveTasks(ids ...int) {
-	r.activeTasksMU.Lock()
-	defer r.activeTasksMU.Unlock()
-	for _, id := range ids {
-		r.activeTasks[id] = make(chan struct{})
-	}
-}
-
-func (r *Runner) checkActiveTask(id int) bool {
-	r.activeTasksMU.Lock()
-	defer r.activeTasksMU.Unlock()
-	_, exists := r.activeTasks[id]
-	return exists
+	r.activeTasks.Delete(id)
 }
 
 func (r *Runner) getActiveTask(id int) (chan struct{}, bool) {
-	r.activeTasksMU.Lock()
-	defer r.activeTasksMU.Unlock()
-	ch, exists := r.activeTasks[id]
-	return ch, exists
+	val, exists := r.activeTasks.Load(id)
+	if !exists {
+		return nil, false
+	}
+	return val.(chan struct{}), true
+}
+
+func (r *Runner) getActiveTaskChannel(id int) chan struct{} {
+	ch, _ := r.getActiveTask(id)
+	return ch
+}
+
+func (r *Runner) getClientQueue(clientID int) chan Data {
+	queue, _ := r.clientQueues.LoadOrStore(clientID, make(chan Data, 100))
+	return queue.(chan Data)
+}
+
+func (r *Runner) startClientQueueProcessor(clientID int) {
+	queue := r.getClientQueue(clientID)
+	defer r.clientQueues.Delete(clientID)
+
+	log.Printf("Starting client queue processor: ClientID=%d", clientID)
+	defer log.Printf("Client queue processor stopped: ClientID=%d", clientID)
+
+	go func() {
+		for data := range queue {
+			func() {
+				defer func() {
+					recover()
+				}()
+				r.runner <- data
+			}()
+			if len(queue) == 0 {
+				break
+			}
+		}
+	}()
+}
+
+func (r *Runner) lockName(name string) {
+	ch, loaded := r.nameLocks.LoadOrStore(name, make(chan struct{}))
+	if loaded {
+		log.Printf("Task with Name=%s is waiting for the lock", name)
+		<-ch.(chan struct{}) // Ожидаем завершения предыдущей задачи
+	}
+	log.Printf("Task with Name=%s acquired the lock", name)
+}
+
+func (r *Runner) unlockName(name string) {
+	if ch, exists := r.nameLocks.Load(name); exists {
+		select {
+		case <-ch.(chan struct{}): // Проверяем, был ли канал уже закрыт
+		default:
+			close(ch.(chan struct{})) // Закрываем канал только если он активен
+		}
+	}
+}
+
+func (r *Runner) sendTaskResult(data TaskResult) {
+	defer func() {
+		recover()
+	}()
+	r.taskResults <- data
 }

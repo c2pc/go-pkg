@@ -5,11 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/auth/profile"
-
 	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
 	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
@@ -70,7 +69,6 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	s.userRepository = s.userRepository.Trx(db)
 	s.tokenRepository = s.tokenRepository.Trx(db)
-	s.profileService = s.profileService.Trx(db)
 	s.db = db
 	return s
 }
@@ -304,11 +302,12 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	}
 
 	var deleteTokenKey []string
-	for k, v := range tokens {
-		_, err = tokenverify.GetClaimFromToken(k, tokenverify.Secret(s.accessSecret))
-		if err != nil || v != constant.NormalToken {
-			deleteTokenKey = append(deleteTokenKey, k)
-		}
+	for k, _ := range tokens {
+		//_, err = tokenverify.GetClaimFromToken(k, tokenverify.Secret(s.accessSecret))
+		//if err != nil || v != constant.NormalToken {
+		//	deleteTokenKey = append(deleteTokenKey, k)
+		//}
+		deleteTokenKey = append(deleteTokenKey, k)
 	}
 
 	if len(deleteTokenKey) != 0 {
