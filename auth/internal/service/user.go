@@ -163,7 +163,7 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create
 
 	var prof *Model
 	if s.profileService != nil && profileInput != nil {
-		prof, err = s.profileService.Trx(s.db).Create(ctx, user.ID, *profileInput)
+		prof, err = s.profileService.Create(ctx, user.ID, *profileInput)
 		if err != nil {
 			return nil, err
 		}
