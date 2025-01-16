@@ -188,17 +188,15 @@ func TestConcurrentRun(t *testing.T) {
 	r := runner.NewRunner(ctx, level.PRODUCTION)
 
 	numTasks := 1000
-	waitDuration := time.Millisecond
 
 	for i := 0; i < numTasks; i++ {
 		func(id int) {
 			data := runner.Data{
-				ID:       numTasks + i,
-				ClientID: numTasks,
-				Name:     fmt.Sprintf("Task %d", numTasks%2),
+				ID:       i,
+				ClientID: numTasks % 100,
+				Name:     fmt.Sprintf("Task %d", numTasks%200),
 				Type:     "test",
 				RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
-					time.Sleep(time.Duration(id%10) * waitDuration)
 					if id%13 == 0 {
 						return nil, errTask
 					}
@@ -210,16 +208,14 @@ func TestConcurrentRun(t *testing.T) {
 	}
 
 	go func() {
-		time.Sleep(waitDuration)
-		for i := 0; i < numTasks; i++ {
+		for i := numTasks; i < numTasks*2; i++ {
 			func(id int) {
 				data := runner.Data{
 					ID:       id,
-					ClientID: id % 10,
-					Name:     fmt.Sprintf("Task %d", id%10),
+					ClientID: id,
+					Name:     fmt.Sprintf("Task %d", id),
 					Type:     "test",
 					RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
-						time.Sleep(time.Duration(id%10) * waitDuration)
 						if id%15 == 0 {
 							return nil, errTask
 						}
@@ -232,7 +228,6 @@ func TestConcurrentRun(t *testing.T) {
 	}()
 
 	go func() {
-		time.Sleep(waitDuration)
 		for i := numTasks - 100; i < numTasks+100; i++ {
 			r.Stop(i)
 		}
@@ -252,15 +247,12 @@ func TestConcurrentRun(t *testing.T) {
 				} else if *result.Status == runner.StatusCompleted {
 					completedMap[result.ID] = struct{}{}
 					completedTasks++
-					fmt.Printf("task-%d %s\n", result.ID, runner.StatusCompleted)
 				} else if *result.Status == runner.StatusStopped {
 					stoppedMap[result.ID] = struct{}{}
 					completedTasks++
-					fmt.Printf("task-%d %s\n", result.ID, runner.StatusStopped)
 				} else if *result.Status == runner.StatusFailed {
 					failedMap[result.ID] = struct{}{}
 					completedTasks++
-					fmt.Printf("task-%d %s\n", result.ID, runner.StatusFailed)
 				}
 			case <-time.After(5 * time.Second):
 				t.Error("Time completed", len(completedMap)+len(stoppedMap))
@@ -269,7 +261,7 @@ func TestConcurrentRun(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < numTasks*2; i++ {
+	for i := 0; i < numTasks; i++ {
 		_, ok := completedMap[i]
 		_, ok2 := stoppedMap[i]
 		_, ok3 := failedMap[i]

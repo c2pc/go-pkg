@@ -47,15 +47,15 @@ type Data struct {
 }
 
 type Runner struct {
-	taskResults  chan TaskResult
-	runner       chan Data
-	stopper      chan int
-	activeTasks  sync.Map
-	clientQueues sync.Map
-	nameLocks    sync.Map
-	semaphore    chan struct{}
-	ctx          context.Context
-	debug        string
+	taskResults chan TaskResult
+	runner      chan Data
+	stopper     chan int
+	activeTasks sync.Map
+	clientLocks sync.Map
+	nameLocks   sync.Map
+	semaphore   chan struct{}
+	ctx         context.Context
+	debug       string
 }
 
 func NewRunner(ctx context.Context, debug string) *Runner {
@@ -80,16 +80,8 @@ func (r *Runner) TaskResults() chan TaskResult {
 }
 
 func (r *Runner) Run(data Data) {
-	r.printf(r.ctx, "Received task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ClientID, data.Name)
-	clientQueue := r.getClientQueue(data.ClientID)
-
-	// Добавляем задачу в очередь клиента
-	clientQueue <- data
-
-	// Запускаем обработчик очереди, если он еще не запущен
-	if len(clientQueue) == 1 {
-		r.startClientQueueProcessor(data.ClientID)
-	}
+	//r.printf(r.ctx, "Received task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ClientID, data.Name)
+	r.runner <- data
 }
 
 func (r *Runner) Stop(id int) {
@@ -100,7 +92,7 @@ func (r *Runner) Stop(id int) {
 }
 
 func (r *Runner) Shutdown() {
-	r.printf(r.ctx, "Shutting Down runner")
+	//r.printf(r.ctx, "Shutting Down runner")
 	close(r.runner)
 	close(r.stopper)
 	close(r.taskResults)
@@ -108,7 +100,7 @@ func (r *Runner) Shutdown() {
 }
 
 func (r *Runner) listen() {
-	r.printf(r.ctx, "Runner started listening")
+	//r.printf(r.ctx, "Runner started listening")
 	for {
 		select {
 		case data := <-r.runner:
@@ -128,15 +120,22 @@ func (r *Runner) run(data Data) {
 			r.printf(r.ctx, "Recovered from panic in task ID=%d: %v", data.ID, rec)
 			status := StatusFailed
 			r.taskResults <- TaskResult{Task: Task{ID: data.ID, ClientID: data.ClientID}, Status: &status, Error: fmt.Errorf("panic: %v", rec)}
-			r.deleteActiveTask(data.ID)
-			r.unlockName(data.Name)
 		}
 	}()
+
+	ctx, cancel := context.WithCancel(context.WithValue(r.ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", data.ID)))
+	defer cancel()
+
+	r.printf(ctx, "Pending task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ClientID, data.Name)
 
 	r.setActiveTask(data.ID)
 	defer r.deleteActiveTask(data.ID)
 
-	r.printf(r.ctx, "Waiting for lock on Name=%s", data.Name)
+	r.printf(ctx, "Waiting for lock on Client=%d", data.ClientID)
+	r.lockClient(data.ClientID)
+	defer r.unlockClient(data.ClientID)
+
+	r.printf(ctx, "Waiting for lock on Name=%s", data.Name)
 	r.lockName(data.Name)
 	defer r.unlockName(data.Name)
 
@@ -162,9 +161,6 @@ func (r *Runner) run(data Data) {
 	if r.ctx.Err() != nil {
 		return
 	}
-
-	ctx, cancel := context.WithCancel(context.WithValue(r.ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", task.ID)))
-	defer cancel()
 
 	status := StatusRunning
 	r.sendTaskResult(TaskResult{Task: task, Status: &status})
@@ -204,7 +200,6 @@ func (r *Runner) run(data Data) {
 		}
 		return
 	case <-done:
-		r.printf(ctx, "Task completed: ID=%d", data.ID)
 		return
 	}
 
@@ -216,14 +211,14 @@ func (r *Runner) stop(id int) {
 
 func (r *Runner) setActiveTask(id int) {
 	if _, exists := r.getActiveTask(id); !exists {
-		r.printf(r.ctx, "runner-task-%d Setting active task: ID=%d", id, id)
+		//r.printf(r.ctx, "runner-task-%d Setting active task: ID=%d", id, id)
 		r.activeTasks.Store(id, make(chan struct{}))
 	}
 }
 
 func (r *Runner) deleteActiveTask(id int) {
 	if ch, exists := r.getActiveTask(id); exists {
-		r.printf(r.ctx, "runner-task-%d Deleting active task: ID=%d", id, id)
+		//r.printf(r.ctx, "runner-task-%d Deleting active task: ID=%d", id, id)
 		select {
 		case <-ch:
 		default:
@@ -246,49 +241,31 @@ func (r *Runner) getActiveTaskChannel(id int) chan struct{} {
 	return ch
 }
 
-func (r *Runner) getClientQueue(clientID int) chan Data {
-	queue, _ := r.clientQueues.LoadOrStore(clientID, make(chan Data, 1))
-	return queue.(chan Data)
-}
-
-func (r *Runner) startClientQueueProcessor(clientID int) {
-	queue := r.getClientQueue(clientID)
-	defer r.clientQueues.Delete(clientID)
-
-	r.printf(r.ctx, "Starting client queue processor: ClientID=%d", clientID)
-	defer r.printf(r.ctx, "Client queue processor stopped: ClientID=%d", clientID)
-
-	go func() {
-		for data := range queue {
-			func() {
-				defer func() {
-					recover()
-				}()
-				r.runner <- data
-			}()
-			if len(queue) == 0 {
-				break
-			}
-		}
-	}()
-}
-
 func (r *Runner) lockName(name string) {
-	ch, loaded := r.nameLocks.LoadOrStore(name, make(chan struct{}))
-	if loaded {
-		r.printf(r.ctx, "Task with Name=%s is waiting for the lock", name)
-		<-ch.(chan struct{}) // Ожидаем завершения предыдущей задачи
-	}
-	r.printf(r.ctx, "Task with Name=%s acquired the lock", name)
+	ch, _ := r.nameLocks.LoadOrStore(name, &sync.Mutex{})
+	mutex := ch.(*sync.Mutex)
+	mutex.Lock()
+	//r.printf(r.ctx, "Task with Name=%s acquired the lock", name)
 }
 
 func (r *Runner) unlockName(name string) {
 	if ch, exists := r.nameLocks.Load(name); exists {
-		select {
-		case <-ch.(chan struct{}): // Проверяем, был ли канал уже закрыт
-		default:
-			close(ch.(chan struct{})) // Закрываем канал только если он активен
-		}
+		mutex := ch.(*sync.Mutex)
+		mutex.Unlock()
+	}
+}
+
+func (r *Runner) lockClient(clientID int) {
+	ch, _ := r.clientLocks.LoadOrStore(clientID, &sync.Mutex{})
+	mutex := ch.(*sync.Mutex)
+	mutex.Lock()
+	//r.printf(r.ctx, "Task with Client=%d acquired the lock", clientID)
+}
+
+func (r *Runner) unlockClient(clientID int) {
+	if ch, exists := r.clientLocks.Load(clientID); exists {
+		mutex := ch.(*sync.Mutex)
+		mutex.Unlock()
 	}
 }
 
@@ -303,4 +280,5 @@ func (r *Runner) printf(ctx context.Context, format string, v ...any) {
 	if level.Is(r.debug, level.TEST) {
 		logger.LogInfo(ctx, format, v...)
 	}
+	//log.Printf(logger.WithOperationID(ctx, fmt.Sprintf(format+"\n", v...)))
 }
