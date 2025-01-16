@@ -52,7 +52,7 @@ type Runner struct {
 	stopper      chan int
 	activeTasks  sync.Map
 	clientQueues sync.Map
-	nameLocks    sync.Map // Prevent simultaneous tasks with the same Name
+	nameLocks    sync.Map
 	semaphore    chan struct{}
 	ctx          context.Context
 	debug        string
@@ -225,9 +225,9 @@ func (r *Runner) deleteActiveTask(id int) {
 	if ch, exists := r.getActiveTask(id); exists {
 		r.printf(r.ctx, "runner-task-%d Deleting active task: ID=%d", id, id)
 		select {
-		case <-ch: // Проверяем, что канал еще активен
+		case <-ch:
 		default:
-			close(ch) // Закрываем только если он не был закрыт ранее
+			close(ch)
 		}
 	}
 	r.activeTasks.Delete(id)
@@ -247,7 +247,7 @@ func (r *Runner) getActiveTaskChannel(id int) chan struct{} {
 }
 
 func (r *Runner) getClientQueue(clientID int) chan Data {
-	queue, _ := r.clientQueues.LoadOrStore(clientID, make(chan Data, 100))
+	queue, _ := r.clientQueues.LoadOrStore(clientID, make(chan Data, 1))
 	return queue.(chan Data)
 }
 
