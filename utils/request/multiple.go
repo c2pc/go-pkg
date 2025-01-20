@@ -7,7 +7,6 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/utils/csv"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,7 +23,7 @@ type ImportRequest struct {
 	CSV *multipart.FileHeader `form:"csv" binding:"required"`
 }
 
-func BindImportFileRequest[T any](c *gin.Context) ([]T, map[string]string, error) {
+func BindImportFileRequest[T any](c *gin.Context, lang string) ([]T, map[string]string, error) {
 	cred, err := Bind[ImportRequest](c)
 	if err != nil {
 		return nil, nil, err
@@ -40,7 +39,7 @@ func BindImportFileRequest[T any](c *gin.Context) ([]T, map[string]string, error
 	for i, d := range data {
 		err := BindJsonStruct(d)
 		if err != nil {
-			resp := response.UnwrapError(c, err, translator.EN.String())
+			resp := response.UnwrapError(c, err, lang)
 
 			var text []string
 			for _, e := range resp.Errors {
