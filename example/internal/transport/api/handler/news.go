@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api/dto"
@@ -15,8 +17,8 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 type NewsHandler struct {
@@ -157,7 +159,7 @@ func (h *NewsHandler) Export(c *gin.Context) ([]byte, error) {
 }
 
 func (h *NewsHandler) Import(c *gin.Context) ([]byte, error) {
-	cred, errs, err := request2.BindImportFileRequest[request.NewsImportRequest](c)
+	cred, errs, err := request2.BindImportFileRequest[request.NewsImportRequest](c, translator.EN.String())
 	if err != nil {
 		return nil, err
 	}
