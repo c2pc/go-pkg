@@ -216,6 +216,10 @@ func (e *Task) ExportHandler(name string, bind func(c *gin.Context) ([]byte, err
 			return
 		}
 
+		if cred == nil && err == nil {
+			return
+		}
+
 		task, err := e.NewTask(c, model3.Export, name, cred)
 		if err != nil {
 			response.Response(c, err)
@@ -231,6 +235,10 @@ func (e *Task) ImportHandler(name string, bind func(c *gin.Context) ([]byte, err
 		cred, err := bind(c)
 		if err != nil {
 			response.Response(c, err)
+			return
+		}
+
+		if cred == nil && err == nil {
 			return
 		}
 
@@ -252,6 +260,10 @@ func (e *Task) MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte,
 			return
 		}
 
+		if cred == nil && err == nil {
+			return
+		}
+
 		task, err := e.NewTask(c, model3.MassUpdate, name, cred)
 		if err != nil {
 			response.Response(c, err)
@@ -267,6 +279,10 @@ func (e *Task) MassDeleteHandler(name string, bind func(c *gin.Context) ([]byte,
 		cred, err := bind(c)
 		if err != nil {
 			response.Response(c, err)
+			return
+		}
+
+		if cred == nil && err == nil {
 			return
 		}
 
