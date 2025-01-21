@@ -8,6 +8,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/jszwec/csvutil"
 )
@@ -44,7 +45,12 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 			return msg, nil
 		}
 
-		err = actionFn(ctx, input, id)
+		var ctx2 = ctx
+		if opID, ok := mcontext.GetOperationID(ctx); ok {
+			ctx2 = mcontext.WithOperationIDContext(ctx, opID+"-"+idToString(id))
+		}
+
+		err = actionFn(ctx2, input, id)
 		if err != nil {
 			msg.AddError(idToString(id), apperr.Translate(err, translator.EN.String()))
 			continue
@@ -88,7 +94,12 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 			return msg, nil
 		}
 
-		err = actionFn(ctx, id, input)
+		var ctx2 = ctx
+		if opID, ok := mcontext.GetOperationID(ctx); ok {
+			ctx2 = mcontext.WithOperationIDContext(ctx, opID+"-"+idToString(id))
+		}
+
+		err = actionFn(ctx2, id, input)
 		if err != nil {
 			msg.AddError(idToString(id), apperr.Translate(err, translator.EN.String()))
 			continue
@@ -118,7 +129,12 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn f
 			return msg, nil
 		}
 
-		key, prevErr, err := actionFn(ctx, input, element)
+		var ctx2 = ctx
+		if opID, ok := mcontext.GetOperationID(ctx); ok {
+			ctx2 = mcontext.WithOperationIDContext(ctx, opID+"-"+idToString(i))
+		}
+
+		key, prevErr, err := actionFn(ctx2, input, element)
 		if err != nil {
 			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.EN.String()))
 			continue

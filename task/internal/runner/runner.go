@@ -8,8 +8,8 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/task/internal/logger"
 	"github.com/c2pc/go-pkg/v2/task/model"
-	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 )
 
 const (
@@ -123,7 +123,7 @@ func (r *Runner) run(data Data) {
 		}
 	}()
 
-	ctx, cancel := context.WithCancel(context.WithValue(r.ctx, constant.OperationID, fmt.Sprintf("runner-task-%d", data.ID)))
+	ctx, cancel := context.WithCancel(mcontext.WithOperationIDContext(r.ctx, fmt.Sprintf("runner-task-%d", data.ID)))
 	defer cancel()
 
 	r.printf(ctx, "Pending task: ID=%d, ClientID=%d, Name=%s", data.ID, data.ClientID, data.Name)
