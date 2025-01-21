@@ -20,7 +20,11 @@ func (m *IntSlice) UnmarshalCSV(data []byte) error {
 	var d []int
 	spl := strings.Split(string(data), ",")
 	for _, str := range spl {
-		n, err := strconv.Atoi(strings.TrimSpace(str))
+		tr := strings.ReplaceAll(str, " ", "")
+		if tr == "" {
+			continue
+		}
+		n, err := strconv.Atoi(tr)
 		if err != nil {
 			return err
 		}
