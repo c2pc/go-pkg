@@ -10,6 +10,7 @@ import (
 
 var quoteTo = func(s string) string { return strings.ReplaceAll(s, `"`, "`") }
 var emptyJoins []string
+var emptyArgs []interface{}
 
 func TestWhereFilter_AllCases(t *testing.T) {
 	fieldSearchable := FieldSearchable{
@@ -154,6 +155,26 @@ func TestWhereFilter_AllCases(t *testing.T) {
 		expr := &ExpressionWhere{Column: "name", Operation: OpEq, Value: "`John`"}
 		_, _, _, err := WhereFilter(quoteTo, expr, FieldSearchable{})
 		assert.Error(t, err)
+	})
+
+	// Test with NP
+	t.Run("NP", func(t *testing.T) {
+		expr := &ExpressionWhere{Column: "name", Operation: OpNp, Value: ""}
+		query, args, joins, err := WhereFilter(quoteTo, expr, fieldSearchable)
+		assert.NoError(t, err)
+		assert.Equal(t, "(user_name IS NOT NULL AND user_name <> '')", query)
+		assert.Equal(t, emptyArgs, args)
+		assert.Equal(t, emptyJoins, joins)
+	})
+
+	// Test with OpPt
+	t.Run("OpPt", func(t *testing.T) {
+		expr := &ExpressionWhere{Column: "name", Operation: OpPt, Value: ""}
+		query, args, joins, err := WhereFilter(quoteTo, expr, fieldSearchable)
+		assert.NoError(t, err)
+		assert.Equal(t, "(user_name IS NULL OR user_name = '')", query)
+		assert.Equal(t, emptyArgs, args)
+		assert.Equal(t, emptyJoins, joins)
 	})
 
 	// Test with unknown field type

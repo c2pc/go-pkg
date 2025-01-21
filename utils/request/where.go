@@ -27,6 +27,10 @@ func parseTokens(tokens []string) (*clause.ExpressionWhere, error) {
 		return nil, nil
 	}
 
+	if len(tokens) == 2 && (tokens[1] == clause.OpPt || tokens[1] == clause.OpNp) {
+		tokens = append(tokens, "")
+	}
+
 	if len(tokens) < 3 {
 		return nil, apperr.ErrSyntax.WithError(fmt.Errorf("invalid tokens: %v", tokens))
 	}

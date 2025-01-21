@@ -2,7 +2,6 @@ package request
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/c2pc/go-pkg/v2/utils/clause"
@@ -102,6 +101,15 @@ func TestParseWhere(t *testing.T) {
 			},
 		},
 		{
+			input: "a pt",
+			expected: &clause.ExpressionWhere{
+				Expressions: nil,
+				Column:      "a",
+				Operation:   "pt",
+				Value:       "",
+			},
+		},
+		{
 			input: "a = 1 and ( b co `test` )",
 			expected: &clause.ExpressionWhere{
 				Expressions: []clause.ExpressionWhere{
@@ -198,25 +206,25 @@ func TestParseWhere(t *testing.T) {
 		{
 			input:       "a eq",
 			expected:    nil,
-			expectedErr: errors.New("invalid tokens: [a eq]"),
+			expectedErr: errors.New("syntax_error.(invalid tokens: [a eq])"),
 		},
 		{
 			input:       "a noop `qwer`",
 			expected:    nil,
-			expectedErr: errors.New("invalid operator: noop"),
+			expectedErr: errors.New("syntax_error.(invalid operator: noop)"),
 		},
 		{
 			input:       "a = `qwer` or ( b noop `test` )",
 			expected:    nil,
-			expectedErr: errors.New("invalid operator: noop"),
+			expectedErr: errors.New("syntax_error.(invalid operator: noop)"),
 		},
 		{
 			input:       "a = 1 and (a = 20",
-			expectedErr: errors.New("invalid input sequence"),
+			expectedErr: errors.New("syntax_error.(invalid input sequence)"),
 		},
 		{
 			input:       "a = 1 and (a = 20]",
-			expectedErr: errors.New("invalid input sequence"),
+			expectedErr: errors.New("syntax_error.(invalid input sequence)"),
 		},
 		{
 			input: "a = 1 and a in [a = 10 and b = 20]",
@@ -244,8 +252,6 @@ func TestParseWhere(t *testing.T) {
 					t.Fatalf("expected error message %q but got nil", test.expectedErr.Error())
 				}
 			}
-
-			fmt.Println(err, test.expectedErr)
 
 			if !compareExpressions(result, test.expected) {
 				t.Errorf("For input %v, \nexpected %+v, \nbut got %+v", test.input, test.expected, result)

@@ -56,7 +56,7 @@ const (
 	OpGte = ">="  // Операция ">="
 	OpLte = "<="  // Операция "<="
 	OpNe  = "="   // Операция "="
-	OpNne = "<>"  // Операция "<>"
+	OpNne = "!="  // Операция "<>"
 )
 
 var Operators = []string{OpIn, OpNin, OpPt, OpNp, OpCo, OpEq, OpSw, OpEw, OpGt, OpLt, OpGte, OpLte, OpNe, OpNne}
