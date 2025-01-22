@@ -135,14 +135,20 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn f
 		}
 
 		key, prevErr, err := actionFn(ctx2, input, element)
+
+		k := strconv.Itoa(i)
+		if idToString(key) != "" {
+			k = idToString(key)
+		}
+
 		if err != nil {
-			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.EN.String()))
+			msg.AddError(k, apperr.Translate(err, translator.EN.String()))
 			continue
 		} else if prevErr != nil {
-			msg.AddError(strconv.Itoa(i), prevErr.Error())
+			msg.AddError(k, prevErr.Error())
 			continue
 		} else {
-			msg.AddSuccess(idToString(key))
+			msg.AddSuccess(k)
 		}
 	}
 
