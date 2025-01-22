@@ -51,11 +51,12 @@ type Runner struct {
 	runner      chan Data
 	stopper     chan int
 	activeTasks sync.Map
-	clientLocks sync.Map
-	nameLocks   sync.Map
-	semaphore   chan struct{}
-	ctx         context.Context
-	debug       string
+	//clientLocks sync.Map
+	//nameLocks   sync.Map
+	locker    sync.Mutex
+	semaphore chan struct{}
+	ctx       context.Context
+	debug     string
 }
 
 func NewRunner(ctx context.Context, debug string) *Runner {
@@ -131,13 +132,16 @@ func (r *Runner) run(data Data) {
 	r.setActiveTask(data.ID)
 	defer r.deleteActiveTask(data.ID)
 
-	r.printf(ctx, "Waiting for lock on Client=%d", data.ClientID)
-	r.lockClient(data.ClientID)
-	defer r.unlockClient(data.ClientID)
+	r.locker.Lock()
+	defer r.locker.Unlock()
 
-	r.printf(ctx, "Waiting for lock on Name=%s", data.Name)
-	r.lockName(data.Name)
-	defer r.unlockName(data.Name)
+	//r.printf(ctx, "Waiting for lock on Client=%d", data.ClientID)
+	//r.lockClient(data.ClientID)
+	//defer r.unlockClient(data.ClientID)
+	//
+	//r.printf(ctx, "Waiting for lock on Name=%s", data.Name)
+	//r.lockName(data.Name)
+	//defer r.unlockName(data.Name)
 
 	r.semaphore <- struct{}{}
 	defer func() { <-r.semaphore }()
@@ -241,33 +245,33 @@ func (r *Runner) getActiveTaskChannel(id int) chan struct{} {
 	return ch
 }
 
-func (r *Runner) lockName(name string) {
-	ch, _ := r.nameLocks.LoadOrStore(name, &sync.Mutex{})
-	mutex := ch.(*sync.Mutex)
-	mutex.Lock()
-	//r.printf(r.ctx, "Task with Name=%s acquired the lock", name)
-}
-
-func (r *Runner) unlockName(name string) {
-	if ch, exists := r.nameLocks.Load(name); exists {
-		mutex := ch.(*sync.Mutex)
-		mutex.Unlock()
-	}
-}
-
-func (r *Runner) lockClient(clientID int) {
-	ch, _ := r.clientLocks.LoadOrStore(clientID, &sync.Mutex{})
-	mutex := ch.(*sync.Mutex)
-	mutex.Lock()
-	//r.printf(r.ctx, "Task with Client=%d acquired the lock", clientID)
-}
-
-func (r *Runner) unlockClient(clientID int) {
-	if ch, exists := r.clientLocks.Load(clientID); exists {
-		mutex := ch.(*sync.Mutex)
-		mutex.Unlock()
-	}
-}
+//func (r *Runner) lockName(name string) {
+//	ch, _ := r.nameLocks.LoadOrStore(name, &sync.Mutex{})
+//	mutex := ch.(*sync.Mutex)
+//	mutex.Lock()
+//	//r.printf(r.ctx, "Task with Name=%s acquired the lock", name)
+//}
+//
+//func (r *Runner) unlockName(name string) {
+//	if ch, exists := r.nameLocks.Load(name); exists {
+//		mutex := ch.(*sync.Mutex)
+//		mutex.Unlock()
+//	}
+//}
+//
+//func (r *Runner) lockClient(clientID int) {
+//	ch, _ := r.clientLocks.LoadOrStore(clientID, &sync.Mutex{})
+//	mutex := ch.(*sync.Mutex)
+//	mutex.Lock()
+//	//r.printf(r.ctx, "Task with Client=%d acquired the lock", clientID)
+//}
+//
+//func (r *Runner) unlockClient(clientID int) {
+//	if ch, exists := r.clientLocks.Load(clientID); exists {
+//		mutex := ch.(*sync.Mutex)
+//		mutex.Unlock()
+//	}
+//}
 
 func (r *Runner) sendTaskResult(data TaskResult) {
 	defer func() {

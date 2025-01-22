@@ -17,6 +17,8 @@ type SimpleTaskTransformer struct {
 	Type      string `json:"type"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+
+	User *UserSimpleTransformer `json:"user,omitempty"`
 }
 
 func SimpleTaskTransform(m *model.Task) *SimpleTaskTransformer {
@@ -27,6 +29,8 @@ func SimpleTaskTransform(m *model.Task) *SimpleTaskTransformer {
 		Type:      m.Type,
 		CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt: m.UpdatedAt.Format("2006-01-02 15:04:05"),
+
+		User: transformer.Nillable(m.User, UserSimpleTransform),
 	}
 }
 
@@ -40,6 +44,8 @@ type TaskTransformer struct {
 	FileSize  *int64          `json:"file_size,omitempty"`
 	CreatedAt string          `json:"created_at"`
 	UpdatedAt string          `json:"updated_at"`
+
+	User *UserSimpleTransformer `json:"user,omitempty"`
 }
 
 func TaskTransform(m *model.Task) *TaskTransformer {
@@ -57,6 +63,8 @@ func TaskTransform(m *model.Task) *TaskTransformer {
 		FileSize:  m.FileSize,
 		CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt: m.UpdatedAt.Format("2006-01-02 15:04:05"),
+
+		User: transformer.Nillable(m.User, UserSimpleTransform),
 	}
 
 	return r
@@ -69,6 +77,8 @@ type TaskListTransformer struct {
 	Type      string `json:"type"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+
+	User *UserSimpleTransformer `json:"user,omitempty"`
 }
 
 func TaskListTransform(c *gin.Context, p *model2.Pagination[model.Task]) []TaskListTransformer {
@@ -84,6 +94,8 @@ func TaskListTransform(c *gin.Context, p *model2.Pagination[model.Task]) []TaskL
 			Type:      m.Type,
 			CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
 			UpdatedAt: m.UpdatedAt.Format("2006-01-02 15:04:05"),
+
+			User: transformer.Nillable(m.User, UserSimpleTransform),
 		}
 		r = append(r, t)
 	}

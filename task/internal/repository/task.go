@@ -15,6 +15,12 @@ var searchable = clause.FieldSearchable{
 	"user_id":    {Column: `auth_tasks."user_id"`, Type: clause.Int},
 	"created_at": {Column: `auth_tasks."created_at"`, Type: clause.DateTime},
 	"updated_at": {Column: `auth_tasks."updated_at"`, Type: clause.DateTime},
+
+	"user.id":          {Column: `"User"."id"`, Type: clause.Int, Join: "User"},
+	"user.login":       {Column: `"User"."login"`, Type: clause.Int, Join: "User"},
+	"user.first_name":  {Column: `"User"."first_name"`, Type: clause.String, Join: "User"},
+	"user.second_name": {Column: `"User"."second_name"`, Type: clause.String, Join: "User"},
+	"user.last_name":   {Column: `"User"."last_name"`, Type: clause.String, Join: "User"},
 }
 
 var orderBy = clause.FieldOrderBy{
@@ -25,6 +31,12 @@ var orderBy = clause.FieldOrderBy{
 	"user_id":    {Column: `auth_tasks."user_id"`},
 	"created_at": {Column: `auth_tasks."created_at"`},
 	"updated_at": {Column: `auth_tasks."updated_at"`},
+
+	"user.id":          {Column: `"User"."id"`, Join: "User"},
+	"user.login":       {Column: `"User"."login"`, Join: "User"},
+	"user.first_name":  {Column: `"User"."first_name"`, Join: "User"},
+	"user.second_name": {Column: `"User"."second_name"`, Join: "User"},
+	"user.last_name":   {Column: `"User"."last_name"`, Join: "User"},
 }
 
 type ITaskRepository interface {

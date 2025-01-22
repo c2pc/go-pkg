@@ -21,6 +21,18 @@ var Statuses = map[string]string{
 	StatusSuccess: StatusSuccess,
 }
 
+type User struct {
+	ID         int     `json:"id"`
+	Login      string  `json:"login"`
+	FirstName  string  `json:"first_name"`
+	SecondName *string `json:"second_name"`
+	LastName   *string `json:"last_name"`
+}
+
+func (m User) TableName() string {
+	return "auth_users"
+}
+
 type Task struct {
 	ID        int       `json:"id"`
 	Name      string    `json:"name"`
@@ -32,6 +44,8 @@ type Task struct {
 	FileSize  *int64    `json:"file_size" gorm:"-"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	User *User `json:"user"`
 }
 
 func (m Task) TableName() string {

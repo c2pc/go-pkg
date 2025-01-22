@@ -104,12 +104,7 @@ func (s TaskService) Trx(db *gorm.DB) ITaskService {
 }
 
 func (s TaskService) List(ctx context.Context, m *model2.Meta[model.Task]) error {
-	taskID, ok := mcontext.GetOpUserID(ctx)
-	if !ok {
-		return apperr.ErrUnauthenticated.WithErrorText("operation task id is empty")
-	}
-
-	return s.taskRepository.Omit("input", "output").Paginate(ctx, m, `user_id = ?`, taskID)
+	return s.taskRepository.Omit("input", "output").With("user").Paginate(ctx, m, ``)
 }
 
 func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...string) ([]model.Task, error) {
@@ -132,7 +127,7 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 }
 
 func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
-	task, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
+	task, err := s.taskRepository.Omit("input").With("user").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrTaskNotFound
