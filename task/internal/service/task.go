@@ -127,7 +127,7 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 }
 
 func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
-	task, err := s.taskRepository.Omit("input").With("user").Find(ctx, `id = ?`, id)
+	task, err := s.taskRepository.Omit("input").With("user").Find(ctx, `auth_tasks.id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrTaskNotFound
