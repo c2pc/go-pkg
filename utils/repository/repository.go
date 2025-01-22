@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gorm.io/gorm"
+	clause2 "gorm.io/gorm/clause"
 )
 
 type Repository[T any, C model.Model] interface {
@@ -485,6 +486,8 @@ func (r Repo[C]) OrderBy(orderBy []clause.ExpressionOrderBy) (Repo[C], error) {
 		}
 
 		r.db = r.Joins(joins...).DB().Order(query)
+	} else {
+		r.db = r.DB().Order(clause2.OrderBy{Columns: []clause2.OrderByColumn{}})
 	}
 	return r, nil
 }
