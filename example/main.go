@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	profile2 "github.com/c2pc/go-pkg/v2/auth/profile"
-	profile3 "github.com/c2pc/go-pkg/v2/example/profile"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +10,9 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	profile2 "github.com/c2pc/go-pkg/v2/auth/profile"
+	profile3 "github.com/c2pc/go-pkg/v2/example/profile"
 
 	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
@@ -123,7 +124,9 @@ func main() {
 		DB:            db,
 		FlushInterval: 10,
 		BatchSize:     20,
-		ExcludePaths:  make([]string, 0),
+		SkipRequests: map[string][]string{
+			"/auth/login": {},
+		},
 	})
 	defer analyticService.ShutDown()
 

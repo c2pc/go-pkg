@@ -22,10 +22,12 @@ type analyticsImpl struct {
 }
 
 type Config struct {
-	DB            *gorm.DB
-	FlushInterval int
-	BatchSize     int
-	ExcludePaths  []string
+	DB                  *gorm.DB
+	FlushInterval       int
+	BatchSize           int
+	ExcludeInputBodies  map[string][]string
+	ExcludeOutputBodies map[string][]string
+	SkipRequests        map[string][]string
 }
 
 func New(config Config) Analytics {
@@ -36,10 +38,12 @@ func New(config Config) Analytics {
 	handler := handlers.NewAnalyticsHandler(svc)
 
 	collectorConfig := collector.LoggerConfig{
-		DB:            config.DB,
-		FlushInterval: config.FlushInterval,
-		BatchSize:     config.BatchSize,
-		ExcludePaths:  config.ExcludePaths,
+		DB:                  config.DB,
+		FlushInterval:       config.FlushInterval,
+		BatchSize:           config.BatchSize,
+		ExcludeInputBodies:  config.ExcludeInputBodies,
+		ExcludeOutputBodies: config.ExcludeOutputBodies,
+		SkipRequests:        config.SkipRequests,
 	}
 
 	middleware, shutdown := collector.New(collectorConfig)
