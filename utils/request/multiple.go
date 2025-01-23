@@ -42,9 +42,12 @@ func BindImportFileRequest[T any](c *gin.Context, lang string) ([]T, map[string]
 			resp := response.UnwrapError(c, err, lang)
 
 			var text []string
-			for _, e := range resp.Errors {
-				text = append(text, e.Column+" - "+e.Error)
+			if ers, ok := resp.Errors.([]response.ValidateError); ok {
+				for _, e := range ers {
+					text = append(text, e.Column+" - "+e.Error)
+				}
 			}
+
 			errs[strconv.Itoa(i)] = strings.Join(text, ", ")
 
 			var t T
