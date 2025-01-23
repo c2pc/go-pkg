@@ -9,6 +9,7 @@ import (
 var (
 	ErrSyntax               = New("syntax_error", WithTextTranslate(i18n.ErrSyntax), WithCode(code.InvalidArgument))
 	ErrValidation           = New("validation_error", WithTextTranslate(i18n.ErrValidation), WithCode(code.InvalidArgument))
+	ErrValidationImport     = New("validation_import_error", WithTextTranslate(i18n.ErrValidation), WithCode(code.InvalidArgument))
 	ErrEmptyData            = New("empty_data_error", WithTextTranslate(i18n.ErrEmptyData), WithCode(code.InvalidArgument))
 	ErrInternal             = New("internal_error", WithTextTranslate(i18n.ErrInternal), WithCode(code.Internal))
 	ErrBadRequest           = New("bad_request_error", WithTextTranslate(i18n.ErrBadRequest), WithCode(code.InvalidArgument))
@@ -25,3 +26,11 @@ var (
 	ErrDBDuplicated     = New("db_duplicated", WithTextTranslate(i18n.ErrDBDuplicated), WithCode(code.AlreadyExists))
 	ErrDBInternal       = New("db_internal", WithTextTranslate(i18n.ErrDBInternal), WithCode(code.Internal))
 )
+
+type ImportError struct {
+	Errors map[string]string
+}
+
+func (e ImportError) Error() string {
+	return "import error"
+}

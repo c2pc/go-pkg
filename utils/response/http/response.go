@@ -73,10 +73,10 @@ func Response(c *gin.Context, err error) {
 }
 
 type ErrorResponse struct {
-	Code   int             `json:"-"`
-	ID     string          `json:"id"`
-	Text   string          `json:"text"`
-	Errors []ValidateError `json:"errors,omitempty"`
+	Code   int         `json:"-"`
+	ID     string      `json:"id"`
+	Text   string      `json:"text"`
+	Errors interface{} `json:"errors,omitempty"`
 }
 
 func UnwrapError(c *gin.Context, err error, lang string) ErrorResponse {
@@ -84,6 +84,7 @@ func UnwrapError(c *gin.Context, err error, lang string) ErrorResponse {
 	var unmarshalTypeError *json.UnmarshalTypeError
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
+	var importError apperr.ImportError
 
 	var appError apperr.Error
 	if !errors.As(err, &appError) {
@@ -138,6 +139,22 @@ func UnwrapError(c *gin.Context, err error, lang string) ErrorResponse {
 				ID:     appError.ID,
 				Text:   text,
 				Errors: errs,
+			}
+		case errors.As(lastError, &importError):
+			err = appError.WithError(apperr.ErrValidation.WithError(lastError))
+
+			var text string
+			if lang != "" {
+				text = apperr.Translate(appError, lang)
+			} else {
+				text = apperr.Translate(appError, GetTranslate(c))
+			}
+
+			return ErrorResponse{
+				Code:   CodeToHttp(appError.Code),
+				ID:     appError.ID,
+				Text:   text,
+				Errors: importError.Errors,
 			}
 		}
 	}
