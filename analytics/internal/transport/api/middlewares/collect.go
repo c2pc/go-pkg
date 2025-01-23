@@ -159,9 +159,13 @@ func (l *logger) middleware(c *gin.Context) {
 	}
 
 	var compressedResponse []byte
-	if w.flag && w.body != nil && w.body.Len() > 0 {
-		data := compressData(w.body.Bytes())
-		compressedResponse = data
+	if w != nil {
+		if w.flag && w.body != nil && w.body.Len() > 0 {
+			data := compressData(w.body.Bytes())
+			compressedResponse = data
+		} else {
+			compressedResponse = nil
+		}
 	} else {
 		compressedResponse = nil
 	}
