@@ -39,7 +39,6 @@ type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct
 	accessExpire    time.Duration
 	refreshExpire   time.Duration
 	accessSecret    string
-	db              *gorm.DB
 }
 
 func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
@@ -69,7 +68,11 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	s.userRepository = s.userRepository.Trx(db)
 	s.tokenRepository = s.tokenRepository.Trx(db)
-	s.db = db
+
+	if s.profileService != nil {
+		s.profileService = s.profileService.Trx(db)
+	}
+
 	return s
 }
 
@@ -253,7 +256,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 
 	if s.profileService != nil && profileInput != nil {
 
-		err := s.profileService.Trx(s.db).UpdateProfile(ctx, userID, *profileInput)
+		err := s.profileService.UpdateProfile(ctx, userID, *profileInput)
 		if err != nil {
 			return err
 		}

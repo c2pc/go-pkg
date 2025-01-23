@@ -67,7 +67,11 @@ func NewUserService[Model profile.IModel, CreateInput, UpdateInput, UpdateProfil
 func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	s.userRepository = s.userRepository.Trx(db)
 	s.userRoleRepository = s.userRoleRepository.Trx(db)
-	s.profileService = s.profileService.Trx(db)
+
+	if s.profileService != nil {
+		s.profileService = s.profileService.Trx(db)
+	}
+
 	return s
 }
 
