@@ -11,11 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	profile2 "github.com/c2pc/go-pkg/v2/auth/profile"
-	profile3 "github.com/c2pc/go-pkg/v2/example/profile"
-
 	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
+	profile2 "github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/example/internal/config"
 	database3 "github.com/c2pc/go-pkg/v2/example/internal/database"
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
@@ -23,10 +21,12 @@ import (
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api"
 	restHandler "github.com/c2pc/go-pkg/v2/example/internal/transport/api/handler"
+	profile3 "github.com/c2pc/go-pkg/v2/example/profile"
 	sse2 "github.com/c2pc/go-pkg/v2/sse"
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
 	database "github.com/c2pc/go-pkg/v2/utils/db"
+	"github.com/c2pc/go-pkg/v2/utils/dbworker"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
@@ -135,6 +135,25 @@ func main() {
 		logger.Fatalf("[DB] %s", err.Error())
 		return
 	}
+
+	dbWorkerCfg := dbworker.Config{
+		TableName:         "auth_analytics",
+		TimeFieldName:     "created_at",
+		TimeThreshold:     22 * time.Hour,
+		RowCountThreshold: 300,
+		ArchiveBatchSize:  150,
+		ArchivePath:       "archive",
+		ArchiveFilePrefix: "auth_analytics",
+		CheckInterval:     30 * time.Second,
+	}
+
+	dbWorker := dbworker.NewWorker(dbWorkerCfg, db)
+
+	go func() {
+		if err := dbWorker.Start(ctx2); err != nil {
+			logger.Errorf("[DB_WORKER] error: %s", err)
+		}
+	}()
 
 	repositories := repository.NewRepositories(db)
 	services := service.NewServices(service.Deps{Repositories: repositories})
