@@ -137,14 +137,12 @@ func main() {
 	}
 
 	dbWorkerCfg := dbworker.Config{
-		TableName:         "auth_analytics",
-		TimeFieldName:     "created_at",
-		TimeThreshold:     22 * time.Hour,
-		RowCountThreshold: 300,
-		ArchiveBatchSize:  150,
-		ArchivePath:       "archive",
-		ArchiveFilePrefix: "auth_analytics",
-		CheckInterval:     30 * time.Second,
+		TableName:        "auth_analytics",
+		TimeFieldName:    "created_at",
+		ArchiveBatchSize: 30,
+		ArchivePath:      "archive",
+		Frequency:        "0 0 17 * * *",
+		UnzipNames:       []string{"request_body", "response_body"},
 	}
 
 	dbWorker := dbworker.NewWorker(dbWorkerCfg, db)
