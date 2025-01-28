@@ -93,7 +93,7 @@ func TestImport(t *testing.T) {
 	}
 	actionFn := func(ctx context.Context, input Input, element int) (int, error, error) {
 		if element == 2 {
-			return 0, errors.New(apperr.Translate(apperr.ErrBadRequest, translator.EN.String())), nil
+			return 0, errors.New(apperr.Translate(apperr.ErrBadRequest, translator.RU.String())), nil
 		}
 		if element == 3 {
 			return 0, nil, apperr.ErrDBInternal

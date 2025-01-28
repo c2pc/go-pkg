@@ -119,7 +119,7 @@ func (e *Task) listen(ctx context.Context) {
 				if !errors.As(result.Error, &appError) {
 					appError = apperr.ErrInternal.WithError(result.Error)
 				}
-				msg.SetError(apperr.Translate(appError, translator.EN.String()))
+				msg.SetError(apperr.Translate(appError, translator.RU.String()))
 				input.Output = msg
 			} else {
 				input.Output = result.Message

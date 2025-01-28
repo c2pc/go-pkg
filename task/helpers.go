@@ -36,7 +36,7 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 
 	singleIds := datautil.Single[C](ids, pluckedIds)
 	for _, id := range singleIds {
-		msg.AddError(idToString(id), apperr.Translate(notFoundError, translator.EN.String()))
+		msg.AddError(idToString(id), apperr.Translate(notFoundError, translator.RU.String()))
 		continue
 	}
 
@@ -52,7 +52,7 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 
 		err = actionFn(ctx2, input, id)
 		if err != nil {
-			msg.AddError(idToString(id), apperr.Translate(err, translator.EN.String()))
+			msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
 			continue
 		} else {
 			msg.AddSuccess(idToString(id))
@@ -85,7 +85,7 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 
 	singleIds := datautil.Single(ids, pluckedIds)
 	for _, id := range singleIds {
-		msg.AddError(idToString(id), apperr.Translate(notFoundError, translator.EN.String()))
+		msg.AddError(idToString(id), apperr.Translate(notFoundError, translator.RU.String()))
 		continue
 	}
 
@@ -101,7 +101,7 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 
 		err = actionFn(ctx2, id, input)
 		if err != nil {
-			msg.AddError(idToString(id), apperr.Translate(err, translator.EN.String()))
+			msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
 			continue
 		} else {
 			msg.AddSuccess(idToString(id))
@@ -142,7 +142,7 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn f
 		}
 
 		if err != nil {
-			msg.AddError(k, apperr.Translate(err, translator.EN.String()))
+			msg.AddError(k, apperr.Translate(err, translator.RU.String()))
 			continue
 		} else if prevErr != nil {
 			msg.AddError(k, prevErr.Error())
@@ -183,7 +183,7 @@ func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error,
 
 		c, err := actionFn(item)
 		if err != nil {
-			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.EN.String()))
+			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
 		}
 
 		export = append(export, c)
