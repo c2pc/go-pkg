@@ -207,6 +207,11 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 }
 
 func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
+	userID, ok := mcontext.GetOpUserID(ctx)
+	if !ok {
+		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+	}
+
 	task, err := s.taskRepository.Omit("output").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -219,14 +224,16 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, ErrTaskUnableRerun
 	}
 
-	task, err = s.taskRepository.Create(ctx, &model.Task{
+	task = &model.Task{
 		Name:   task.Name,
 		Type:   task.Type,
-		UserID: task.UserID,
+		UserID: userID,
 		Status: model.StatusPending,
 		Output: nil,
 		Input:  task.Input,
-	})
+	}
+
+	task, err = s.taskRepository.Create(ctx, task)
 	if err != nil {
 		return nil, err
 	}
