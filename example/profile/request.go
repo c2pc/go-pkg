@@ -8,7 +8,8 @@ import (
 type Request[CreateInput ProfileCreateInput, UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput] struct {
 }
 
-func NewRequest[CreateInput ProfileCreateInput, UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput]() *Request[CreateInput, UpdateInput, UpdateProfileInput] {
+func NewRequest[CreateInput ProfileCreateInput,
+	UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput]() *Request[CreateInput, UpdateInput, UpdateProfileInput] {
 	return &Request[CreateInput, UpdateInput, UpdateProfileInput]{}
 }
 

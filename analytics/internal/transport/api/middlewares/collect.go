@@ -21,22 +21,26 @@ import (
 )
 
 type LoggerConfig struct {
-	DB            *gorm.DB
-	FlushInterval int
-	BatchSize     int
-	ExcludePaths  []string
+	DB                  *gorm.DB
+	FlushInterval       int
+	BatchSize           int
+	ExcludeInputBodies  map[string][]string
+	ExcludeOutputBodies map[string][]string
+	SkipRequests        map[string][]string
 }
 
 type logger struct {
-	db            *gorm.DB
-	batchSize     int
-	entries       []models.Analytics
-	userIDMap     map[int]struct{}
-	mu            sync.Mutex
-	flushInterval time.Duration
-	ticker        *time.Ticker
-	cancelFunc    context.CancelFunc
-	excludePaths  map[string]struct{}
+	db                  *gorm.DB
+	batchSize           int
+	entries             []models.Analytics
+	userIDMap           map[int]struct{}
+	mu                  sync.Mutex
+	flushInterval       time.Duration
+	ticker              *time.Ticker
+	cancelFunc          context.CancelFunc
+	ExcludeInputBodies  map[string][]string
+	ExcludeOutputBodies map[string][]string
+	SkipRequests        map[string][]string
 }
 
 type responseWriter struct {
@@ -70,18 +74,15 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 		cfg.BatchSize = 100
 	}
 
-	excludeMap := make(map[string]struct{})
-	for _, p := range cfg.ExcludePaths {
-		excludeMap[p] = struct{}{}
-	}
-
 	l := &logger{
-		db:            cfg.DB,
-		batchSize:     cfg.BatchSize,
-		entries:       make([]models.Analytics, 0, cfg.BatchSize),
-		userIDMap:     make(map[int]struct{}),
-		flushInterval: time.Duration(cfg.FlushInterval) * time.Second,
-		excludePaths:  excludeMap,
+		db:                  cfg.DB,
+		batchSize:           cfg.BatchSize,
+		entries:             make([]models.Analytics, 0, cfg.BatchSize),
+		userIDMap:           make(map[int]struct{}),
+		flushInterval:       time.Duration(cfg.FlushInterval) * time.Second,
+		ExcludeInputBodies:  cfg.ExcludeInputBodies,
+		ExcludeOutputBodies: cfg.ExcludeOutputBodies,
+		SkipRequests:        cfg.SkipRequests,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,96 +94,135 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 	return l.middleware, l.shutdown
 }
 
-func (l *logger) middleware(c *gin.Context) {
-	startTime := time.Now()
+func (l *logger) check(path string, method string) (bool, bool, bool) {
+	var skipReq, skipInputBody, skipOutputBody = true, true, true
 
+	if methods, ok := l.SkipRequests[path]; ok {
+		if len(methods) == 0 {
+			skipReq = false
+		}
+		for _, m := range methods {
+			if m == method {
+				skipReq = false
+			}
+		}
+	}
+
+	if methods, ok := l.ExcludeInputBodies[path]; ok {
+		if len(methods) == 0 {
+			skipInputBody = false
+		}
+		for _, m := range methods {
+			if m == method {
+				skipInputBody = false
+			}
+		}
+	}
+
+	if methods, ok := l.ExcludeOutputBodies[path]; ok {
+		if len(methods) == 0 {
+			skipOutputBody = false
+		}
+		for _, m := range methods {
+			if m == method {
+				skipOutputBody = false
+			}
+		}
+	}
+
+	return skipReq, skipInputBody, skipOutputBody
+}
+
+func (l *logger) middleware(c *gin.Context) {
 	path := c.FullPath()
 	re := regexp.MustCompile(`^/api/v\d+`)
 	cleanedPath := re.ReplaceAllString(path, "")
-	skipBodies := false
-	if _, excluded := l.excludePaths[cleanedPath]; excluded {
-		skipBodies = true
-	}
 
-	var requestBody []byte
-	if !skipBodies {
-		if c.Request.Method == http.MethodGet {
-			query := c.Request.URL.Query()
-			if query.Encode() != "" {
-				q, _ := url.QueryUnescape(query.Encode())
-				requestBody = []byte(q)
+	skipReq, skipInputBody, skipOutputBody := l.check(cleanedPath, c.Request.Method)
+
+	if skipReq {
+		startTime := time.Now()
+
+		var requestBody []byte
+		if skipInputBody {
+			if c.Request.Method == http.MethodGet {
+				query := c.Request.URL.Query()
+				if query.Encode() != "" {
+					q, _ := url.QueryUnescape(query.Encode())
+					requestBody = []byte(q)
+				}
+			} else if c.Request.Body != nil && c.Request.Body != http.NoBody && strings.Contains(c.Request.Header.Get("Content-Type"), "application/json") {
+				var err error
+				requestBody, err = io.ReadAll(c.Request.Body)
+				if err == nil {
+					c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+				} else {
+					requestBody = nil
+				}
 			}
-		} else if c.Request.Body != nil && c.Request.Body != http.NoBody && strings.Contains(c.Request.Header.Get("Content-Type"), "application/json") {
-			var err error
-			requestBody, err = io.ReadAll(c.Request.Body)
-			if err == nil {
-				c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+		}
+
+		var w *responseWriter
+		if skipOutputBody {
+			w = &responseWriter{
+				ResponseWriter: c.Writer,
+			}
+			c.Writer = w
+		}
+
+		c.Next()
+
+		duration := time.Since(startTime).Milliseconds()
+
+		ctx := c.Request.Context()
+
+		realPath := c.Request.URL.Path
+		method := c.Request.Method
+		status := c.Writer.Status()
+		clientIP := c.ClientIP()
+
+		var userID *int
+		id, ok := mcontext.GetOpUserID(ctx)
+		if ok {
+			userID = &id
+		}
+
+		operationID, _ := mcontext.GetOperationID(ctx)
+
+		var compressedRequest []byte
+		if len(requestBody) > 0 {
+			data := compressData(requestBody)
+			compressedRequest = data
+		} else {
+			compressedRequest = nil
+		}
+
+		var compressedResponse []byte
+		if w != nil {
+			if w.flag && w.body != nil && w.body.Len() > 0 {
+				data := compressData(w.body.Bytes())
+				compressedResponse = data
 			} else {
-				requestBody = nil
+				compressedResponse = nil
 			}
-		}
-	}
-
-	var w *responseWriter
-	if !skipBodies {
-		w = &responseWriter{
-			ResponseWriter: c.Writer,
-		}
-		c.Writer = w
-	}
-
-	c.Next()
-
-	duration := time.Since(startTime).Milliseconds()
-
-	ctx := c.Request.Context()
-
-	realPath := c.Request.URL.Path
-	method := c.Request.Method
-	status := c.Writer.Status()
-	clientIP := c.ClientIP()
-
-	var userID *int
-	id, ok := mcontext.GetOpUserID(ctx)
-	if ok {
-		userID = &id
-	}
-
-	operationID, _ := mcontext.GetOperationID(ctx)
-
-	var compressedRequest []byte
-	if len(requestBody) > 0 {
-		data := compressData(requestBody)
-		compressedRequest = data
-	} else {
-		compressedRequest = nil
-	}
-
-	var compressedResponse []byte
-	if w != nil {
-		if w.flag && w.body != nil && w.body.Len() > 0 {
-			data := compressData(w.body.Bytes())
-			compressedResponse = data
 		} else {
 			compressedResponse = nil
 		}
-	} else {
-		compressedResponse = nil
-	}
 
-	entry := models.Analytics{
-		OperationID:  operationID,
-		Path:         realPath,
-		UserID:       userID,
-		Method:       method,
-		StatusCode:   status,
-		ClientIP:     clientIP,
-		RequestBody:  compressedRequest,
-		ResponseBody: compressedResponse,
-		Duration:     duration,
-	}
+		entry := models.Analytics{
+			OperationID:  operationID,
+			Path:         realPath,
+			UserID:       userID,
+			Method:       method,
+			StatusCode:   status,
+			ClientIP:     clientIP,
+			RequestBody:  compressedRequest,
+			ResponseBody: compressedResponse,
+			Duration:     duration,
+		}
 
-	l.addEntry(entry)
+		l.addEntry(entry)
+	}
 }
 
 func compressData(data []byte) []byte {
@@ -297,6 +337,5 @@ func (l *logger) shutdown() {
 		}
 		l.entries = l.entries[:0]
 		l.userIDMap = make(map[int]struct{})
-		l.excludePaths = make(map[string]struct{})
 	}
 }
