@@ -9,7 +9,13 @@ type SettingTransformer struct {
 }
 
 func SettingTransform(m *model.Setting) *SettingTransformer {
+	var set *string
+	if m.Settings != nil {
+		s := string(m.Settings)
+		set = &s
+	}
+
 	return &SettingTransformer{
-		Settings: m.Settings,
+		Settings: set,
 	}
 }

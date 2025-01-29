@@ -82,7 +82,7 @@ func (s SettingService) Update(ctx context.Context, input SettingUpdateInput) er
 		if *input.Settings == "" {
 			setting.Settings = nil
 		} else {
-			setting.Settings = input.Settings
+			setting.Settings = []byte(*input.Settings)
 		}
 		selects = append(selects, "settings")
 	}
