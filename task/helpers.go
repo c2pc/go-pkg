@@ -13,13 +13,34 @@ import (
 	"github.com/jszwec/csvutil"
 )
 
-func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []C, pluckIDsFn func(context.Context, []C) ([]C, error), actionFn func(context.Context, T, C) error) (*model.Message, error) {
+type CheckDataFn[T any] func(T) error
+type IdsFn[T any, C string | int] func(T) []C
+type PluckIDsFn[C string | int] func(context.Context, []C) ([]C, error)
+type DeleteActionFn[T any, C string | int] func(context.Context, T, C) error
+
+type UpdateActionFn[T any, C string | int] func(context.Context, C, T) error
+
+type DataFn[T, C any] func(T) []C
+type ImportActionFn[T, C any, D string | int] func(context.Context, T, C) (D, error, error)
+
+type ListFn[T, N any] func(context.Context, N) ([]T, error)
+type ExportActionFn[T, C any] func(T) (C, error)
+
+func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn DeleteActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
 	err := json.Unmarshal(data, &input)
 	if err != nil {
 		return nil, apperr.ErrInternal.WithError(err)
+	}
+
+	err = checkDataFn(input)
+	if err != nil {
+		if ctx.Err() != nil {
+			return msg, nil
+		}
+		return nil, err
 	}
 
 	ids := idsFn(input)
@@ -62,13 +83,21 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 	return msg, nil
 }
 
-func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoundError error, idsFn func(T) []C, pluckIDsFn func(context.Context, []C) ([]C, error), actionFn func(context.Context, C, T) error) (*model.Message, error) {
+func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn UpdateActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
 	err := json.Unmarshal(data, &input)
 	if err != nil {
 		return nil, apperr.ErrInternal.WithError(err)
+	}
+
+	err = checkDataFn(input)
+	if err != nil {
+		if ctx.Err() != nil {
+			return msg, nil
+		}
+		return nil, err
 	}
 
 	ids := idsFn(input)
@@ -111,13 +140,21 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 	return msg, nil
 }
 
-func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn func(T) []C, actionFn func(context.Context, T, C) (D, error, error)) (*model.Message, error) {
+func Import[T, C any, D string | int](ctx context.Context, data []byte, checkDataFn CheckDataFn[T], dataFn DataFn[T, C], actionFn ImportActionFn[T, C, D]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
 	err := json.Unmarshal(data, &input)
 	if err != nil {
 		return nil, apperr.ErrInternal.WithError(err)
+	}
+
+	err = checkDataFn(input)
+	if err != nil {
+		if ctx.Err() != nil {
+			return msg, nil
+		}
+		return nil, err
 	}
 
 	elements := dataFn(input)
@@ -155,13 +192,21 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, dataFn f
 	return msg, nil
 }
 
-func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error, listFn func(context.Context, N) ([]T, error), actionFn func(T) (C, error)) (*model.Message, error) {
+func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input N
 	err := json.Unmarshal(data, &input)
 	if err != nil {
 		return nil, apperr.ErrInternal.WithError(err)
+	}
+
+	err = checkDataFn(input)
+	if err != nil {
+		if ctx.Err() != nil {
+			return msg, nil
+		}
+		return nil, err
 	}
 
 	list, err := listFn(ctx, input)
