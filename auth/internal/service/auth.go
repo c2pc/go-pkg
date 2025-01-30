@@ -17,7 +17,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/redis/go-redis/v9"
-	"github.com/rs/xid"
 	"gorm.io/gorm"
 )
 
@@ -111,6 +110,10 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 		}
 	} else {
+		if s.ldapAuth == nil {
+			return nil, 0, apperr.ErrForbidden
+		}
+
 		isDomain = true
 		userClaims, err := s.ldapAuth.Login(input.Login, input.Password)
 		if err != nil {
@@ -138,6 +141,10 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 	var isDomain bool
 
 	if token.Domain {
+		if s.ldapAuth == nil {
+			return nil, 0, apperr.ErrForbidden
+		}
+
 		if time.Now().UTC().After(token.ExpiresAt) {
 			_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
 			return nil, token.UserID, apperr.ErrUnauthenticated.WithErrorText("token is expired")
@@ -319,7 +326,6 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	//	return nil, apperr.ErrUnauthenticated.WithError(err)
 	//}
 
-	refreshToken := xid.New().String()
 	expiresAt := time.Now().UTC().Add(s.refreshExpire)
 
 	doUpdate := []interface{}{"token", "expires_at", "updated_at", "domain"}
@@ -331,7 +337,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	if _, err := s.tokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
 		UserID:    userID,
 		DeviceID:  deviceID,
-		Token:     refreshToken,
+		Token:     token,
 		LoggedAt:  time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 		ExpiresAt: expiresAt,
@@ -396,7 +402,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	return &model2.AuthToken{
 		Auth: model2.Token{
 			Token:        token,
-			RefreshToken: refreshToken,
+			RefreshToken: token,
 			ExpiresAt:    s.accessExpire.Seconds(),
 			TokenType:    "Bearer",
 			UserID:       userID,
