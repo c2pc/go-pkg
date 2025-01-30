@@ -168,6 +168,7 @@ func (s NewsService) Export(ctx context.Context, data []byte) (*model3.Message, 
 		ctx,
 		data,
 		ErrNewsListIsEmpty,
+		func(nei NewsExportInput) error { return nil },
 		func(ctx context.Context, input NewsExportInput) ([]model.News, error) {
 			list, err := s.newsRepository.List(ctx, &input.Filter, "")
 			if err != nil {
@@ -200,6 +201,7 @@ func (s NewsService) Import(ctx context.Context, data []byte) (*model3.Message, 
 	return task.Import[NewsImportInput, NewsImportDataInput](
 		ctx,
 		data,
+		func(nii NewsImportInput) error { return nil },
 		func(d NewsImportInput) []NewsImportDataInput {
 			return d.Data
 		},
@@ -238,6 +240,7 @@ func (s NewsService) MassUpdate(ctx context.Context, data []byte) (*model3.Messa
 		ctx,
 		data,
 		ErrNewsNotFound,
+		func(nmui NewsMassUpdateInput) error { return nil },
 		func(d NewsMassUpdateInput) []int {
 			return d.IDs
 		},
@@ -269,6 +272,7 @@ func (s NewsService) MassDelete(ctx context.Context, data []byte) (*model3.Messa
 		ctx,
 		data,
 		ErrNewsNotFound,
+		func(nmdi NewsMassDeleteInput) error { return nil },
 		func(d NewsMassDeleteInput) []int {
 			return d.IDs
 		},
