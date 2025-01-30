@@ -3,8 +3,18 @@ package profile
 import (
 	"context"
 
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrNotFoundTranslate = translator.Translate{translator.RU: "Профиль не найден", translator.EN: "Profile not found"}
+	ErrExistsTranslate   = translator.Translate{translator.RU: "Профиль уже зарегистрирован", translator.EN: "A profile is already registered"}
+	ErrNotFound          = apperr.New("profile_not_found", apperr.WithTextTranslate(ErrNotFoundTranslate), apperr.WithCode(code.NotFound))
+	ErrExists            = apperr.New("profile_exists_error", apperr.WithTextTranslate(ErrExistsTranslate), apperr.WithCode(code.InvalidArgument))
 )
 
 type IModel interface {

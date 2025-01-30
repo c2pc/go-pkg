@@ -2,7 +2,10 @@ package auth
 
 import (
 	"context"
+
 	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/utils/ldapauth"
+
 	"strconv"
 	"time"
 
@@ -44,6 +47,7 @@ type Config struct {
 	Permissions   []model.Permission
 	TTL           time.Duration
 	MaxAttempts   int
+	LdapConfig    *ldapauth.Config
 }
 
 func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
@@ -90,8 +94,11 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		profileTransformer = nil
 		profileRequest = nil
 	}
-
-	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret)
+	var ldapAuthService ldapauth.AuthService
+	if cfg.LdapConfig != nil {
+		ldapAuthService = ldapauth.NewAuthService(*cfg.LdapConfig)
+	}
+	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService)
 	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
 	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
 	userService := service2.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)

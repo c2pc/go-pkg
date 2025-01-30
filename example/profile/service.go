@@ -5,14 +5,8 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"gorm.io/gorm"
-)
-
-var (
-	ErrNotFound = apperr.New("profile_not_found", apperr.WithTextTranslate(ErrNotFoundTranslate), apperr.WithCode(code.NotFound))
-	ErrExists   = apperr.New("profile_exists_error", apperr.WithTextTranslate(ErrExistsTranslate), apperr.WithCode(code.InvalidArgument))
 )
 
 type Service[Model Profile, CreateInput ProfileCreateInput, UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput] struct {
@@ -37,7 +31,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetById(ct
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return nil, ErrNotFound
+			return nil, profile.ErrNotFound
 		}
 		return nil, err
 	}
@@ -78,7 +72,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(ctx
 	}, "id")
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBDuplicated) {
-			return nil, ErrExists
+			return nil, profile.ErrExists
 		}
 		return nil, err
 	}
@@ -103,7 +97,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(ctx
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return ErrNotFound
+			return profile.ErrNotFound
 		}
 		return err
 	}
@@ -127,7 +121,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(ctx
 	if len(selects) > 0 {
 		if err = s.profileRepository.Update(ctx, prof, selects, `user_id = ?`, userID); err != nil {
 			if apperr.Is(err, apperr.ErrDBDuplicated) {
-				return ErrExists
+				return profile.ErrExists
 			}
 			return err
 		}
@@ -146,7 +140,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateProf
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return ErrNotFound
+			return profile.ErrNotFound
 		}
 		return err
 	}
@@ -179,7 +173,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateProf
 	if len(selects) > 0 {
 		if err = s.profileRepository.Update(ctx, prof, selects, `user_id = ?`, userID); err != nil {
 			if apperr.Is(err, apperr.ErrDBDuplicated) {
-				return ErrExists
+				return profile.ErrExists
 			}
 			return err
 		}
@@ -192,7 +186,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Delete(ctx
 	_, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return ErrNotFound
+			return profile.ErrNotFound
 		}
 		return err
 	}

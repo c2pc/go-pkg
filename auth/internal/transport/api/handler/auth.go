@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"net/http"
+
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
@@ -61,6 +62,7 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) login
 		Login:    cred.Login,
 		Password: cred.Password,
 		DeviceID: cred.DeviceID,
+		IsDomain: cred.DomainAuth,
 	})
 	if userID != 0 {
 		c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), userID))
