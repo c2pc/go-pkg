@@ -206,7 +206,7 @@ func (a *LdapService) Refresh(refreshToken string) (*TokenResponse, error) {
 
 	if resp.StatusCode == http.StatusNotFound {
 		if level.Is(a.debug, level.TEST) {
-			logger2.Warningf("[LDAP AUTH] user does not have access")
+			logger2.Warningf("[LDAP AUTH] Refresh token not found")
 		}
 		return nil, apperr.ErrNotFound
 	} else if resp.StatusCode != http.StatusOK {
