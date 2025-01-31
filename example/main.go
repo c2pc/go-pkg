@@ -112,9 +112,10 @@ func main() {
 		TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
 		MaxAttempts:   configs.LIMITER.MaxAttempts,
 		LdapConfig: &ldapauth.Config{
+			IsEnabled: configs.LDAPConfig.Enable,
 			ServerURL: configs.LDAPConfig.ServerURL,
 			ServerID:  configs.LDAPConfig.ServerID,
-			Timeout:   10 * time.Second,
+			Timeout:   time.Duration(configs.LDAPConfig.Timeout) * time.Minute,
 			SecretKey: configs.LDAPConfig.SecretKey,
 			Debug:     configs.LOG.Debug,
 		},

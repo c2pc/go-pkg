@@ -94,8 +94,9 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		profileTransformer = nil
 		profileRequest = nil
 	}
+
 	var ldapAuthService ldapauth.AuthService
-	if cfg.LdapConfig != nil {
+	if cfg.LdapConfig != nil && cfg.LdapConfig.IsEnabled {
 		ldapAuthService = ldapauth.NewAuthService(*cfg.LdapConfig)
 	}
 	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService)

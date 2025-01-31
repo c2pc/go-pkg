@@ -1,12 +1,13 @@
 package config
 
-import "time"
+const (
+	DefaultTimeout = 10
+)
 
 type Config struct {
-	IsEnabled bool
+	Enable    bool   `yaml:"enable"`
 	ServerURL string `yaml:"server_url"`
 	SecretKey string `yaml:"secret_key"`
 	ServerID  int    `yaml:"server_id"`
-	Timeout   time.Duration
-	Debug     string
+	Timeout   int    `yaml:"timeout,omitempty"`
 }
