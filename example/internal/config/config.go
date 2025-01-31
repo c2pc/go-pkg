@@ -5,24 +5,25 @@ import (
 	"strings"
 
 	"github.com/c2pc/go-pkg/v2/utils/config"
-	"github.com/c2pc/go-pkg/v2/utils/ldapauth"
 )
 
 type Config struct {
-	PasswordSalt string          `yaml:"password_salt"`
-	PostgresUrl  string          `yaml:"postgres_url"`
-	LOG          config.LOG      `yaml:"log"`
-	HTTP         config.HTTP     `yaml:"http"`
-	AUTH         config.AUTH     `yaml:"auth"`
-	LIMITER      config.Limiter  `yaml:"limiter"`
-	Redis        config.Redis    `yaml:"redis"`
-	LDAPConfig   ldapauth.Config `yaml:"ldap_config"`
+	PasswordSalt string         `yaml:"password_salt"`
+	PostgresUrl  string         `yaml:"postgres_url"`
+	LOG          config.LOG     `yaml:"log"`
+	HTTP         config.HTTP    `yaml:"http"`
+	AUTH         config.AUTH    `yaml:"auth"`
+	LIMITER      config.Limiter `yaml:"limiter"`
+	Redis        config.Redis   `yaml:"redis"`
 }
 
 func NewConfig(configPath string) (*Config, error) {
 	cfg, err := config.NewConfig[Config](configPath)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.AUTH.LDAPConfig.Timeout == 0 {
+		cfg.AUTH.LDAPConfig.Timeout = config.DefaultTimeout
 	}
 
 	if cfg.AUTH.AccessTokenTTL == 0 {
