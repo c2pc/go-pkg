@@ -1,0 +1,3 @@
+ALTER TABLE abonent_tokens
+    ADD COLUMN IF NOT EXISTS domain BOOLEAN NOT NULL DEFAULT FALSE,
+    MODIFY COLUMN refresh_token TEXT;

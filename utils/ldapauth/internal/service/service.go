@@ -130,7 +130,12 @@ func (a *LdapService) Login(username, password string) (*TokenResponse, error) {
 
 	if resp.StatusCode == http.StatusForbidden {
 		if level.Is(a.debug, level.TEST) {
-			logger2.Warningf("[LDAP AUTH] Unauthorized access for user: %s", username)
+			logger2.Warningf("[LDAP AUTH] user does not have access: %s", username)
+		}
+		return nil, apperr.ErrForbidden
+	} else if resp.StatusCode == http.StatusUnauthorized {
+		if level.Is(a.debug, level.TEST) {
+			logger2.Warningf("[LDAP AUTH] user unauthorized: %d", resp.StatusCode)
 		}
 		return nil, apperr.ErrUnauthenticated
 	} else if resp.StatusCode != http.StatusOK {
@@ -153,9 +158,9 @@ func (a *LdapService) Login(username, password string) (*TokenResponse, error) {
 		return nil, apperr.ErrForbidden.WithError(err)
 	}
 
-	if userClaims == nil || userClaims.ServerAllow == 0 {
+	if userClaims == nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.Warningf("[LDAP AUTH] Server allow flag is not set for user: %s", username)
+			logger2.Warningf("[LDAP AUTH] user claims is nil")
 		}
 		return nil, apperr.ErrForbidden
 	}
@@ -201,14 +206,14 @@ func (a *LdapService) Refresh(refreshToken string) (*TokenResponse, error) {
 
 	if resp.StatusCode == http.StatusNotFound {
 		if level.Is(a.debug, level.TEST) {
-			logger2.Warningf("[LDAP AUTH] Refresh token not found")
+			logger2.Warningf("[LDAP AUTH] user does not have access")
 		}
-		return nil, apperr.ErrUnauthenticated
+		return nil, apperr.ErrNotFound
 	} else if resp.StatusCode != http.StatusOK {
 		if level.Is(a.debug, level.TEST) {
 			logger2.Errorf("[LDAP AUTH] Unexpected status code during refresh: %d", resp.StatusCode)
 		}
-		return nil, apperr.ErrForbidden
+		return nil, apperr.ErrInternal
 	}
 
 	var tokenResp TokenResponse
