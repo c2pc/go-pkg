@@ -132,6 +132,11 @@ func (a *LdapService) Login(username, password string) (*TokenResponse, error) {
 		if level.Is(a.debug, level.TEST) {
 			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Unauthorized access for user: %s", username))
 		}
+		return nil, appErrors.ErrForbidden
+	} else if resp.StatusCode == http.StatusUnauthorized {
+		if level.Is(a.debug, level.TEST) {
+			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("user unauthorized: %d", resp.StatusCode))
+		}
 		return nil, appErrors.ErrUnauthenticated
 	} else if resp.StatusCode != http.StatusOK {
 		if level.Is(a.debug, level.TEST) {
@@ -153,9 +158,9 @@ func (a *LdapService) Login(username, password string) (*TokenResponse, error) {
 		return nil, appErrors.ErrForbidden.WithError(err)
 	}
 
-	if userClaims == nil || userClaims.ServerAllow == 0 {
+	if userClaims == nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Server allow flag is not set for user: %s", username))
+			logger2.WarningLog("[LDAP AUTH]", true, "user claims is nil")
 		}
 		return nil, appErrors.ErrForbidden
 	}
@@ -203,12 +208,12 @@ func (a *LdapService) Refresh(refreshToken string) (*TokenResponse, error) {
 		if level.Is(a.debug, level.TEST) {
 			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Refresh token not found"))
 		}
-		return nil, appErrors.ErrUnauthenticated
+		return nil, appErrors.ErrNotFound
 	} else if resp.StatusCode != http.StatusOK {
 		if level.Is(a.debug, level.TEST) {
 			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Unexpected status code during refresh: %d", resp.StatusCode))
 		}
-		return nil, appErrors.ErrForbidden
+		return nil, appErrors.ErrInternal
 	}
 
 	var tokenResp TokenResponse
