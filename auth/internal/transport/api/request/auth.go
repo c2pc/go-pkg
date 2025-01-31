@@ -1,9 +1,10 @@
 package request
 
 type AuthLoginRequest struct {
-	Login    string `json:"login" binding:"required,max=255,dot_underscore_hyphen"`
-	Password string `json:"password" binding:"required,max=255,spec_chars"`
-	DeviceID int    `json:"device_id" binding:"required,device_id"`
+	Login      string `json:"login" binding:"required,max=255,dot_underscore_hyphen"`
+	Password   string `json:"password" binding:"required,max=255,spec_chars"`
+	DeviceID   int    `json:"device_id" binding:"required,device_id"`
+	DomainAuth *bool  `json:"domain_auth" binding:"omitempty"`
 }
 
 type AuthRefreshRequest struct {

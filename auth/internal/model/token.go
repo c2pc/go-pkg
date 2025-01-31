@@ -10,6 +10,7 @@ type RefreshToken struct {
 	LoggedAt  time.Time `json:"logged_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	ExpiresAt time.Time `json:"expires_at"`
+	Domain    bool      `json:"domain"`
 
 	User *User `json:"user"`
 }
