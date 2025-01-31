@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
+	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -191,7 +192,7 @@ func (l *logger) middleware(c *gin.Context) {
 
 		var compressedRequest []byte
 		if len(requestBody) > 0 {
-			data := compressData(requestBody)
+			data := jsonutil.JsonClearPassword(compressData(requestBody))
 			compressedRequest = data
 		} else {
 			compressedRequest = nil
