@@ -112,11 +112,11 @@ func main() {
 		TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
 		MaxAttempts:   configs.LIMITER.MaxAttempts,
 		LdapConfig: &ldapauth.Config{
-			IsEnabled: configs.LDAPConfig.Enable,
-			ServerURL: configs.LDAPConfig.ServerURL,
-			ServerID:  configs.LDAPConfig.ServerID,
-			Timeout:   time.Duration(configs.LDAPConfig.Timeout) * time.Minute,
-			SecretKey: configs.LDAPConfig.SecretKey,
+			IsEnabled: configs.AUTH.LDAPConfig.Enable,
+			ServerURL: configs.AUTH.LDAPConfig.ServerURL,
+			ServerID:  configs.AUTH.LDAPConfig.ServerID,
+			Timeout:   time.Duration(configs.AUTH.LDAPConfig.Timeout) * time.Minute,
+			SecretKey: configs.AUTH.LDAPConfig.SecretKey,
 			Debug:     configs.LOG.Debug,
 		},
 	}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{

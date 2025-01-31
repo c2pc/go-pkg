@@ -8,14 +8,13 @@ import (
 )
 
 type Config struct {
-	PasswordSalt string          `yaml:"password_salt"`
-	PostgresUrl  string          `yaml:"postgres_url"`
-	LOG          config.LOG      `yaml:"log"`
-	HTTP         config.HTTP     `yaml:"http"`
-	AUTH         config.AUTH     `yaml:"auth"`
-	LIMITER      config.Limiter  `yaml:"limiter"`
-	Redis        config.Redis    `yaml:"redis"`
-	LDAPConfig   config.LDAPAuth `yaml:"ldap_config"`
+	PasswordSalt string         `yaml:"password_salt"`
+	PostgresUrl  string         `yaml:"postgres_url"`
+	LOG          config.LOG     `yaml:"log"`
+	HTTP         config.HTTP    `yaml:"http"`
+	AUTH         config.AUTH    `yaml:"auth"`
+	LIMITER      config.Limiter `yaml:"limiter"`
+	Redis        config.Redis   `yaml:"redis"`
 }
 
 func NewConfig(configPath string) (*Config, error) {
@@ -23,8 +22,8 @@ func NewConfig(configPath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.LDAPConfig.Timeout == 0 {
-		cfg.LDAPConfig.Timeout = config.DefaultTimeout
+	if cfg.AUTH.LDAPConfig.Timeout == 0 {
+		cfg.AUTH.LDAPConfig.Timeout = config.DefaultTimeout
 	}
 
 	if cfg.AUTH.AccessTokenTTL == 0 {
