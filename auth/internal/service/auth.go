@@ -2,22 +2,27 @@ package service
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
 	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/ldapauth"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/redis/go-redis/v9"
+	"github.com/rs/xid"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrAuthNoAccess = apperr.New("auth_blocked", apperr.WithTextTranslate(i18n.ErrAuthNoAccess), apperr.WithCode(code.PermissionDenied))
 )
 
 type IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
@@ -83,7 +88,7 @@ type AuthLogin struct {
 	Login    string
 	Password string
 	DeviceID int
-	IsDomain *bool
+	IsDomain bool
 }
 
 func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, int, error) {
@@ -93,36 +98,46 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 	}
 
 	if user.Blocked {
-		return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("user is blocked")
+		return nil, user.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
 	}
 
-	var tokenString string
+	var accessTokenTTL int64
+	var refreshToken string
 	var isDomain bool
-	if input.IsDomain == nil || !*input.IsDomain {
-		claims := tokenverify.BuildClaims(user.ID, input.DeviceID, s.accessExpire)
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err = token.SignedString([]byte(s.accessSecret))
-		if err != nil {
-			return nil, 0, apperr.ErrUnauthenticated.WithError(err)
-		}
 
+	if input.IsDomain && s.ldapAuth != nil {
+		ldapClaims, err := s.ldapAuth.Login(input.Login, input.Password)
+		if err != nil {
+			if apperr.Is(err, apperr.ErrUnauthenticated) {
+				return nil, user.ID, apperr.ErrUnauthenticated.WithError(err)
+			}
+			if apperr.Is(err, apperr.ErrForbidden) {
+				return nil, user.ID, ErrAuthNoAccess.WithError(err)
+			}
+			return nil, user.ID, err
+		}
+		refreshToken = ldapClaims.Refresh
+		isDomain = true
+
+		accessTokenTTL = ldapClaims.UserData.ExpiresAt - ldapClaims.UserData.IssuedAt
+	} else {
 		if !s.hasher.HashMatchesString(user.Password, input.Password) {
 			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 		}
-	} else {
-		if s.ldapAuth == nil {
-			return nil, 0, apperr.ErrForbidden
-		}
-
-		isDomain = true
-		userClaims, err := s.ldapAuth.Login(input.Login, input.Password)
-		if err != nil {
-			return nil, 0, err
-		}
-		tokenString = userClaims.Refresh
+		refreshToken = xid.New().String()
+		isDomain = false
+		accessTokenTTL = 0
 	}
 
-	data, err := s.createSession(ctx, true, user.ID, input.DeviceID, tokenString, isDomain)
+	data, err := s.createSession(ctx, createSessionInput{
+		IsLogin:        true,
+		UserID:         user.ID,
+		DeviceID:       input.DeviceID,
+		RefreshToken:   refreshToken,
+		AccessTokenTTL: accessTokenTTL,
+		IsDomain:       isDomain,
+	})
+
 	return data, user.ID, err
 }
 
@@ -137,33 +152,49 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 		return nil, 0, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	var tokenString string
+	var accessTokenTTL int64
+	var refreshToken string
 	var isDomain bool
 
 	if token.Domain {
 		if s.ldapAuth == nil {
-			return nil, 0, apperr.ErrForbidden
+			return nil, token.UserID, apperr.ErrUnauthenticated.WithErrorText("domain auth disabled")
 		}
 
+		ldapClaims, err := s.ldapAuth.Refresh(input.Token)
+		if err != nil {
+			if apperr.Is(err, apperr.ErrUnauthenticated) {
+				return nil, token.UserID, apperr.ErrUnauthenticated.WithError(err)
+			}
+			if apperr.Is(err, apperr.ErrForbidden) {
+				return nil, token.UserID, ErrAuthNoAccess.WithError(err)
+			}
+
+			return nil, token.UserID, err
+		}
+
+		refreshToken = ldapClaims.Refresh
+		isDomain = true
+		accessTokenTTL = ldapClaims.UserData.ExpiresAt - ldapClaims.UserData.IssuedAt
+	} else {
 		if time.Now().UTC().After(token.ExpiresAt) {
 			_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
 			return nil, token.UserID, apperr.ErrUnauthenticated.WithErrorText("token is expired")
 		}
-		ldapClaims, err := s.ldapAuth.Refresh(input.Token)
-		if err != nil {
-			return nil, 0, err
-		}
-		tokenString = ldapClaims.Refresh
-		isDomain = true
-	} else {
-		if time.Now().UTC().After(token.ExpiresAt) {
-			_ = s.tokenRepository.Delete(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
-			return nil, token.UserID, apperr.ErrUnauthenticated.WithErrorText("token is expired")
-		}
-		tokenString = input.Token
+
+		refreshToken = xid.New().String()
+		isDomain = false
+		accessTokenTTL = 0
 	}
 
-	data, err := s.createSession(ctx, false, token.UserID, token.DeviceID, tokenString, isDomain)
+	data, err := s.createSession(ctx, createSessionInput{
+		IsLogin:        false,
+		UserID:         token.UserID,
+		DeviceID:       token.DeviceID,
+		RefreshToken:   refreshToken,
+		AccessTokenTTL: accessTokenTTL,
+		IsDomain:       isDomain,
+	})
 	return data, token.UserID, err
 }
 
@@ -207,16 +238,6 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Accoun
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
-
-	/*if user.Profile != nil {
-		var mp Model
-		jsonData, _ := json.Marshal(user.Profile)
-		err = json.Unmarshal(jsonData, &mp)
-		if err != nil {
-			return nil, err
-		}
-		user.Profile = &mp
-	}*/
 
 	return user, nil
 }
@@ -302,7 +323,6 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 	}
 
 	if s.profileService != nil && profileInput != nil {
-
 		err := s.profileService.UpdateProfile(ctx, userID, *profileInput)
 		if err != nil {
 			return err
@@ -318,35 +338,54 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 	return nil
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) createSession(ctx context.Context, isLogin bool, userID int, deviceID int, token string, isDomain bool) (*model2.AuthToken, error) {
-	//claims := tokenverify.BuildClaims(userID, deviceID, s.accessExpire)
-	//token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	//tokenString, err := token.SignedString([]byte(s.accessSecret))
-	//if err != nil {
-	//	return nil, apperr.ErrUnauthenticated.WithError(err)
-	//}
+type createSessionInput struct {
+	IsLogin        bool   //Авторизация или refresh
+	UserID         int    //ID пользователя
+	DeviceID       int    //ID устройства
+	RefreshToken   string //Refresh токен
+	AccessTokenTTL int64  //Количество секунд до истечения access токена
+	IsDomain       bool   //Доменная авторизация
+}
 
-	expiresAt := time.Now().UTC().Add(s.refreshExpire)
+func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) createSession(ctx context.Context, input createSessionInput) (*model2.AuthToken, error) {
+	accessTokenTTL := s.accessExpire
+	if input.AccessTokenTTL > 0 {
+		accessTokenTTL = time.Duration(input.AccessTokenTTL) * time.Second
+	}
+
+	claims := tokenverify.BuildClaims(input.UserID, input.DeviceID, accessTokenTTL)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(s.accessSecret))
+	if err != nil {
+		return nil, apperr.ErrUnauthenticated.WithError(err)
+	}
+
+	var expiresAt time.Time
+	if input.IsDomain {
+		expiresAt = time.Now().UTC()
+	} else {
+		expiresAt = time.Now().UTC().Add(s.refreshExpire)
+	}
 
 	doUpdate := []interface{}{"token", "expires_at", "updated_at", "domain"}
 	doCreate := []interface{}{"logged_at", "domain"}
-	if isLogin {
+	if input.IsLogin {
 		doUpdate = append(doUpdate, []string{"logged_at"})
 	}
 
 	if _, err := s.tokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
-		UserID:    userID,
-		DeviceID:  deviceID,
-		Token:     token,
+		UserID:    input.UserID,
+		DeviceID:  input.DeviceID,
+		Token:     tokenString,
 		LoggedAt:  time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 		ExpiresAt: expiresAt,
-		Domain:    isDomain,
+		Domain:    input.IsDomain,
 	}, []interface{}{"user_id", "device_id"}, doUpdate, doCreate); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	tokens, err := s.tokenCache.GetTokensWithoutError(ctx, userID, deviceID)
+	tokens, err := s.tokenCache.GetTokensWithoutError(ctx, input.UserID, input.DeviceID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -361,29 +400,29 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	}
 
 	if len(deleteTokenKey) != 0 {
-		err = s.tokenCache.DeleteTokenByUidPid(ctx, userID, deviceID, deleteTokenKey)
+		err = s.tokenCache.DeleteTokenByUidPid(ctx, input.UserID, input.DeviceID, deleteTokenKey)
 		if err != nil {
 			return nil, apperr.ErrUnauthenticated.WithError(err)
 		}
 	}
 
-	if err = s.tokenCache.SetTokenFlagEx(ctx, userID, deviceID, token, constant.NormalToken); err != nil {
+	if err = s.tokenCache.SetTokenFlagEx(ctx, input.UserID, input.DeviceID, tokenString, constant.NormalToken); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
+	if err := s.userCache.DelUsersInfo(input.UserID).ChainExecDel(ctx); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	user, err := s.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model2.User, error) {
-		user, err := s.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
+	user, err := s.userCache.GetUserInfo(ctx, input.UserID, func(ctx context.Context) (*model2.User, error) {
+		user, err := s.userRepository.GetUserWithPermissions(ctx, "id = ?", input.UserID)
 		if err != nil {
 			return nil, err
 		}
 
 		var prof *Model
 		if s.profileService != nil {
-			prof, err = s.profileService.GetById(ctx, userID)
+			prof, err = s.profileService.GetById(ctx, input.UserID)
 			if err != nil {
 				if !apperr.Is(err, profile.ErrNotFound) {
 					return nil, err
@@ -401,11 +440,11 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 
 	return &model2.AuthToken{
 		Auth: model2.Token{
-			Token:        token,
-			RefreshToken: token,
-			ExpiresAt:    s.accessExpire.Seconds(),
+			Token:        tokenString,
+			RefreshToken: input.RefreshToken,
+			ExpiresAt:    accessTokenTTL.Seconds(),
 			TokenType:    "Bearer",
-			UserID:       userID,
+			UserID:       input.UserID,
 		},
 		User: *user,
 	}, nil
@@ -418,13 +457,18 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) clearS
 		}
 	}
 
-	m, err := s.tokenCache.GetTokensWithoutError(ctx, userID, deviceID)
-	if err != nil && !errors.Is(err, redis.Nil) {
+	tokens, err := s.tokenCache.GetTokensWithoutError(ctx, userID, deviceID)
+	if err != nil {
 		return apperr.ErrUnauthenticated.WithError(err)
 	}
-	for k := range m {
-		m[k] = constant.KickedToken
-		err = s.tokenCache.SetTokenMapByUidPid(ctx, userID, deviceID, m)
+
+	var deleteTokenKey []string
+	for k, _ := range tokens {
+		deleteTokenKey = append(deleteTokenKey, k)
+	}
+
+	if len(deleteTokenKey) != 0 {
+		err = s.tokenCache.DeleteTokenByUidPid(ctx, userID, deviceID, deleteTokenKey)
 		if err != nil {
 			return apperr.ErrUnauthenticated.WithError(err)
 		}
