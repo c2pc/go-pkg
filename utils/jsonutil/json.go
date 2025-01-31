@@ -26,33 +26,47 @@ func JsonStringToStruct(s string, args any) error {
 	return err
 }
 
-func JsonClearPassword(input []byte) []byte {
+func JsonHideImportantData(input []byte, keys ...string) []byte {
+	if len(keys) == 0 {
+		return input
+	}
+
+	if input == nil {
+		return input
+	}
+
 	var data map[string]interface{}
 	if err := json.Unmarshal(input, &data); err != nil {
 		return input
 	}
 
-	maskSensitiveFields(data)
+	maskSensitiveFields(data, keys...)
 
 	output, err := json.Marshal(data)
 	if err != nil {
 		return input
 	}
+
 	return output
 }
 
-func maskSensitiveFields(data map[string]interface{}) {
+func maskSensitiveFields(data map[string]interface{}, keys ...string) {
 	for key, value := range data {
-		if strings.Contains(strings.ToLower(key), "pass") || strings.Contains(strings.ToLower(key), "pwd") {
-			if _, ok := value.(string); ok {
-				data[key] = "****"
+		for _, sensitiveKey := range keys {
+			if strings.Contains(strings.ToLower(key), strings.ToLower(sensitiveKey)) {
+				if _, ok := value.(string); ok {
+					data[key] = "****"
+					break
+				}
 			}
-		} else if nested, ok := value.(map[string]interface{}); ok {
-			maskSensitiveFields(nested)
+		}
+
+		if nested, ok := value.(map[string]interface{}); ok {
+			maskSensitiveFields(nested, keys...)
 		} else if array, ok := value.([]interface{}); ok {
 			for _, item := range array {
 				if nestedMap, ok := item.(map[string]interface{}); ok {
-					maskSensitiveFields(nestedMap)
+					maskSensitiveFields(nestedMap, keys...)
 				}
 			}
 		}

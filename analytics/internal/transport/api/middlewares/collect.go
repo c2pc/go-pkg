@@ -190,9 +190,10 @@ func (l *logger) middleware(c *gin.Context) {
 
 		operationID, _ := mcontext.GetOperationID(ctx)
 
+		var importantKeys = []string{"pass", "token", "pwd"}
 		var compressedRequest []byte
 		if len(requestBody) > 0 {
-			data := jsonutil.JsonClearPassword(compressData(requestBody))
+			data := compressData(jsonutil.JsonHideImportantData(requestBody, importantKeys...))
 			compressedRequest = data
 		} else {
 			compressedRequest = nil
@@ -201,7 +202,7 @@ func (l *logger) middleware(c *gin.Context) {
 		var compressedResponse []byte
 		if w != nil {
 			if w.flag && w.body != nil && w.body.Len() > 0 {
-				data := compressData(w.body.Bytes())
+				data := compressData(jsonutil.JsonHideImportantData(w.body.Bytes(), importantKeys...))
 				compressedResponse = data
 			} else {
 				compressedResponse = nil
