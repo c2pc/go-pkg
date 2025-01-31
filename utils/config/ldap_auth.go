@@ -4,7 +4,7 @@ const (
 	DefaultTimeout = 10
 )
 
-type Config struct {
+type LDAPAuth struct {
 	Enable    bool   `yaml:"enable"`
 	ServerURL string `yaml:"server_url"`
 	SecretKey string `yaml:"secret_key"`

@@ -8,14 +8,14 @@ import (
 )
 
 type Config struct {
-	PasswordSalt string         `yaml:"password_salt"`
-	PostgresUrl  string         `yaml:"postgres_url"`
-	LOG          config.LOG     `yaml:"log"`
-	HTTP         config.HTTP    `yaml:"http"`
-	AUTH         config.AUTH    `yaml:"auth"`
-	LIMITER      config.Limiter `yaml:"limiter"`
-	Redis        config.Redis   `yaml:"redis"`
-	LDAPConfig   config.Config  `yaml:"ldap_config"`
+	PasswordSalt string          `yaml:"password_salt"`
+	PostgresUrl  string          `yaml:"postgres_url"`
+	LOG          config.LOG      `yaml:"log"`
+	HTTP         config.HTTP     `yaml:"http"`
+	AUTH         config.AUTH     `yaml:"auth"`
+	LIMITER      config.Limiter  `yaml:"limiter"`
+	Redis        config.Redis    `yaml:"redis"`
+	LDAPConfig   config.LDAPAuth `yaml:"ldap_config"`
 }
 
 func NewConfig(configPath string) (*Config, error) {
