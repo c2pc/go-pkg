@@ -376,7 +376,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	if _, err := s.tokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
 		UserID:    input.UserID,
 		DeviceID:  input.DeviceID,
-		Token:     tokenString,
+		Token:     input.RefreshToken,
 		LoggedAt:  time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 		ExpiresAt: expiresAt,
