@@ -31,11 +31,14 @@ func (s *SSE) Stream(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+
 	client, ok := v.(service.Client)
 	if !ok {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
+
+	go s.sendHelloMessage(c.Request.Context(), client.ID)
 
 	c.Stream(func(w io.Writer) bool {
 		select {
@@ -74,6 +77,15 @@ func (s *SSE) SendMessage(ctx context.Context, m models.Message) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (s *SSE) sendHelloMessage(ctx context.Context, clientID int) error {
+	return s.SendMessage(ctx, models.Message{
+		Type:    "hello",
+		Action:  "hello",
+		Message: map[string]string{"hello": "hello"},
+		To:      &clientID,
+	})
 }
 
 func sseHeadersMiddleware() gin.HandlerFunc {
