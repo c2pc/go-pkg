@@ -1,6 +1,6 @@
 package model
 
-const LIMIT = 10
+const LIMIT = 100
 const NO_LIMIT = -1
 
 type Pagination[C any] struct {
