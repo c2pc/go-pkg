@@ -11,6 +11,7 @@ const (
 	StatusStopped = "stopped"
 	StatusFailed  = "failed"
 	StatusSuccess = "success"
+	StatusWarning = "warning"
 )
 
 var Statuses = map[string]string{
@@ -19,6 +20,7 @@ var Statuses = map[string]string{
 	StatusStopped: StatusStopped,
 	StatusFailed:  StatusFailed,
 	StatusSuccess: StatusSuccess,
+	StatusWarning: StatusWarning,
 }
 
 type User struct {

@@ -110,6 +110,11 @@ func (e *Task) listen(ctx context.Context) {
 			var status string
 			if result.Status != nil {
 				status = e.getStatus(*result.Status)
+				if status == model.StatusSuccess && result.Message != nil {
+					if result.Message.Errors != nil && len(result.Message.Errors) > 0 {
+						status = model.StatusWarning
+					}
+				}
 				input.Status = &status
 			}
 
