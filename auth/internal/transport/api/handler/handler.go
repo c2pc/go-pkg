@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"regexp"
+
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 
 	service2 "github.com/c2pc/go-pkg/v2/auth/internal/service"
 	middleware2 "github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
@@ -51,7 +52,7 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 		translator.SetValidateTranslators(v)
 
 		_ = v.RegisterValidation("device_id", validator2.ValidateDeviceID, true)
-		_ = v.RegisterValidation("dot_underscore_hyphen", validator3.ValidateRegex(regexp.MustCompile("^[\\sa-zA-Z0-9а-яА-Я_.-]*$")), false)
+		_ = v.RegisterValidation("dot_underscore_hyphen", validator2.DotUnderscoreHyphen, false)
 		_ = v.RegisterValidation("dot_underscore_hyphen_space", validator2.DotUnderscoreHyphenSpace, true)
 		_ = v.RegisterValidation("spec_chars", validator3.ValidateRegex(regexp.MustCompile("^[a-zA-Z0-9а-яА-Я`~!@#$%^&*()_+={}\\[\\]\\\\|:;\"/'<>,.?-]*$")), false)
 
