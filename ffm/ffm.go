@@ -22,11 +22,13 @@ type FileManager interface {
 	LS(ctx context.Context, request LSRequest) ([]FileInfo, error)
 	Info(ctx context.Context, path string) (*FileInfo, error)
 	MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error)
-	DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfo, error)
+	DecodeAudio(ctx context.Context, request DecodeAudioRequest) (*FileInfo, error)
 	Upload(ctx context.Context, request UploadRequest) ([]FileInfo, error)
 	Remove(ctx context.Context, request RemoveRequest) error
 	GenDownloadPath(info FileInfo) string
 	GenCompressDownloadPath(info FileInfo) string
+	CP(ctx context.Context, input FileCopyRequest) (*FileInfo, error)
+	MV(ctx context.Context, input FileMoveRequest) (*FileInfo, error)
 }
 
 type FFM struct {
@@ -57,6 +59,24 @@ func New(cfg Config) (FileManager, error) {
 	}
 
 	return ffm, nil
+}
+
+func (f *FFM) CP(ctx context.Context, input FileCopyRequest) (*FileInfo, error) {
+	var response FileInfo
+	err := f.jsonRequest(ctx, http.MethodPost, "cp", input, &response)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+func (f *FFM) MV(ctx context.Context, input FileMoveRequest) (*FileInfo, error) {
+	var response FileInfo
+	err := f.jsonRequest(ctx, http.MethodPost, "mv", input, &response)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 func (f *FFM) SetAddr(addr string) FileManager {
@@ -102,7 +122,7 @@ func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error
 	return &response, nil
 }
 
-func (f *FFM) DecodeMp3(ctx context.Context, request DecodeMp3Request) (*FileInfo, error) {
+func (f *FFM) DecodeAudio(ctx context.Context, request DecodeAudioRequest) (*FileInfo, error) {
 	var response FileInfo
 	err := f.jsonRequest(ctx, http.MethodPost, "decode-mp3", request, &response)
 	if err != nil {

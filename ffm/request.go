@@ -25,6 +25,17 @@ type LSRequest struct {
 	SkipPath      bool    `json:"skip_path" url:"skip_path"`
 }
 
+type FileCopyRequest struct {
+	Src             string `json:"src"`
+	Dst             string `json:"dst"`
+	ReplaceIfExists bool   `json:"replace_if_exists"`
+}
+
+type FileMoveRequest struct {
+	Src             string `json:"src"`
+	Dst             string `json:"dst"`
+	ReplaceIfExists bool   `json:"replace_if_exists"`
+}
 type PathRequest struct {
 	Path string `json:"path" url:"path"`
 }
@@ -36,7 +47,7 @@ type MkDirRequest struct {
 	IgnoreExistsError bool   `json:"ignore_exists_error" url:"ignore_exists_error"`
 }
 
-type DecodeMp3Request struct {
+type DecodeAudioRequest struct {
 	Path            string `json:"path" url:"path"`
 	DeleteOriginal  bool   `json:"delete_original" url:"delete_original"`
 	ReplaceIfExists bool   `json:"replace_if_exists" url:"replace_if_exists"`
