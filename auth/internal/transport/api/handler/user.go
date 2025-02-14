@@ -110,6 +110,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Creat
 		Email:      cred.Email,
 		Phone:      cred.Phone,
 		Roles:      cred.Roles,
+		Blocked:    cred.Blocked,
 	}, profileCred)
 	if err != nil {
 		response.Response(c, err)
@@ -150,6 +151,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 		Email:      cred.Email,
 		Phone:      cred.Phone,
 		Roles:      cred.Roles,
+		Blocked:    cred.Blocked,
 	}, profileCred); err != nil {
 		response.Response(c, err)
 		return
