@@ -147,7 +147,7 @@ type AuthRefresh struct {
 }
 
 func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, int, error) {
-	token, err := s.tokenRepository.Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
+	token, err := s.tokenRepository.With("user").Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
 	if err != nil {
 		return nil, 0, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -155,6 +155,18 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 	var accessTokenTTL int64
 	var refreshToken string
 	var isDomain bool
+
+	if token.User.Blocked {
+		if err := s.userCache.DelUsersInfo(token.User.ID).ChainExecDel(ctx); err != nil {
+			return nil, token.User.ID, apperr.ErrUnauthenticated.WithError(err)
+		}
+
+		if err := s.tokenCache.DeleteAllUserTokens(ctx, token.User.ID); err != nil {
+			return nil, token.User.ID, apperr.ErrUnauthenticated.WithError(err)
+		}
+
+		return nil, token.User.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
+	}
 
 	if token.Domain {
 		if s.ldapAuth == nil {

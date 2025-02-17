@@ -334,6 +334,18 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 		}
 	}
 
+	if input.Blocked != nil {
+		if *input.Blocked {
+			if err := s.userCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
+				return apperr.ErrInternal.WithError(err)
+			}
+
+			if err := s.tokenCache.DeleteAllUserTokens(ctx, user.ID); err != nil {
+				return apperr.ErrInternal.WithError(err)
+			}
+		}
+	}
+
 	return nil
 }
 
