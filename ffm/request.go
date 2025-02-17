@@ -15,6 +15,11 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
+type FileUnpackRequest struct {
+	Src string `json:"src"`
+	Dst string `json:"dst"`
+}
+
 type LSRequest struct {
 	Path          string  `json:"path" url:"path"`
 	Recursive     bool    `json:"recursive" url:"recursive"`
