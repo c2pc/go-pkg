@@ -11,7 +11,7 @@ import (
 )
 
 func LoggerWithConfig(loggerID string, newLine bool) gin.LoggerConfig {
-	writer := logger.NewLogWriter(loggerID, true, 0)
+	writer := logger.NewLogWriter(loggerID, false, 0)
 	return gin.LoggerConfig{
 		Formatter: func(param gin.LogFormatterParams) string {
 			userData := "unknow"

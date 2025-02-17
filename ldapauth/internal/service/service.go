@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -116,31 +117,31 @@ func (a *LdapService) Login(username, password string) (*TokenResponse, error) {
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("making request to LDAP server: %v", err))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("making request to LDAP server: %v", err))
 		}
 		return nil, appErrors.ErrInternal.WithError(err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			if level.Is(a.debug, level.TEST) {
-				logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("error - %v", err))
+				logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("error - %v", err))
 			}
 		}
 	}()
 
 	if resp.StatusCode == http.StatusForbidden {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Unauthorized access for user: %s", username))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Unauthorized access for user: %s", username))
 		}
 		return nil, appErrors.ErrForbidden
 	} else if resp.StatusCode == http.StatusUnauthorized {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("user unauthorized: %d", resp.StatusCode))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("user unauthorized: %d", resp.StatusCode))
 		}
 		return nil, appErrors.ErrUnauthenticated
 	} else if resp.StatusCode != http.StatusOK {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Unexpected status code: %d", resp.StatusCode))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Unexpected status code: %d", resp.StatusCode))
 		}
 		return nil, appErrors.ErrInternal
 	}
@@ -153,14 +154,14 @@ func (a *LdapService) Login(username, password string) (*TokenResponse, error) {
 	userClaims, err := a.validateToken(tokenResp.Access)
 	if err != nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Token validation failed: %v", err))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Token validation failed: %v", err))
 		}
 		return nil, appErrors.ErrForbidden.WithError(err)
 	}
 
 	if userClaims == nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, "user claims is nil")
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", "user claims is nil")
 		}
 		return nil, appErrors.ErrForbidden
 	}
@@ -191,7 +192,7 @@ func (a *LdapService) Refresh(refreshToken string) (*TokenResponse, error) {
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Error making refresh request: %v", err))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Error making refresh request: %v", err))
 		}
 		return nil, appErrors.ErrInternal.WithError(err)
 	}
@@ -199,19 +200,19 @@ func (a *LdapService) Refresh(refreshToken string) (*TokenResponse, error) {
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			if level.Is(a.debug, level.TEST) {
-				logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Error closing response body: %v", err))
+				logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Error closing response body: %v", err))
 			}
 		}
 	}()
 
 	if resp.StatusCode == http.StatusNotFound {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Refresh token not found"))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Refresh token not found"))
 		}
 		return nil, appErrors.ErrNotFound
 	} else if resp.StatusCode != http.StatusOK {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Unexpected status code during refresh: %d", resp.StatusCode))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Unexpected status code during refresh: %d", resp.StatusCode))
 		}
 		return nil, appErrors.ErrInternal
 	}
@@ -224,7 +225,7 @@ func (a *LdapService) Refresh(refreshToken string) (*TokenResponse, error) {
 	userClaims, err := a.validateToken(tokenResp.Access)
 	if err != nil {
 		if level.Is(a.debug, level.TEST) {
-			logger2.WarningLog("[LDAP AUTH]", true, fmt.Sprintf("Token validation failed: %v", err))
+			logger2.WarningLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Token validation failed: %v", err))
 		}
 		return nil, appErrors.ErrForbidden.WithError(err)
 	}
@@ -238,7 +239,7 @@ func (a *LdapService) validateToken(tokenString string) (*UserClaims, error) {
 
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			if level.Is(a.debug, level.TEST) {
-				logger2.ErrorLog("[LDAP AUTH]", true, fmt.Sprintf("Unexpected signing method: %v", token.Header["alg"]))
+				logger2.ErrorLog(context.Background(), "[LDAP AUTH]", fmt.Sprintf("Unexpected signing method: %v", token.Header["alg"]))
 			}
 			return nil, appErrors.ErrInternal
 		}

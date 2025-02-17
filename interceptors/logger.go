@@ -10,7 +10,7 @@ import (
 )
 
 func Logger(loggerID string, newLine bool) logging.Logger {
-	writer := logger.NewLogWriter(loggerID, true, 0)
+	writer := logger.NewLogWriter(loggerID, false, 0)
 	logg := log.New(writer.Stdout, "\r\n\n", log.Lmsgprefix)
 	return logging.LoggerFunc(func(_ context.Context, lvl logging.Level, msg string, fields ...interface{}) {
 		prefix := ""

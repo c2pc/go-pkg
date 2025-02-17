@@ -19,7 +19,7 @@ func ConnectPostgres(url, loggerID string, logInfo bool) (*gorm.DB, error) {
 
 	if logInfo {
 		logLevel := gormLogger.Info
-		writer := logger.NewLogWriter(loggerID, true, 0)
+		writer := logger.NewLogWriter(loggerID, false, 0)
 		db.Logger = gormLogger.New(log.New(writer.Stdout, "\r\n\n", log.LstdFlags), gormLogger.Config{
 			SlowThreshold:             200 * time.Millisecond,
 			LogLevel:                  logLevel,
