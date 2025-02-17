@@ -124,7 +124,7 @@ func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error
 
 func (f *FFM) DecodeAudio(ctx context.Context, request DecodeAudioRequest) (*FileInfo, error) {
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodPost, "decode-mp3", request, &response)
+	err := f.jsonRequest(ctx, http.MethodPost, "decode-audio", request, &response)
 	if err != nil {
 		return nil, err
 	}
