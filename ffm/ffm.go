@@ -29,6 +29,16 @@ type FileManager interface {
 	GenCompressDownloadPath(info FileInfo) string
 	CP(ctx context.Context, input FileCopyRequest) (*FileInfo, error)
 	MV(ctx context.Context, input FileMoveRequest) (*FileInfo, error)
+	Unpack(ctx context.Context, request FileUnpackRequest) (*FileInfo, error)
+}
+
+func (f *FFM) Unpack(ctx context.Context, request FileUnpackRequest) (*FileInfo, error) {
+	var response FileInfo
+	err := f.jsonRequest(ctx, http.MethodPost, "unpack", request, &response)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 type FFM struct {
