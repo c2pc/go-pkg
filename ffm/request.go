@@ -16,8 +16,9 @@ import (
 )
 
 type FileUnpackRequest struct {
-	Src string `json:"src"`
-	Dst string `json:"dst"`
+	Src           string `json:"src"`
+	Dst           string `json:"dst"`
+	SkipParentDir bool   `json:"skip_parent_dir"`
 }
 
 type LSRequest struct {
