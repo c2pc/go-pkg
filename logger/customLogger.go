@@ -1,65 +1,60 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"os"
 )
 
-func InfoLog(module string, stdout bool, msg string) {
-	Info(loggersMap.getLogger(module), stdout, msg)
+func WithOperationID(ctx context.Context, msg string) string {
+	return msg
 }
 
-// InfofLog logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func InfofLog(module string, stdout bool, msg string, args ...interface{}) {
-	InfoLog(module, stdout, fmt.Sprintf(msg, args...))
+func InfoLog(ctx context.Context, module string, msg string) {
+	logInfo(loggersMap.getLogger(module), false, WithOperationID(ctx, msg))
 }
 
-// ErrorLog logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func ErrorLog(module string, stdout bool, msg string) {
-	Error(loggersMap.getLogger(module), stdout, msg)
+func InfofLog(ctx context.Context, module string, msg string, args ...interface{}) {
+	InfoLog(ctx, module, fmt.Sprintf(msg, args...))
 }
 
-// ErrorfLog logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func ErrorfLog(module string, stdout bool, msg string, args ...interface{}) {
-	ErrorLog(module, stdout, fmt.Sprintf(msg, args...))
+func ErrorLog(ctx context.Context, module string, msg string) {
+	logError(loggersMap.getLogger(module), false, WithOperationID(ctx, msg))
 }
 
-// WarningLog logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func WarningLog(module string, stdout bool, msg string) {
-	Warning(loggersMap.getLogger(module), stdout, msg)
+func ErrorfLog(ctx context.Context, module string, msg string, args ...interface{}) {
+	ErrorLog(ctx, module, fmt.Sprintf(msg, args...))
 }
 
-// WarningfLog logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func WarningfLog(module string, stdout bool, msg string, args ...interface{}) {
-	WarningLog(module, stdout, fmt.Sprintf(msg, args...))
+func WarningLog(ctx context.Context, module string, msg string) {
+	logWarning(loggersMap.getLogger(module), false, WithOperationID(ctx, msg))
 }
 
-// FatalLog logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
-func FatalLog(module string, stdout bool, msg string) {
-	Critical(loggersMap.getLogger(module), msg)
+func WarningfLog(ctx context.Context, module string, msg string, args ...interface{}) {
+	WarningLog(ctx, module, fmt.Sprintf(msg, args...))
+}
+
+func FatalLog(ctx context.Context, module string, msg string) {
+	logCritical(loggersMap.getLogger(module), WithOperationID(ctx, msg))
 	addFatalError(module, msg)
-	write(stdout, getFatalErrorMsg(), os.Stdout)
+	write(false, getFatalErrorMsg(), os.Stdout)
 	os.Exit(1)
 }
 
-// FatalfLog logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
-func FatalfLog(module string, stdout bool, msg string, args ...interface{}) {
-	FatalLog(module, stdout, fmt.Sprintf(msg, args...))
+func FatalfLog(ctx context.Context, module string, msg string, args ...interface{}) {
+	FatalLog(ctx, module, fmt.Sprintf(msg, args...))
 }
 
-// DebugLog logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func DebugLog(module string, stdout bool, msg string) {
-	Debug(loggersMap.getLogger(module), stdout, msg)
+func DebugLog(ctx context.Context, module string, msg string) {
+	logDebug(loggersMap.getLogger(module), false, WithOperationID(ctx, msg))
 }
 
-// DebugfLog logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func DebugfLog(module string, stdout bool, msg string, args ...interface{}) {
-	DebugLog(module, stdout, fmt.Sprintf(msg, args...))
+func DebugfLog(ctx context.Context, module string, msg string, args ...interface{}) {
+	DebugLog(ctx, module, fmt.Sprintf(msg, args...))
 }
 
-// HandleWarningMessagesLog logs multiple messages in WARNING mode
-func HandleWarningMessagesLog(module string, stdout bool, warnings []string) {
+func HandleWarningMessagesLog(ctx context.Context, module string, warnings []string) {
 	for _, warning := range warnings {
-		WarningLog(module, stdout, warning)
+		WarningLog(ctx, module, warning)
 	}
 }

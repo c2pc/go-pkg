@@ -1,77 +1,66 @@
 package logger
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 )
 
-// Writer represents to a custom writer.
-// It intercepts the log messages and redirects them to logger according the log level given in info
-type Writer struct {
-	LoggerID            string
-	ShouldWriteToStdout bool
-	stream              int
-	File                io.Writer
-	isErrorStream       bool
+// Info logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Info(msg string) {
+	logInfo(loggersMap.getLogger(ModuleID), false, msg)
 }
 
-// LogInfo represents the log message structure for plugins
-type LogInfo struct {
-	LogLevel string `json:"logLevel"`
-	Message  string `json:"message"`
+// Infof logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Infof(msg string, args ...interface{}) {
+	Info(fmt.Sprintf(msg, args...))
 }
 
-func (w Writer) Write(p []byte) (int, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(p)))
-	for scanner.Scan() {
-		_logEntry := strings.Trim(scanner.Text(), " ")
-		if _logEntry == "" {
-			continue
-		}
-		_p := []byte(_logEntry)
-		m := &LogInfo{}
-		err := json.Unmarshal(_p, m)
-		if err != nil {
-			if w.isErrorStream {
-				Error(loggersMap.getLogger(w.LoggerID), w.ShouldWriteToStdout, string(_p))
-			} else {
-				Info(loggersMap.getLogger(w.LoggerID), w.ShouldWriteToStdout, string(_p))
-			}
-		}
-		if w.stream > 0 {
-			m.Message = fmt.Sprintf("[runner: %d] %s", w.stream, m.Message)
-		}
-		switch m.LogLevel {
-		case "debug":
-			Debug(loggersMap.getLogger(w.LoggerID), w.ShouldWriteToStdout, m.Message)
-		case "info":
-			Info(loggersMap.getLogger(w.LoggerID), w.ShouldWriteToStdout, m.Message)
-		case "error":
-			Error(loggersMap.getLogger(w.LoggerID), w.ShouldWriteToStdout, m.Message)
-		case "warning":
-			Warning(loggersMap.getLogger(w.LoggerID), w.ShouldWriteToStdout, m.Message)
-		case "fatal":
-			Critical(loggersMap.getLogger(w.LoggerID), m.Message)
-			addFatalError(w.LoggerID, m.Message)
-		}
-	}
-	return len(p), nil
+// Error logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Error(msg string) {
+	logError(loggersMap.getLogger(ModuleID), false, msg)
 }
 
-// LogWriter represents the type which consists of two custom writers
-type LogWriter struct {
-	Stderr io.Writer
-	Stdout io.Writer
+// Errorf logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Errorf(msg string, args ...interface{}) {
+	Error(fmt.Sprintf(msg, args...))
 }
 
-// NewLogWriter creates a new logWriter for given id
-func NewLogWriter(LoggerID string, stdout bool, stream int) *LogWriter {
-	return &LogWriter{
-		Stderr: Writer{ShouldWriteToStdout: stdout, stream: stream, LoggerID: LoggerID, File: os.Stderr},
-		Stdout: Writer{ShouldWriteToStdout: stdout, stream: stream, LoggerID: LoggerID, File: os.Stdout},
+// Warning logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Warning(msg string) {
+	logWarning(loggersMap.getLogger(ModuleID), false, msg)
+}
+
+// Warningf logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Warningf(msg string, args ...interface{}) {
+	Warning(fmt.Sprintf(msg, args...))
+}
+
+// Fatal logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
+func Fatal(msg string) {
+	logCritical(loggersMap.getLogger(ModuleID), msg)
+	addFatalError(ModuleID, msg)
+	write(false, getFatalErrorMsg(), os.Stdout)
+	os.Exit(1)
+}
+
+// Fatalf logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
+func Fatalf(msg string, args ...interface{}) {
+	Fatal(fmt.Sprintf(msg, args...))
+}
+
+// Debug logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Debug(msg string) {
+	logDebug(loggersMap.getLogger(ModuleID), false, msg)
+}
+
+// Debugf logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
+func Debugf(msg string, args ...interface{}) {
+	Debug(fmt.Sprintf(msg, args...))
+}
+
+// HandleWarningMessages logs multiple messages in WARNING mode
+func HandleWarningMessages(warnings []string) {
+	for _, warning := range warnings {
+		Warning(warning)
 	}
 }
