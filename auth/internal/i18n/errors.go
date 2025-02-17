@@ -6,6 +6,7 @@ var (
 	ErrUserNotFound             = translator.Translate{translator.RU: "Пользователь не найден", translator.EN: "User not found"}
 	ErrUserExists               = translator.Translate{translator.RU: "Пользователь с таким логином уже зарегистрирован", translator.EN: "A user with this login is already registered"}
 	ErrUserRolesCannotBeChanged = translator.Translate{translator.RU: "Нельзя назначать пользователю другие роли", translator.EN: "User roles cannot be changed"}
+	ErrUserCannotBeBlocked      = translator.Translate{translator.RU: "Пользователь не может быть заблокирован", translator.EN: "User cannot be blocked"}
 	ErrUserCannotBeDeleted      = translator.Translate{translator.RU: "Пользователя нельзя удалять", translator.EN: "User cannot be deleted"}
 )
 
