@@ -1,11 +1,11 @@
-package handlers
+package handler
 
 import (
 	"context"
 	"io"
 	"net/http"
 
-	"github.com/c2pc/go-pkg/v2/sse/models"
+	"github.com/c2pc/go-pkg/v2/sse/model"
 	"github.com/c2pc/go-pkg/v2/sse/service"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
@@ -55,32 +55,8 @@ func (s *SSE) Stream(c *gin.Context) {
 	})
 }
 
-func (s *SSE) SendMessage(ctx context.Context, m models.Message) error {
-	data := models.Data{
-		Message:       m.Message,
-		MessageType:   m.Type,
-		MessageAction: m.Action,
-		From:          m.From,
-		To:            m.To,
-	}
-	if m.Topic != nil {
-		data.Topic = string(*m.Topic)
-	}
-
-	if m.PushType != nil {
-		data.PushType = *m.PushType
-	}
-
-	select {
-	case s.manager.Broadcast <- data:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
 func (s *SSE) sendHelloMessage(ctx context.Context, clientID int) error {
-	return s.SendMessage(ctx, models.Message{
+	return s.manager.SendMessage(ctx, model.Message{
 		Type:    "hello",
 		Action:  "hello",
 		Message: map[string]string{"hello": "hello"},
@@ -108,7 +84,7 @@ func (s *SSE) sseConnMiddleware() gin.HandlerFunc {
 
 		client := service.Client{
 			ID:      clientID,
-			Channel: make(chan models.Data, s.manager.LenChan),
+			Channel: make(chan model.Data, s.manager.LenChan),
 		}
 
 		s.manager.RegisterClient(client)

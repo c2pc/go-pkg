@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/sse"
-	"github.com/c2pc/go-pkg/v2/sse/models"
+	sseModel "github.com/c2pc/go-pkg/v2/sse/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
@@ -533,7 +533,7 @@ func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString stri
 }
 
 func (s TaskService) sendStatusChangedMessage(ctx context.Context, task *model.Task) error {
-	msg := models.Message{
+	msg := sseModel.Message{
 		Type:   model.TaskMessageType,
 		Action: model.TaskStatusChangedMessageAction,
 		Message: model.TaskMessage{

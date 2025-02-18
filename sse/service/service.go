@@ -1,20 +1,21 @@
 package service
 
 import (
+	"context"
 	"sync"
 
-	"github.com/c2pc/go-pkg/v2/sse/models"
+	"github.com/c2pc/go-pkg/v2/sse/model"
 )
 
 type Client struct {
 	ID      int
-	Channel chan models.Data
+	Channel chan model.Data
 }
 
 type SSEManager struct {
 	mu          sync.RWMutex
-	clients     map[int]chan models.Data
-	Broadcast   chan models.Data
+	clients     map[int]chan model.Data
+	Broadcast   chan model.Data
 	newClient   chan Client
 	closeClient chan Client
 	done        chan struct{}
@@ -23,8 +24,8 @@ type SSEManager struct {
 
 func NewSSEManager(lenChan int) *SSEManager {
 	mgr := &SSEManager{
-		clients:     make(map[int]chan models.Data),
-		Broadcast:   make(chan models.Data, lenChan),
+		clients:     make(map[int]chan model.Data),
+		Broadcast:   make(chan model.Data, lenChan),
 		newClient:   make(chan Client, lenChan),
 		closeClient: make(chan Client, lenChan),
 		done:        make(chan struct{}),
@@ -81,4 +82,28 @@ func (mgr *SSEManager) UnregisterClient(c Client) {
 
 func (mgr *SSEManager) Shutdown() {
 	close(mgr.done)
+}
+
+func (mgr *SSEManager) SendMessage(ctx context.Context, m model.Message) error {
+	data := model.Data{
+		Message:       m.Message,
+		MessageType:   m.Type,
+		MessageAction: m.Action,
+		From:          m.From,
+		To:            m.To,
+	}
+	if m.Topic != nil {
+		data.Topic = string(*m.Topic)
+	}
+
+	if m.PushType != nil {
+		data.PushType = *m.PushType
+	}
+
+	select {
+	case mgr.Broadcast <- data:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
