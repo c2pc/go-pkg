@@ -9,7 +9,6 @@ import (
 var Permissions = []model2.Permission{
 	{Method: "auth/roles", Desc: i18n.RolesPermission},
 	{Method: "auth/users", Desc: i18n.UsersPermission},
-	{Method: "auth/permissions", Desc: i18n.PermissionsPermission},
 	{Method: "auth/sessions", Desc: i18n.SessionsPermission},
 }
 
