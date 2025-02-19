@@ -65,7 +65,7 @@ func Connect(urls []string, debug string, serviceName string) (*grpc.ClientConn,
 	defer cansel()
 
 	if err := WaitForConnectionReady(ctx, conn); err != nil {
-		return nil, ErrConnectionNotReady
+		return conn, ErrConnectionNotReady
 	}
 
 	return conn, err
