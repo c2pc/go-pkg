@@ -134,13 +134,13 @@ func logCritical(logger *logging.Logger, msg string) {
 }
 
 func write(stdout bool, msg string, writer io.Writer) {
-	if stdout {
-		if machineReadable {
-			machineReadableLog(msg)
-		} else {
-			fmt.Fprintln(writer, msg)
-		}
-	}
+	//if stdout {
+	//	if machineReadable {
+	//		machineReadableLog(msg)
+	//	} else {
+	//		fmt.Fprintln(writer, msg)
+	//	}
+	//}
 }
 
 // OutMessage contains information for output log
