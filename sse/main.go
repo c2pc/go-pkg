@@ -26,6 +26,7 @@ func New(lenChan int) SSE {
 
 	return &sseImpl{
 		sseHandler: sseHandler,
+		sseManager: sseManager,
 	}
 }
 
