@@ -1,4 +1,4 @@
-package csta
+package balancer
 
 import (
 	"bytes"
@@ -78,7 +78,7 @@ func NewClient(config Config, debug string) (*Client, error) {
 	}
 	for i, url := range config.Urls {
 		if url == "" {
-			return nil, errors.New("empty csta url")
+			return nil, errors.New("empty balancer url")
 		}
 		if !strings.HasSuffix(url, "/") {
 			config.Urls[i] += "/"
