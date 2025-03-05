@@ -19,8 +19,7 @@ func init() {
 }
 
 type YamlConfig struct {
-	Path        string
-	WithComment string
+	Path string
 }
 
 type Yaml struct {
@@ -45,8 +44,7 @@ func NewYaml(config *YamlConfig) (*Yaml, error) {
 
 	yml := &Yaml{
 		config: &YamlConfig{
-			Path:        path,
-			WithComment: config.WithComment,
+			Path: path,
 		},
 	}
 
@@ -109,13 +107,7 @@ func (y *Yaml) Run(migration io.Reader) error {
 	}
 
 	base := map[string]interface{}{}
-	if y.config.WithComment == "" {
-		base = Merge(migrMap, fileMap)
-	} else {
-		base = MergeWithComment(migrMap, fileMap, y.config.WithComment)
-		delete(base, y.config.WithComment+"version")
-		delete(base, y.config.WithComment+"force")
-	}
+	base = Merge(migrMap, fileMap)
 
 	delete(base, "version")
 	delete(base, "force")
@@ -173,7 +165,7 @@ func (y *Yaml) SetVersion(version int, dirty bool) error {
 		newData = ""
 	}
 
-	newData = fmt.Sprintf("force: %v\n", dirty) + newData
+	newData = fmt.Sprintf("force: %v\n", false) + newData
 	newData = fmt.Sprintf("version: %v\n", version) + newData
 
 	err = y.lockedfile.Truncate(0)

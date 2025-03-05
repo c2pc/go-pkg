@@ -1,7 +1,7 @@
 server1:
-  url1: "url1"
+  url1: "{{ip_address}}"
   username1:
 
 server2:
-  url2: "url2"
-  username2:
+  url2: "root:123123@tcp({{ip_address}}:3306)/root?charset=utf8mb4&parseTime=True&loc=Local"
+  username2: "{{random}}"

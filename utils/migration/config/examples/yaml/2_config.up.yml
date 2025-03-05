@@ -2,6 +2,7 @@ server1:
   username1: "username11"
 
 server2:
+  url2: "username21"
   username2: "username21"
   pass2: "pass21"
 

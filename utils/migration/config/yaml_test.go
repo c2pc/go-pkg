@@ -9,7 +9,7 @@ import (
 )
 
 func TestYaml_Up(t *testing.T) {
-	m, err := migrate.New("file://./examples/json", "yaml://./examples/config.yml")
+	m, err := migrate.New("file://./examples/yaml", "yaml://./examples/config.yml")
 	if err != nil {
 		t.Fatal(err)
 	}

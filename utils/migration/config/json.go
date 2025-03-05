@@ -18,8 +18,7 @@ func init() {
 }
 
 type JsonConfig struct {
-	Path        string
-	WithComment string
+	Path string
 }
 
 type Json struct {
@@ -44,8 +43,7 @@ func NewJson(config *JsonConfig) (*Json, error) {
 
 	js := &Json{
 		config: &JsonConfig{
-			Path:        path,
-			WithComment: config.WithComment,
+			Path: path,
 		},
 	}
 
@@ -112,13 +110,7 @@ func (j *Json) Run(migration io.Reader) error {
 	}
 
 	base := map[string]interface{}{}
-	if j.config.WithComment == "" {
-		base = Merge(migrMap, fileMap)
-	} else {
-		base = MergeWithComment(migrMap, fileMap, j.config.WithComment)
-		delete(base, j.config.WithComment+"version")
-		delete(base, j.config.WithComment+"force")
-	}
+	base = Merge(migrMap, fileMap)
 
 	delete(base, "version")
 	delete(base, "force")
