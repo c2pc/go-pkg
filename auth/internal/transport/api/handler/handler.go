@@ -1,16 +1,12 @@
 package handler
 
 import (
-	"regexp"
-
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 
 	service2 "github.com/c2pc/go-pkg/v2/auth/internal/service"
 	middleware2 "github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
-	validator2 "github.com/c2pc/go-pkg/v2/auth/internal/validator"
+	customValidator "github.com/c2pc/go-pkg/v2/auth/internal/validator"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
-	validator3 "github.com/c2pc/go-pkg/v2/utils/validator"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -49,15 +45,10 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 ) *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		translator.SetValidateTranslators(v)
-
-		_ = v.RegisterValidation("device_id", validator2.ValidateDeviceID, true)
-		_ = v.RegisterValidation("dot_underscore_hyphen", validator2.DotUnderscoreHyphen, false)
-		_ = v.RegisterValidation("dot_underscore_hyphen_space", validator2.DotUnderscoreHyphenSpace, true)
-		_ = v.RegisterValidation("spec_chars", validator3.ValidateRegex(regexp.MustCompile("^[a-zA-Z0-9а-яА-Я`~!@#$%^&*()_+={}\\[\\]\\\\|:;\"/'<>,.?-]*$")), false)
-
-		_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.RU, "device_id", "{0} неизвестное устройство", true))
-		_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.EN, "device_id", "{0] unknown device", true))
+		customValidator.DotUnderscoreHyphenValidation(v)      //dot_underscore_hyphen
+		customValidator.DotUnderscoreHyphenSpaceValidation(v) //dot_underscore_hyphen_space
+		customValidator.DeviceIDValidation(v)                 //device_id
+		customValidator.SpecCharsValidation(v)                //spec_chars
 	}
 
 	return &Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
