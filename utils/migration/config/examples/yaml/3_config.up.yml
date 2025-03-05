@@ -6,9 +6,9 @@ server2:
   url2: "username21"
 
 server10:
-  url1: "{{random}}"
-  url2: "{{random8}}"
-  url3: "{{random32}}"
-  url4: "{{random64}}"
-  url5: "root:123123@tcp({{ip_address}}:3306)/root?charset=utf8mb4&parseTime=True&loc=Local"
-  url6: "{{project_name}}"
+  url1: ___random___
+  url2: ___random8___
+  url3: ___random32___
+  url4: ___random64___
+  url5: root:123123@tcp(___ip_address___:3306)/root?charset=utf8mb4&parseTime=True&loc=Local
+  url6: ___project_name___

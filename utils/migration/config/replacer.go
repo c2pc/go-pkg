@@ -6,17 +6,16 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"runtime"
 	"strings"
 )
 
 var Replacer = map[string]func() string{
-	"{{ip_address}}":   ipReplacer,
-	"{{random}}":       randomReplacer(16),
-	"{{random8}}":      randomReplacer(8),
-	"{{random32}}":     randomReplacer(32),
-	"{{random64}}":     randomReplacer(64),
-	"{{project_name}}": projectNameReplacer,
+	"___ip_address___":   ipReplacer,
+	"___random___":       randomReplacer(16),
+	"___random8___":      randomReplacer(8),
+	"___random32___":     randomReplacer(32),
+	"___random64___":     randomReplacer(64),
+	"___project_name___": projectNameReplacer,
 }
 
 func replace(s string) string {
@@ -84,10 +83,10 @@ func projectNameReplacer() string {
 	m := regexp.MustCompile("^([a-zA-Z0-9]+)(.*)")
 	template := "${1}"
 
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
+	e, err := os.Executable()
+	if err != nil {
 		return m.ReplaceAllString(os.Args[0], template)
 	}
 
-	return m.ReplaceAllString(path.Base(path.Dir(filename)), template)
+	return m.ReplaceAllString(path.Base(path.Dir(e)), template)
 }

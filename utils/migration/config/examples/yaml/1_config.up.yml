@@ -1,7 +1,26 @@
-server1:
-  url1: "{{ip_address}}"
-  username1:
+app:
+  debug: production
+  log: logs/___project_name___
 
-server2:
-  url2: "root:123123@tcp({{ip_address}}:3306)/root?charset=utf8mb4&parseTime=True&loc=Local"
-  username2: "{{random}}"
+http:
+  host: ___ip_address___
+  port: 8057
+
+mysql_url: rapid:QwSDv@tcp(___ip_address___:3306)/rapidcall?charset=utf8mb4&parseTime=True&loc=Local
+soft_switch_url: ___ip_address___:1540
+
+redis:
+  address: [ localhost:6379 ]
+  username:
+  password:
+  cluster_mode: false
+  db: 0
+  max_retry: 10
+
+auth:
+  key: lkIUHBKJhobfwkbjelwouwebvkwkeJKIUYUYf67u
+  access_token_ttl: 30
+  refresh_token_ttl: 540
+
+password_salt: 32r2fUJHythg7678wEZftJiokl97HJn809HGVJHGVur65xtguyu
+abonent_password_salt: GHUYTFUY898g3gh3u4iGUYUGYuGYGIy786767GGHPOPugguyKKUYUYF
