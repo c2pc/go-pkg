@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -52,10 +51,10 @@ type Queue interface {
 type Consumers map[string]Consumer
 
 type Consumer interface {
-	Export(ctx context.Context, data []byte) (*model3.Message, error)
-	Import(ctx context.Context, data []byte) (*model3.Message, error)
-	MassUpdate(ctx context.Context, data []byte) (*model3.Message, error)
-	MassDelete(ctx context.Context, data []byte) (*model3.Message, error)
+	Export(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
+	Import(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
+	MassUpdate(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
+	MassDelete(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
 }
 
 type ITaskService interface {
@@ -137,11 +136,16 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 
 	task.Output, err = s.decompressData(task.Output)
 	if err != nil {
-		return nil, err
+		return nil, apperr.ErrBadRequest.WithError(err)
 	}
 
-	if task.Type == model3.Export {
-		fi, err := os.Stat(task.FilePath())
+	msg, err := s.unmarshalOutput(task.Output)
+	if err != nil {
+		return nil, apperr.ErrBadRequest.WithError(err)
+	}
+
+	if task.Type == model3.Export && msg != nil {
+		fi, err := os.Stat(task.FilePath(msg.FileName))
 		if err == nil {
 			size := fi.Size()
 			task.FileSize = &size
@@ -153,7 +157,7 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 }
 
 func (s TaskService) Download(ctx context.Context, id int) (string, error) {
-	task, err := s.taskRepository.Omit("input", "output").Find(ctx, `id = ?`, id)
+	task, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return "", ErrTaskNotFound
@@ -173,11 +177,21 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 		return "", ErrTaskFileNotFound
 	}
 
-	if _, err := os.Stat(task.FilePath()); err != nil {
-		return "", ErrTaskFileNotFound.WithError(err)
+	msg, err := s.unmarshalOutput(task.Output)
+	if err != nil {
+		return "", apperr.ErrBadRequest.WithError(err)
 	}
 
-	return task.FilePath(), nil
+	if msg != nil {
+		filePath := task.FilePath(msg.FileName)
+		if _, err := os.Stat(filePath); err != nil {
+			return "", ErrTaskFileNotFound.WithError(err)
+		}
+
+		return filePath, nil
+	}
+
+	return "", ErrTaskFileNotFound.WithErrorText("msg empty")
 }
 
 func (s TaskService) Stop(ctx context.Context, id int) error {
@@ -269,13 +283,6 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		selects = append(selects, "status")
 	}
 	if input.Output != nil {
-		if task.Type == model3.Export {
-			_, err = s.writeToFile(task, input.Output.GetData())
-			if err != nil {
-				return err
-			}
-		}
-
 		d, err := json.Marshal(input.Output)
 		if err != nil {
 			return err
@@ -349,7 +356,7 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 	for _, task := range tasks {
 		data, err := s.decompressData(task.Input)
 		if err != nil {
-			return err
+			return apperr.ErrBadRequest.WithError(err)
 		}
 
 		runFunc, err := s.getRunFunc(task.Type, task.Name)
@@ -468,27 +475,6 @@ func (s TaskService) getRunFunc(tp string, name string) (runner.RunFunc, error) 
 	}
 }
 
-func (s TaskService) writeToFile(task *model.Task, data []byte) (string, error) {
-	path := task.FilePath()
-
-	err := os.MkdirAll(filepath.Dir(path), os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	if _, err := file.Write(data); err != nil {
-		return "", err
-	}
-
-	return path, nil
-}
-
 func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string, error) {
 	task, err := s.taskRepository.Omit("input", "output").Find(ctx, `id = ?`, id)
 	if err != nil {
@@ -546,4 +532,18 @@ func (s TaskService) sendStatusChangedMessage(ctx context.Context, task *model.T
 	}
 
 	return s.sseService.SendMessage(ctx, msg)
+}
+
+func (s TaskService) unmarshalOutput(output []byte) (*model3.Message, error) {
+	var msg model3.Message
+	if output != nil {
+		err := json.Unmarshal(output, &msg)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, nil
+	}
+
+	return &msg, nil
 }

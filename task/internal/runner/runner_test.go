@@ -33,7 +33,7 @@ func TestRun(t *testing.T) {
 		Name:     "Test Task",
 		Type:     "test",
 		Data:     nil,
-		RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
 			return &model.Message{Count: 100}, nil
 		},
 	}
@@ -61,7 +61,7 @@ func TestStop(t *testing.T) {
 		ClientID: 123,
 		Name:     "Test Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
 			select {
 			case <-time.After(2 * time.Second): // Имитация долгой работы
 				return &model.Message{Count: 100}, nil
@@ -107,7 +107,7 @@ func TestExit(t *testing.T) {
 		ClientID: 123,
 		Name:     "Test Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
 			time.Sleep(10 * time.Second)
 			return &model.Message{Count: 100}, nil
 		},
@@ -150,7 +150,7 @@ func TestRunFuncError(t *testing.T) {
 		ClientID: 123,
 		Name:     "Failing Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
 			return nil, expectedErr
 		},
 	}
@@ -190,13 +190,14 @@ func TestConcurrentRun(t *testing.T) {
 	numTasks := 1000
 
 	for i := 0; i < numTasks; i++ {
-		func(id int) {
+		go func(id int) {
 			data := runner.Data{
 				ID:       i,
-				ClientID: numTasks % 100,
+				ClientID: numTasks % 10,
 				Name:     fmt.Sprintf("Task %d", numTasks%200),
 				Type:     "test",
-				RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
+				RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+					time.Sleep(1 * time.Millisecond)
 					if id%13 == 0 {
 						return nil, errTask
 					}
@@ -207,25 +208,24 @@ func TestConcurrentRun(t *testing.T) {
 		}(i)
 	}
 
-	go func() {
-		for i := numTasks; i < numTasks*2; i++ {
-			func(id int) {
-				data := runner.Data{
-					ID:       id,
-					ClientID: id,
-					Name:     fmt.Sprintf("Task %d", id),
-					Type:     "test",
-					RunFunc: func(ctx context.Context, data []byte) (*model.Message, error) {
-						if id%15 == 0 {
-							return nil, errTask
-						}
-						return &model.Message{Count: 100}, nil
-					},
-				}
-				r.Run(data)
-			}(i)
-		}
-	}()
+	for i := numTasks; i < numTasks*2; i++ {
+		func(id int) {
+			data := runner.Data{
+				ID:       id,
+				ClientID: id,
+				Name:     fmt.Sprintf("Task %d", id),
+				Type:     "test",
+				RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+					time.Sleep(100 * time.Nanosecond)
+					if id%15 == 0 {
+						return nil, errTask
+					}
+					return &model.Message{Count: 100}, nil
+				},
+			}
+			r.Run(data)
+		}(i)
+	}
 
 	go func() {
 		for i := numTasks - 100; i < numTasks+100; i++ {

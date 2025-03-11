@@ -10,12 +10,12 @@ type Error struct {
 }
 
 type Message struct {
-	Mu      sync.Mutex `json:"-"`
-	Count   int        `json:"count"`
-	Success []string   `json:"success,omitempty"`
-	Errors  []Error    `json:"errors,omitempty"`
-	Error   *string    `json:"error,omitempty"`
-	Data    []byte     `json:"-"`
+	Mu       sync.Mutex `json:"-"`
+	Count    int        `json:"count"`
+	Success  []string   `json:"success,omitempty"`
+	Errors   []Error    `json:"errors,omitempty"`
+	Error    *string    `json:"error,omitempty"`
+	FileName *string    `json:"file_name,omitempty"`
 }
 
 func NewMessage() *Message {
@@ -66,12 +66,12 @@ func (m *Message) GetCount() int {
 	return m.Count
 }
 
-func (m *Message) SetData(value []byte) {
-	m.Data = value
+func (m *Message) SetFileName(value string) {
+	m.FileName = &value
 }
 
-func (m *Message) GetData() []byte {
-	return m.Data
+func (m *Message) GetFileName() *string {
+	return m.FileName
 }
 
 func (m *Message) SetError(err string) {

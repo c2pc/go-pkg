@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const MediaPath = "media/tasks"
+
 const (
 	StatusPending = "pending"
 	StatusRunning = "running"
@@ -54,6 +56,10 @@ func (m Task) TableName() string {
 	return "auth_tasks"
 }
 
-func (m Task) FilePath() string {
-	return fmt.Sprintf("media/tasks/%s_task_%d.csv", m.Type, m.ID)
+func (m Task) FilePath(filePath *string) string {
+	if filePath == nil {
+		return fmt.Sprintf("%s/%s_task_%d.csv", MediaPath, m.Type, m.ID)
+	}
+
+	return fmt.Sprintf("%s/%s", MediaPath, *filePath)
 }

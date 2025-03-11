@@ -35,7 +35,7 @@ type TaskResult struct {
 	Error   error
 }
 
-type RunFunc func(ctx context.Context, data []byte) (*model.Message, error)
+type RunFunc func(ctx context.Context, taskID int, data []byte) (*model.Message, error)
 
 type Data struct {
 	ID       int
@@ -174,7 +174,7 @@ func (r *Runner) run(data Data) {
 
 	go func() {
 		defer close(done)
-		msg, err := data.RunFunc(ctx, data.Data)
+		msg, err := data.RunFunc(ctx, task.ID, data.Data)
 		task.EndedAt = time.Now()
 		if r.ctx.Err() != nil {
 			r.printf(ctx, "Task stopped globally: ID=%d", task.ID)

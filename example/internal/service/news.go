@@ -24,10 +24,8 @@ var (
 )
 
 type INewsService interface {
-	task.Consumer
 	Trx(db *gorm.DB) INewsService
 	List(ctx context.Context, m *model2.Meta[model.News]) error
-	ExportList(ctx context.Context) ([]model.News, error)
 	GetById(ctx context.Context, id int) (*model.News, error)
 	Create(ctx context.Context, input NewsCreateInput) (*model.News, error)
 	Update(ctx context.Context, id int, input NewsUpdateInput) error
@@ -53,10 +51,6 @@ func (s NewsService) Trx(db *gorm.DB) INewsService {
 
 func (s NewsService) List(ctx context.Context, m *model2.Meta[model.News]) error {
 	return s.newsRepository.Omit("content").Paginate(ctx, m, ``)
-}
-
-func (s NewsService) ExportList(ctx context.Context) ([]model.News, error) {
-	return s.newsRepository.List(ctx, &model2.Filter{}, ``)
 }
 
 func (s NewsService) GetById(ctx context.Context, id int) (*model.News, error) {
@@ -163,9 +157,10 @@ type NewsExportInput struct {
 	Filter model2.Filter `json:"filter"`
 }
 
-func (s NewsService) Export(ctx context.Context, data []byte) (*model3.Message, error) {
+func (s NewsService) Export(ctx context.Context, taskID int, data []byte) (*model3.Message, error) {
 	return task.Export[model.News, NewsExport, NewsExportInput](
 		ctx,
+		taskID,
 		data,
 		ErrNewsListIsEmpty,
 		func(nei NewsExportInput) error { return nil },
@@ -197,9 +192,10 @@ type NewsImportInput struct {
 	Data   []NewsImportDataInput `json:"data"`
 }
 
-func (s NewsService) Import(ctx context.Context, data []byte) (*model3.Message, error) {
+func (s NewsService) Import(ctx context.Context, taskID int, data []byte) (*model3.Message, error) {
 	return task.Import[NewsImportInput, NewsImportDataInput](
 		ctx,
+		taskID,
 		data,
 		func(nii NewsImportInput) error { return nil },
 		func(d NewsImportInput) []NewsImportDataInput {
@@ -235,9 +231,10 @@ type NewsMassUpdateInput struct {
 	Content *string `json:"content"`
 }
 
-func (s NewsService) MassUpdate(ctx context.Context, data []byte) (*model3.Message, error) {
+func (s NewsService) MassUpdate(ctx context.Context, taskID int, data []byte) (*model3.Message, error) {
 	return task.MassUpdate[NewsMassUpdateInput](
 		ctx,
+		taskID,
 		data,
 		ErrNewsNotFound,
 		func(nmui NewsMassUpdateInput) error { return nil },
@@ -267,9 +264,10 @@ type NewsMassDeleteInput struct {
 	IDs []int `json:"ids"`
 }
 
-func (s NewsService) MassDelete(ctx context.Context, data []byte) (*model3.Message, error) {
+func (s NewsService) MassDelete(ctx context.Context, taskID int, data []byte) (*model3.Message, error) {
 	return task.MassDelete[NewsMassDeleteInput](
 		ctx,
+		taskID,
 		data,
 		ErrNewsNotFound,
 		func(nmdi NewsMassDeleteInput) error { return nil },

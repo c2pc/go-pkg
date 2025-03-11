@@ -3,7 +3,13 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
+
+	model2 "github.com/c2pc/go-pkg/v2/task/internal/model"
+	"github.com/c2pc/go-pkg/v2/utils/secret"
 
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
@@ -192,7 +198,7 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, checkDat
 	return msg, nil
 }
 
-func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*model.Message, error) {
+func Export[T, C, N any](ctx context.Context, taskID int, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input N
@@ -239,7 +245,15 @@ func Export[T, C, N any](ctx context.Context, data []byte, emptyListError error,
 		return nil, apperr.ErrInternal.WithError(err)
 	}
 
-	msg.SetData(b)
+	rand, _ := secret.GenerateRandomString(5)
+	fileName := fmt.Sprintf("export_%d_%s.csv", taskID, rand)
+
+	_, err = WriteToFile(fileName, b)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.FileName = &fileName
 
 	return msg, nil
 }
@@ -253,4 +267,25 @@ func idToString[C string | int](id C) string {
 	default:
 		return "unsupported type"
 	}
+}
+
+func WriteToFile(fileName string, data []byte) (string, error) {
+	path := model2.MediaPath + "/" + fileName
+
+	err := os.MkdirAll(filepath.Dir(path), os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	if _, err := file.Write(data); err != nil {
+		return "", err
+	}
+
+	return path, nil
 }

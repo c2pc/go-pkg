@@ -35,16 +35,16 @@ func TestMassDelete(t *testing.T) {
 
 	notFoundError := apperr.ErrNotFound
 
-	msg, err := task.MassDelete(ctx, data, notFoundError, checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassDelete(ctx, 10, data, notFoundError, checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
 	assert.Len(t, msg.GetErrors(), 2)
 	assert.Len(t, msg.GetSuccesses(), 1)
 	assert.Equal(t, "1", msg.GetErrors()[0].Key)
-	assert.Equal(t, "Not found error", msg.GetErrors()[0].Value)
+	assert.Equal(t, "Не найдено", msg.GetErrors()[0].Value)
 	assert.Equal(t, "3", msg.GetErrors()[1].Key)
-	assert.Equal(t, "Bad request error", msg.GetErrors()[1].Value)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[1].Value)
 }
 
 func TestMassUpdate(t *testing.T) {
@@ -71,16 +71,16 @@ func TestMassUpdate(t *testing.T) {
 
 	notFoundError := apperr.ErrNotFound
 
-	msg, err := task.MassUpdate(ctx, data, notFoundError, checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassUpdate(ctx, 10, data, notFoundError, checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
 	assert.Len(t, msg.GetErrors(), 2)
 	assert.Len(t, msg.GetSuccesses(), 1)
 	assert.Equal(t, "1", msg.GetErrors()[0].Key)
-	assert.Equal(t, "Not found error", msg.GetErrors()[0].Value)
+	assert.Equal(t, "Не найдено", msg.GetErrors()[0].Value)
 	assert.Equal(t, "3", msg.GetErrors()[1].Key)
-	assert.Equal(t, "Bad request error", msg.GetErrors()[1].Value)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[1].Value)
 }
 
 func TestImport(t *testing.T) {
@@ -104,14 +104,14 @@ func TestImport(t *testing.T) {
 		return element, nil, nil
 	}
 
-	msg, err := task.Import(ctx, data, checkDatafn, dataFn, actionFn)
+	msg, err := task.Import(ctx, 10, data, checkDatafn, dataFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
 	assert.Len(t, msg.GetErrors(), 2)
 	assert.Len(t, msg.GetSuccesses(), 1)
-	assert.Equal(t, "1", msg.GetErrors()[0].Key)
-	assert.Equal(t, "Bad request error", msg.GetErrors()[0].Value)
+	assert.Equal(t, "0", msg.GetErrors()[0].Key)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[0].Value)
 }
 
 func TestExport(t *testing.T) {
@@ -135,14 +135,14 @@ func TestExport(t *testing.T) {
 	emptyListError := apperr.ErrBadRequest
 	data := []byte(`{}`)
 
-	msg, err := task.Export(ctx, data, emptyListError, checkDatafn, listFn, actionFn)
+	msg, err := task.Export(ctx, 10, data, emptyListError, checkDatafn, listFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
 	assert.Len(t, msg.GetErrors(), 1)
-	assert.NotNil(t, msg.GetData())
+	assert.NotNil(t, msg.GetFileName())
 	assert.Equal(t, "2", msg.GetErrors()[0].Key)
-	assert.Equal(t, "Bad request error", msg.GetErrors()[0].Value)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[0].Value)
 }
 
 func TestMassDelete_InvalidJSON(t *testing.T) {
@@ -154,7 +154,7 @@ func TestMassDelete_InvalidJSON(t *testing.T) {
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) { return nil, nil }
 	actionFn := func(ctx context.Context, input struct{}, id int) error { return nil }
 
-	msg, err := task.MassDelete(ctx, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassDelete(ctx, 10, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.Nil(t, msg)
 	assert.Error(t, err)
@@ -170,7 +170,7 @@ func TestMassDelete_ContextCancelled(t *testing.T) {
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) { return ids, nil }
 	actionFn := func(ctx context.Context, input struct{ IDs []int }, id int) error { return nil }
 
-	msg, err := task.MassDelete(ctx, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassDelete(ctx, 10, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
@@ -188,7 +188,7 @@ func TestMassUpdate_PluckIDsFnError(t *testing.T) {
 	}
 	actionFn := func(ctx context.Context, id int, input struct{ IDs []int }) error { return nil }
 
-	msg, err := task.MassUpdate(ctx, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassUpdate(ctx, 10, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.Nil(t, msg)
 	assert.Error(t, err)
@@ -208,7 +208,7 @@ func TestImport_AllSuccess(t *testing.T) {
 		return element, nil, nil
 	}
 
-	msg, err := task.Import(ctx, data, checkDatafn, dataFn, actionFn)
+	msg, err := task.Import(ctx, 10, data, checkDatafn, dataFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
@@ -231,7 +231,7 @@ func TestExport_EmptyList(t *testing.T) {
 	emptyListError := errors.New("empty list")
 	data := []byte(`{"filter": "empty"}`)
 
-	msg, err := task.Export(ctx, data, emptyListError, checkDatafn, listFn, actionFn)
+	msg, err := task.Export(ctx, 10, data, emptyListError, checkDatafn, listFn, actionFn)
 
 	assert.Nil(t, msg)
 	assert.Error(t, err)
@@ -248,7 +248,7 @@ func TestMassDelete_PluckIDsFnError(t *testing.T) {
 	}
 	actionFn := func(ctx context.Context, input struct{ IDs []int }, id int) error { return nil }
 
-	msg, err := task.MassDelete(ctx, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassDelete(ctx, 10, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.Nil(t, msg)
 	assert.Error(t, err)
@@ -266,7 +266,7 @@ func TestMassUpdate_InvalidJSON(t *testing.T) {
 		return nil
 	}
 
-	msg, err := task.MassUpdate(ctx, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassUpdate(ctx, 10, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.Nil(t, msg)
 	assert.Error(t, err)
@@ -283,7 +283,7 @@ func TestMassUpdate_ContextCancelled(t *testing.T) {
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) { return ids, nil }
 	actionFn := func(ctx context.Context, id int, input struct{}) error { return nil }
 
-	msg, err := task.MassUpdate(ctx, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
+	msg, err := task.MassUpdate(ctx, 10, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, msg.GetCount())
@@ -306,7 +306,7 @@ func TestExport_ListFnError(t *testing.T) {
 	emptyListError := errors.New("empty list")
 	data := []byte(`{"filter": "test"}`)
 
-	msg, err := task.Export(ctx, data, emptyListError, checkDatafn, listFn, actionFn)
+	msg, err := task.Export(ctx, 10, data, emptyListError, checkDatafn, listFn, actionFn)
 
 	assert.Nil(t, msg)
 	assert.Error(t, err)
