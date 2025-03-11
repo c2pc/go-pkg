@@ -13,6 +13,10 @@ func (m *IntSlice) MarshalCSV() ([]byte, error) {
 		d = append(d, strconv.Itoa(n))
 	}
 
+	if len(d) == 0 {
+		return nil, nil
+	}
+
 	return []byte(strings.Join(d, ",")), nil
 }
 
@@ -40,6 +44,10 @@ func (m *StringSlice) MarshalCSV() ([]byte, error) {
 	var d []string
 	for _, n := range *m {
 		d = append(d, n)
+	}
+
+	if len(d) == 0 {
+		return nil, nil
 	}
 
 	return []byte(strings.Join(d, ",")), nil

@@ -246,10 +246,9 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 	msgChan <- msg
 
 	w := csv.NewWriter(file)
-	enc := csvutil.NewEncoder(w)
 	defer w.Flush()
+	enc := csvutil.NewEncoder(w)
 
-	headerCount := 0
 	for i, item := range list {
 		msg.SetCount(i + 1)
 
@@ -260,13 +259,6 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 		c, err := actionFn(item)
 		if err != nil {
 			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
-		}
-
-		if headerCount == 0 {
-			if err = enc.EncodeHeader(c); err != nil {
-				return msg, apperr.ErrInternal.WithError(err)
-			}
-			headerCount++
 		}
 
 		if err := enc.Encode(c); err != nil {

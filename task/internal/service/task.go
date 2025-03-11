@@ -145,10 +145,6 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 		return nil, apperr.ErrBadRequest.WithError(err)
 	}
 
-	if msg != nil && msg.FileName != nil {
-		fmt.Printf("%+v\n", *msg.FileName)
-	}
-
 	if task.Type == model3.Export && msg != nil {
 		fi, err := os.Stat(task.FilePath(msg.FileName))
 		if err == nil {
@@ -545,10 +541,6 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 		}
 	} else {
 		return "", ErrTaskFileNotFound.WithErrorText("message empty")
-	}
-
-	if msg.FileName != nil {
-		fmt.Printf("%+v\n", *msg.FileName)
 	}
 
 	claims := tokenverify.BuildLinkClaims(strconv.Itoa(id), 15*time.Minute)
