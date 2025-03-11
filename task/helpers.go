@@ -263,7 +263,7 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 		}
 
 		if headerCount == 0 {
-			if err = enc.EncodeHeader(item); err != nil {
+			if err = enc.EncodeHeader(c); err != nil {
 				return msg, apperr.ErrInternal.WithError(err)
 			}
 			headerCount++
