@@ -249,6 +249,7 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 	defer w.Flush()
 	enc := csvutil.NewEncoder(w)
 
+	var export []C
 	for i, item := range list {
 		msg.SetCount(i + 1)
 
@@ -262,14 +263,21 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
 			continue
 		}
-		fmt.Println(c)
 
-		if err := enc.Encode(c); err != nil {
-			return msg, apperr.ErrInternal.WithError(err)
-		}
+		export = append(export, c)
 
 		if i%100 == 0 {
+			if err := enc.Encode(export); err != nil {
+				return msg, apperr.ErrInternal.WithError(err)
+			}
+			export = []C{}
 			msgChan <- msg
+		}
+	}
+
+	if len(export) > 0 {
+		if err := enc.Encode(export); err != nil {
+			return msg, apperr.ErrInternal.WithError(err)
 		}
 	}
 
