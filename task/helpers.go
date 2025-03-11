@@ -270,7 +270,7 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 		}
 
 		if err := enc.Encode(c); err != nil {
-			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
+			return msg, apperr.ErrInternal.WithError(err)
 		}
 
 		if i%100 == 0 {
