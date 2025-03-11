@@ -33,9 +33,6 @@ func NewRoleHandlers(
 func (h *RoleHandler) Init(api *gin.RouterGroup) {
 	role := api.Group("roles")
 	{
-		//role.POST("/mass-delete", h.DeleteMultiple)
-		//role.POST("/mass-add", h.CreateMultiple)
-		//role.POST("/mass-update", h.UpdateMultiple)
 		role.GET("", h.List)
 		role.GET("/:id", h.GetById)
 		role.POST("", h.tr.DBTransaction, h.Create)
@@ -131,90 +128,3 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 
 	c.Status(http.StatusOK)
 }
-
-//func (h *RoleHandler) CreateMultiple(c *gin.Context) {
-//	cred, err := request2.BindJSON[request2.MultipleAddRequest[request.RoleCreateRequest]](c)
-//	if err != nil {
-//		response.Response(c, err)
-//		return
-//	}
-//
-//	if cred == nil {
-//		c.JSON(http.StatusOK, []int{})
-//		return
-//	}
-//
-//	multiple := model2.NewMultiple()
-//	for _, input := range cred.Data {
-//		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-//			err := v.StructCtx(c.Request.Context(), input)
-//			if err == nil {
-//				data, err := h.roleService.Create(c.Request.Context(), dto.RoleCreate(&input))
-//				if err == nil {
-//					multiple.AddID(data.ID)
-//				}
-//			}
-//		}
-//	}
-//
-//	c.JSON(http.StatusOK, multiple.IDs())
-//}
-//
-//func (h *RoleHandler) UpdateMultiple(c *gin.Context) {
-//	type UpdateRequest struct {
-//		ID int `json:"id" binding:"required,gte=1"`
-//		request.RoleUpdateRequest
-//	}
-//
-//	cred, err := request2.BindJSON[request2.MultipleUpdateRequest[UpdateRequest]](c)
-//	if err != nil {
-//		response.Response(c, err)
-//		return
-//	}
-//
-//	if cred == nil {
-//		c.JSON(http.StatusOK, []int{})
-//		return
-//	}
-//
-//	multiple := model2.NewMultiple()
-//	for _, input := range cred.Data {
-//		if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-//			err := v.StructCtx(c.Request.Context(), input)
-//			if err == nil {
-//				err = h.roleService.Update(c.Request.Context(), input.ID, dto.RoleUpdate(&input.RoleUpdateRequest))
-//				if err == nil {
-//					multiple.AddID(input.ID)
-//				}
-//			}
-//		}
-//
-//	}
-//
-//	c.JSON(http.StatusOK, multiple.IDs())
-//}
-//
-//func (h *RoleHandler) DeleteMultiple(c *gin.Context) {
-//	cred, err := request2.BindJSON[request2.MultipleDeleteRequest](c)
-//	if err != nil {
-//		response.Response(c, err)
-//		return
-//	}
-//
-//	if cred == nil {
-//		c.JSON(http.StatusOK, []int{})
-//		return
-//	}
-//
-//	multiple := model2.NewMultiple()
-//	for _, id := range cred.Data {
-//		if id > 0 {
-//			err = h.roleService.Delete(c.Request.Context(), id)
-//			if err == nil {
-//				multiple.AddID(id)
-//			}
-//		}
-//	}
-//
-//	c.JSON(http.StatusOK, multiple.IDs())
-//}

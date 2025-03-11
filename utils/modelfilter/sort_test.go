@@ -1,9 +1,10 @@
 package modelfilter
 
 import (
-	"github.com/go-playground/assert/v2"
 	"reflect"
 	"testing"
+
+	"github.com/go-playground/assert/v2"
 
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 )

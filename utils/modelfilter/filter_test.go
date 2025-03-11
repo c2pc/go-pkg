@@ -2,10 +2,11 @@ package modelfilter
 
 import (
 	"fmt"
-	"github.com/go-playground/assert/v2"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/go-playground/assert/v2"
 
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/request"

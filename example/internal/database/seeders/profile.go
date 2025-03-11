@@ -2,6 +2,7 @@ package seeders
 
 import (
 	"context"
+
 	"github.com/c2pc/go-pkg/v2/example/profile"
 )
 
