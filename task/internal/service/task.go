@@ -145,6 +145,7 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 		return nil, apperr.ErrBadRequest.WithError(err)
 	}
 
+	fmt.Printf("%+v\n", msg)
 	if task.Type == model3.Export && msg != nil {
 		fi, err := os.Stat(task.FilePath(msg.FileName))
 		if err == nil {
@@ -503,7 +504,7 @@ func (s TaskService) getRunFunc(tp string, name string) (runner.RunFunc, error) 
 }
 
 func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string, error) {
-	task, err := s.taskRepository.Omit("input", "output").Find(ctx, `id = ?`, id)
+	task, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return "", ErrTaskNotFound
@@ -517,6 +518,20 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 
 	if task.Status != model.StatusSuccess {
 		return "", ErrTaskStatusInvalid
+	}
+
+	msg, err := s.unmarshalOutput(task.Output)
+	if err != nil {
+		return "", apperr.ErrBadRequest.WithError(err)
+	}
+
+	if msg != nil {
+		filePath := task.FilePath(msg.FileName)
+		if _, err := os.Stat(filePath); err != nil {
+			return "", ErrTaskFileNotFound.WithError(err)
+		}
+
+		return filePath, nil
 	}
 
 	claims := tokenverify.BuildLinkClaims(strconv.Itoa(id), 15*time.Minute)
