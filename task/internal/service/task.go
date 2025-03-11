@@ -208,6 +208,11 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 		return "", ErrTaskFileNotFound
 	}
 
+	task.Output, err = s.decompressData(task.Output)
+	if err != nil {
+		return "", apperr.ErrBadRequest.WithError(err)
+	}
+
 	msg, err := s.unmarshalOutput(task.Output)
 	if err != nil {
 		return "", apperr.ErrBadRequest.WithError(err)
@@ -521,6 +526,11 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 
 	if task.Status != model.StatusSuccess {
 		return "", ErrTaskStatusInvalid
+	}
+
+	task.Output, err = s.decompressData(task.Output)
+	if err != nil {
+		return "", apperr.ErrBadRequest.WithError(err)
 	}
 
 	msg, err := s.unmarshalOutput(task.Output)
