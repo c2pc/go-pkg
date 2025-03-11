@@ -6,6 +6,7 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
 	"github.com/redis/go-redis/v9"
 )
@@ -73,16 +74,23 @@ func (c *TokenCache) DeleteTokenByUidPid(ctx context.Context, userID int, Device
 }
 
 func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userIDs ...int) error {
-	var keys []string
-
 	for _, userID := range userIDs {
-		for _, device := range model.DeviceIDs {
-			keys = append(keys, cachekey.GetTokenKey(userID, device))
+		for _, deviceID := range model.DeviceIDs {
+			tokens, err := c.GetTokensWithoutError(ctx, userID, deviceID)
+			if err != nil {
+				return err
+			}
+			var deleteTokenKey []string
+			for k, _ := range tokens {
+				deleteTokenKey = append(deleteTokenKey, k)
+			}
+			if len(deleteTokenKey) != 0 {
+				err = c.DeleteTokenByUidPid(ctx, userID, deviceID, deleteTokenKey)
+				if err != nil {
+					return apperr.ErrUnauthenticated.WithError(err)
+				}
+			}
 		}
-	}
-
-	if len(keys) > 0 {
-		return c.rdb.HDel(ctx, keys[0], keys[0:]...).Err()
 	}
 
 	return nil
