@@ -37,6 +37,7 @@ func (h *TaskHandler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup)
 		task.GET("", h.List)
 		task.POST("/:id/stop", h.Stop)
 		task.POST("/:id/rerun", h.Rerun)
+		task.DELETE("/:id", h.Delete)
 		task.GET("/:id", h.GetById)
 		task.GET("/:id/link", h.Link)
 	}
@@ -93,6 +94,22 @@ func (h *TaskHandler) GetById(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, transformer.TaskTransform(data))
+}
+
+func (h *TaskHandler) Delete(c *gin.Context) {
+	id, err := request2.Id(c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	err = h.taskService.Delete(c.Request.Context(), id)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
 
 func (h *TaskHandler) Stop(c *gin.Context) {

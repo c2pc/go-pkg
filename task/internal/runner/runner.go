@@ -35,7 +35,7 @@ type TaskResult struct {
 	Error   error
 }
 
-type RunFunc func(ctx context.Context, taskID int, data []byte) (*model.Message, error)
+type RunFunc func(ctx context.Context, taskID int, data []byte, msqChan chan<- *model.Message) (*model.Message, error)
 
 type Data struct {
 	ID       int
@@ -174,22 +174,34 @@ func (r *Runner) run(data Data) {
 
 	go func() {
 		defer close(done)
-		msg, err := data.RunFunc(ctx, task.ID, data.Data)
+		msgChan := make(chan *model.Message)
+		defer close(msgChan)
+
+		go func() {
+			for msg := range msgChan {
+				if msg != nil {
+					status = StatusRunning
+					r.sendTaskResult(TaskResult{Task: task, Message: msg})
+				}
+			}
+		}()
+
+		msg, err := data.RunFunc(ctx, task.ID, data.Data, msgChan)
 		task.EndedAt = time.Now()
 		if r.ctx.Err() != nil {
 			r.printf(ctx, "Task stopped globally: ID=%d", task.ID)
 		} else if ctx.Err() != nil {
-			status := StatusStopped
+			newStatus := StatusStopped
 			r.printf(ctx, "Task stopped: ID=%d", task.ID)
-			r.sendTaskResult(TaskResult{Task: task, Status: &status, Message: msg})
+			r.sendTaskResult(TaskResult{Task: task, Status: &newStatus, Message: msg})
 		} else if err != nil {
-			status := StatusFailed
+			newStatus := StatusFailed
 			r.printf(ctx, "Task failed: ID=%d, Error=%v", task.ID, err)
-			r.sendTaskResult(TaskResult{Task: task, Status: &status, Error: err})
+			r.sendTaskResult(TaskResult{Task: task, Status: &newStatus, Error: err})
 		} else {
-			status := StatusCompleted
+			newStatus := StatusCompleted
 			r.printf(ctx, "Task completed: ID=%d", task.ID)
-			r.sendTaskResult(TaskResult{Task: task, Status: &status, Message: msg})
+			r.sendTaskResult(TaskResult{Task: task, Status: &newStatus, Message: msg})
 		}
 	}()
 

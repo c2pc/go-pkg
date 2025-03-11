@@ -13,6 +13,7 @@ import (
 )
 
 func TestNewRunner(t *testing.T) {
+	fmt.Println("TestNewRunner")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	r := runner.NewRunner(ctx, level.PRODUCTION)
@@ -23,6 +24,7 @@ func TestNewRunner(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	fmt.Println("TestRun")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	r := runner.NewRunner(ctx, level.PRODUCTION)
@@ -33,24 +35,34 @@ func TestRun(t *testing.T) {
 		Name:     "Test Task",
 		Type:     "test",
 		Data:     nil,
-		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
-			return &model.Message{Count: 100}, nil
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+			for i := 0; i < 10; i++ {
+				msqChan <- &model.Message{Count: i * 10}
+			}
+			return &model.Message{Count: 110}, nil
 		},
 	}
 
 	r.Run(data)
 
-	select {
-	case result := <-r.TaskResults():
-		if *result.Status != runner.StatusRunning {
-			t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+	for {
+		select {
+		case result := <-r.TaskResults():
+			if result.Status != nil {
+				if *result.Status != runner.StatusRunning {
+					t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+				}
+				return
+			}
+		case <-time.After(time.Second):
+			t.Error("Task did not start running")
 		}
-	case <-time.After(time.Second):
-		t.Error("Task did not start running")
 	}
+
 }
 
 func TestStop(t *testing.T) {
+	fmt.Println("TestStop")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -61,7 +73,10 @@ func TestStop(t *testing.T) {
 		ClientID: 123,
 		Name:     "Test Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+			for i := 0; i < 10; i++ {
+				msqChan <- &model.Message{Count: i * 10}
+			}
 			select {
 			case <-time.After(2 * time.Second): // Имитация долгой работы
 				return &model.Message{Count: 100}, nil
@@ -75,8 +90,11 @@ func TestStop(t *testing.T) {
 
 	select {
 	case result := <-r.TaskResults():
-		if *result.Status != runner.StatusRunning {
-			t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+		if result.Status != nil {
+			if *result.Status != runner.StatusRunning {
+				t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+			}
+			return
 		}
 	case <-time.After(1 * time.Second):
 		t.Error("Task was not stopped in time")
@@ -86,17 +104,24 @@ func TestStop(t *testing.T) {
 
 	r.Stop(data.ID)
 
-	select {
-	case result := <-r.TaskResults():
-		if *result.Status != runner.StatusStopped {
-			t.Errorf("Expected status %s, got %s", runner.StatusStopped, *result.Status)
+	for {
+		select {
+		case result := <-r.TaskResults():
+			if result.Status != nil {
+				if *result.Status != runner.StatusStopped {
+					t.Errorf("Expected status %s, got %s", runner.StatusStopped, *result.Status)
+				}
+				return
+			}
+		case <-time.After(1 * time.Second):
+			t.Error("Task was not stopped in time2")
 		}
-	case <-time.After(1 * time.Second):
-		t.Error("Task was not stopped in time2")
 	}
+
 }
 
 func TestExit(t *testing.T) {
+	fmt.Println("TestExit")
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
@@ -107,7 +132,10 @@ func TestExit(t *testing.T) {
 		ClientID: 123,
 		Name:     "Test Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+			for i := 0; i < 10; i++ {
+				msqChan <- &model.Message{Count: i * 10}
+			}
 			time.Sleep(10 * time.Second)
 			return &model.Message{Count: 100}, nil
 		},
@@ -117,9 +145,12 @@ func TestExit(t *testing.T) {
 
 	select {
 	case result := <-r.TaskResults():
-		if *result.Status != runner.StatusRunning {
-			t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+		if result.Status != nil {
+			if *result.Status != runner.StatusRunning {
+				t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+			}
 		}
+
 	case <-time.After(1 * time.Second):
 		t.Error("Task was not stopped in time")
 	}
@@ -129,9 +160,11 @@ func TestExit(t *testing.T) {
 		if !ok {
 			break
 		}
-		fmt.Println(result)
-		if *result.Status != runner.StatusStopped {
-			t.Errorf("Expected status %s, got %s", runner.StatusStopped, *result.Status)
+		if result.Status != nil {
+			if *result.Status != runner.StatusStopped {
+				t.Errorf("Expected status %s, got %s", runner.StatusStopped, *result.Status)
+			}
+			return
 		}
 	case <-time.After(1 * time.Second):
 		t.Error("Task was not stopped in time2")
@@ -139,6 +172,7 @@ func TestExit(t *testing.T) {
 }
 
 func TestRunFuncError(t *testing.T) {
+	fmt.Println("TestRunFuncError")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	r := runner.NewRunner(ctx, level.PRODUCTION)
@@ -150,7 +184,10 @@ func TestRunFuncError(t *testing.T) {
 		ClientID: 123,
 		Name:     "Failing Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+			for i := 0; i < 10; i++ {
+				msqChan <- &model.Message{Count: i * 10}
+			}
 			return nil, expectedErr
 		},
 	}
@@ -159,27 +196,36 @@ func TestRunFuncError(t *testing.T) {
 
 	select {
 	case result := <-r.TaskResults():
-		if *result.Status != runner.StatusRunning {
-			t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+		if result.Status != nil {
+			if *result.Status != runner.StatusRunning {
+				t.Errorf("Expected status %s, got %s", runner.StatusRunning, *result.Status)
+			}
 		}
 	case <-time.After(time.Second):
 		t.Error("Task did not fail as expected")
 	}
 
-	select {
-	case result := <-r.TaskResults():
-		if *result.Status != runner.StatusFailed {
-			t.Errorf("Expected status %s, got %s", runner.StatusFailed, *result.Status)
+	for {
+		select {
+		case result := <-r.TaskResults():
+			if result.Status != nil {
+				if *result.Status != runner.StatusFailed {
+					t.Errorf("Expected status %s, got %s", runner.StatusFailed, *result.Status)
+				}
+				if !errors.Is(expectedErr, result.Error) {
+					t.Errorf("Expected error %v, got %v", expectedErr, result.Error)
+				}
+				return
+			}
+		case <-time.After(time.Second):
+			t.Error("Task did not fail as expected")
 		}
-		if !errors.Is(expectedErr, result.Error) {
-			t.Errorf("Expected error %v, got %v", expectedErr, result.Error)
-		}
-	case <-time.After(time.Second):
-		t.Error("Task did not fail as expected")
 	}
+
 }
 
 func TestConcurrentRun(t *testing.T) {
+	fmt.Println("TestConcurrentRun")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -196,7 +242,10 @@ func TestConcurrentRun(t *testing.T) {
 				ClientID: numTasks % 10,
 				Name:     fmt.Sprintf("Task %d", numTasks%200),
 				Type:     "test",
-				RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+				RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+					for i := 0; i < 10; i++ {
+						msqChan <- &model.Message{Count: i * 10}
+					}
 					time.Sleep(1 * time.Millisecond)
 					if id%13 == 0 {
 						return nil, errTask
@@ -215,7 +264,10 @@ func TestConcurrentRun(t *testing.T) {
 				ClientID: id,
 				Name:     fmt.Sprintf("Task %d", id),
 				Type:     "test",
-				RunFunc: func(ctx context.Context, id int, data []byte) (*model.Message, error) {
+				RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+					for i := 0; i < 10; i++ {
+						msqChan <- &model.Message{Count: i * 10}
+					}
 					time.Sleep(100 * time.Nanosecond)
 					if id%15 == 0 {
 						return nil, errTask
@@ -242,17 +294,19 @@ func TestConcurrentRun(t *testing.T) {
 		for completedTasks < numTasks*2 {
 			select {
 			case result := <-r.TaskResults():
-				if *result.Status == runner.StatusRunning {
-					continue
-				} else if *result.Status == runner.StatusCompleted {
-					completedMap[result.ID] = struct{}{}
-					completedTasks++
-				} else if *result.Status == runner.StatusStopped {
-					stoppedMap[result.ID] = struct{}{}
-					completedTasks++
-				} else if *result.Status == runner.StatusFailed {
-					failedMap[result.ID] = struct{}{}
-					completedTasks++
+				if result.Status != nil {
+					if *result.Status == runner.StatusRunning {
+						continue
+					} else if *result.Status == runner.StatusCompleted {
+						completedMap[result.ID] = struct{}{}
+						completedTasks++
+					} else if *result.Status == runner.StatusStopped {
+						stoppedMap[result.ID] = struct{}{}
+						completedTasks++
+					} else if *result.Status == runner.StatusFailed {
+						failedMap[result.ID] = struct{}{}
+						completedTasks++
+					}
 				}
 			case <-time.After(5 * time.Second):
 				t.Error("Time completed", len(completedMap)+len(stoppedMap))

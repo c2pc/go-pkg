@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -32,7 +33,7 @@ type ImportActionFn[T, C any, D string | int] func(context.Context, T, C) (D, er
 type ListFn[T, N any] func(context.Context, N) ([]T, error)
 type ExportActionFn[T, C any] func(T) (C, error)
 
-func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn DeleteActionFn[T, C]) (*model.Message, error) {
+func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn DeleteActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -67,7 +68,7 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 		continue
 	}
 
-	for _, id := range pluckedIds {
+	for i, id := range pluckedIds {
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -80,16 +81,19 @@ func MassDelete[T any, C string | int](ctx context.Context, data []byte, notFoun
 		err = actionFn(ctx2, input, id)
 		if err != nil {
 			msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
-			continue
 		} else {
 			msg.AddSuccess(idToString(id))
+		}
+
+		if i%100 == 0 {
+			msgChan <- msg
 		}
 	}
 
 	return msg, nil
 }
 
-func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn UpdateActionFn[T, C]) (*model.Message, error) {
+func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn UpdateActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -124,7 +128,7 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 		continue
 	}
 
-	for _, id := range pluckedIds {
+	for i, id := range pluckedIds {
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -137,16 +141,19 @@ func MassUpdate[T any, C string | int](ctx context.Context, data []byte, notFoun
 		err = actionFn(ctx2, id, input)
 		if err != nil {
 			msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
-			continue
 		} else {
 			msg.AddSuccess(idToString(id))
+		}
+
+		if i%100 == 0 {
+			msgChan <- msg
 		}
 	}
 
 	return msg, nil
 }
 
-func Import[T, C any, D string | int](ctx context.Context, data []byte, checkDataFn CheckDataFn[T], dataFn DataFn[T, C], actionFn ImportActionFn[T, C, D]) (*model.Message, error) {
+func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, checkDataFn CheckDataFn[T], dataFn DataFn[T, C], actionFn ImportActionFn[T, C, D]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input T
@@ -186,19 +193,21 @@ func Import[T, C any, D string | int](ctx context.Context, data []byte, checkDat
 
 		if err != nil {
 			msg.AddError(k, apperr.Translate(err, translator.RU.String()))
-			continue
 		} else if prevErr != nil {
 			msg.AddError(k, prevErr.Error())
-			continue
 		} else {
 			msg.AddSuccess(k)
+		}
+
+		if i%100 == 0 {
+			msgChan <- msg
 		}
 	}
 
 	return msg, nil
 }
 
-func Export[T, C, N any](ctx context.Context, taskID int, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*model.Message, error) {
+func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*model.Message, error) {
 	msg := model.NewMessage()
 
 	var input N
@@ -224,10 +233,26 @@ func Export[T, C, N any](ctx context.Context, taskID int, data []byte, emptyList
 		return nil, emptyListError
 	}
 
-	msg.SetCount(len(list))
+	rand, _ := secret.GenerateRandomString(5)
+	fileName := fmt.Sprintf("export_%d%s.csv", taskID, rand)
+	file, err := CreateFile(fileName)
+	if err != nil {
+		return nil, apperr.ErrInternal.WithError(err)
+	}
+	defer file.Close()
 
-	var export []C
+	msg.FileName = &fileName
+
+	msgChan <- msg
+
+	w := csv.NewWriter(file)
+	enc := csvutil.NewEncoder(w)
+	defer w.Flush()
+
+	headerCount := 0
 	for i, item := range list {
+		msg.SetCount(i + 1)
+
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -237,23 +262,21 @@ func Export[T, C, N any](ctx context.Context, taskID int, data []byte, emptyList
 			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
 		}
 
-		export = append(export, c)
+		if headerCount == 0 {
+			if err = enc.EncodeHeader(item); err != nil {
+				return msg, apperr.ErrInternal.WithError(err)
+			}
+			headerCount++
+		}
+
+		if err := enc.Encode(c); err != nil {
+			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
+		}
+
+		if i%100 == 0 {
+			msgChan <- msg
+		}
 	}
-
-	b, err := csvutil.Marshal(export)
-	if err != nil {
-		return nil, apperr.ErrInternal.WithError(err)
-	}
-
-	rand, _ := secret.GenerateRandomString(5)
-	fileName := fmt.Sprintf("export_%d_%s.csv", taskID, rand)
-
-	_, err = WriteToFile(fileName, b)
-	if err != nil {
-		return nil, err
-	}
-
-	msg.FileName = &fileName
 
 	return msg, nil
 }
@@ -269,23 +292,18 @@ func idToString[C string | int](id C) string {
 	}
 }
 
-func WriteToFile(fileName string, data []byte) (string, error) {
+func CreateFile(fileName string) (*os.File, error) {
 	path := model2.MediaPath + "/" + fileName
 
 	err := os.MkdirAll(filepath.Dir(path), os.ModePerm)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	if _, err := file.Write(data); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return path, nil
+	return file, nil
 }

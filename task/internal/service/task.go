@@ -51,10 +51,10 @@ type Queue interface {
 type Consumers map[string]Consumer
 
 type Consumer interface {
-	Export(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
-	Import(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
-	MassUpdate(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
-	MassDelete(ctx context.Context, taskID int, data []byte) (*model3.Message, error)
+	Export(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
+	Import(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
+	MassUpdate(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
+	MassDelete(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
 }
 
 type ITaskService interface {
@@ -65,6 +65,7 @@ type ITaskService interface {
 	UpdateStatus(ctx context.Context, status string, ids ...int) error
 	Create(ctx context.Context, input TaskCreateInput) (*model.Task, error)
 	GetById(ctx context.Context, id int) (*model.Task, error)
+	Delete(ctx context.Context, id int) error
 	Stop(ctx context.Context, id int) error
 	Rerun(ctx context.Context, id int) (*model.Task, error)
 	RunTasks(ctx context.Context, statuses []string, ids ...int) error
@@ -154,6 +155,32 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 	}
 
 	return task, nil
+}
+
+func (s TaskService) Delete(ctx context.Context, id int) error {
+	task, err := s.taskRepository.Omit("input").Find(ctx, `auth_tasks.id = ?`, id)
+	if err != nil {
+		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
+			return ErrTaskNotFound
+		}
+		return err
+	}
+
+	task.Output, err = s.decompressData(task.Output)
+	if err != nil {
+		return apperr.ErrBadRequest.WithError(err)
+	}
+
+	msg, err := s.unmarshalOutput(task.Output)
+	if err != nil {
+		return apperr.ErrBadRequest.WithError(err)
+	}
+
+	if task.Type == model3.Export && msg != nil {
+		_ = os.Remove(task.FilePath(msg.FileName))
+	}
+
+	return nil
 }
 
 func (s TaskService) Download(ctx context.Context, id int) (string, error) {
