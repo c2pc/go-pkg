@@ -258,8 +258,11 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 
 		c, err := actionFn(item)
 		if err != nil {
+			fmt.Println(err)
 			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
+			continue
 		}
+		fmt.Println(c)
 
 		if err := enc.Encode(c); err != nil {
 			return msg, apperr.ErrInternal.WithError(err)
