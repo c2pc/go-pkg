@@ -12,6 +12,7 @@ type Repositories struct {
 	RolePermissionRepository IRolePermissionRepository
 	UserRoleRepository       IUserRoleRepository
 	SettingRepository        ISettingRepository
+	FilterRepository         IFilterRepository
 }
 
 func NewRepositories(db *gorm.DB) Repositories {
@@ -23,5 +24,6 @@ func NewRepositories(db *gorm.DB) Repositories {
 		RolePermissionRepository: NewRolePermissionRepository(db),
 		UserRoleRepository:       NewUserRoleRepository(db),
 		SettingRepository:        NewSettingRepository(db),
+		FilterRepository:         NewFilterRepository(db),
 	}
 }

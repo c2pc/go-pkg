@@ -23,6 +23,7 @@ type Handler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput 
 	userService          service2.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	settingService       service2.ISettingService
 	sessionService       service2.ISessionService
+	filterService        service2.IFilterService
 	tr                   mw.ITransaction
 	tokenMiddleware      middleware2.ITokenMiddleware
 	permissionMiddleware middleware2.IPermissionMiddleware
@@ -36,6 +37,7 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 	roleService service2.IRoleService,
 	userService service2.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput],
 	settingService service2.ISettingService,
+	filterService service2.IFilterService,
 	sessionService service2.ISessionService,
 	tr mw.ITransaction,
 	tokenMiddleware middleware2.ITokenMiddleware,
@@ -58,6 +60,7 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 		userService,
 		settingService,
 		sessionService,
+		filterService,
 		tr,
 		tokenMiddleware,
 		permissionMiddleware,
@@ -72,6 +75,7 @@ func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api 
 	roleHandler := NewRoleHandlers(h.roleService, h.tr)
 	userHandler := NewUserHandlers(h.userService, h.tr, h.profileTransformer, h.profileRequest)
 	settingHandler := NewSettingHandlers(h.settingService, h.tr)
+	filterHandler := NewFilterHandlers(h.filterService, h.tr)
 	sessionHandler := NewSessionHandlers(h.sessionService, h.tr)
 
 	handler := api.Group("/auth")
@@ -81,6 +85,8 @@ func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api 
 		auth := handler.Group("", h.tokenMiddleware.Authenticate)
 		{
 			settingHandler.Init(auth)
+			filterHandler.Init(auth)
+
 			//Can
 			perm := auth.Group("", h.permissionMiddleware.Can)
 			{

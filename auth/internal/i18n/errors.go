@@ -21,3 +21,8 @@ var (
 	ErrSessionNotFound = translator.Translate{translator.RU: "Сессия не найдена", translator.EN: "Session not found"}
 	ErrAuthNoAccess    = translator.Translate{translator.RU: "Нет доступа", translator.EN: "No access"}
 )
+
+var (
+	ErrFilterNotFound = translator.Translate{translator.RU: "Фильтр не найден", translator.EN: "Filter not found"}
+	ErrFilterExists   = translator.Translate{translator.RU: "Фильтр уже добавлен", translator.EN: "A filter is already created"}
+)

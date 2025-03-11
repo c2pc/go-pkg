@@ -105,6 +105,7 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 	userService := service2.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
 	settingService := service2.NewSettingService(repositories.SettingRepository)
 	sessionService := service2.NewSessionService(repositories.TokenRepository, tokenCache, userCache, cfg.RefreshExpire)
+	filterService := service2.NewFilterService(repositories.FilterRepository)
 
 	tokenMiddleware := middleware2.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
 	permissionMiddleware := middleware2.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
@@ -112,7 +113,8 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		MaxAttempts: cfg.MaxAttempts,
 		TTL:         cfg.TTL,
 	}, limiterCache, cfg.Debug)
-	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](authService, permissionService, roleService, userService, settingService, sessionService, cfg.Transaction, tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest)
+
+	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](authService, permissionService, roleService, userService, settingService, filterService, sessionService, cfg.Transaction, tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest)
 
 	return Auth{
 		handler:              handlers,

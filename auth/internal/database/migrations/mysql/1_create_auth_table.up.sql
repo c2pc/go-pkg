@@ -74,7 +74,7 @@ create table if not exists auth_tokens
     token      varchar(256)                          not null,
     updated_at timestamp default current_timestamp() not null on update current_timestamp(),
     expires_at timestamp default current_timestamp() not null on update current_timestamp(),
-    logged_at   timestamp default current_timestamp() not null on update current_timestamp(),
+    logged_at  timestamp default current_timestamp() not null on update current_timestamp(),
     constraint user_id
         unique (user_id, device_id),
     constraint auth_tokens_ibfk_1
@@ -115,3 +115,22 @@ create table if not exists auth_tasks
         foreign key (user_id) references auth_users (id)
             on update cascade on delete cascade
 );
+
+ALTER TABLE abonent_tokens
+    ADD COLUMN IF NOT EXISTS domain BOOLEAN NOT NULL DEFAULT FALSE,
+    MODIFY COLUMN token TEXT,
+    MODIFY COLUMN refresh_token TEXT;
+
+
+create table if not exists auth_filters
+(
+    id        bigint unsigned auto_increment primary key,
+    user_id   bigint unsigned not null,
+    device_id int             not null,
+    endpoint  varchar(256)    not null,
+    name      varchar(256)    not null,
+    value     longblob        not null,
+    constraint auth_filters_user_ibfk_1
+        foreign key (user_id) references auth_users (id)
+            on update cascade on delete cascade
+)

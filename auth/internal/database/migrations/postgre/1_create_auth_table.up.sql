@@ -79,3 +79,18 @@ create table if not exists auth_tasks
     created_at timestamp default now(),
     updated_at timestamp default now()
 );
+
+ALTER TABLE auth_tokens
+    ADD COLUMN IF NOT EXISTS domain BOOLEAN NOT NULL DEFAULT FALSE,
+    ALTER COLUMN token TYPE TEXT;
+
+
+create table if not exists auth_filters
+(
+    id        serial primary key,
+    user_id   integer      not null references auth_users on update cascade on delete cascade,
+    device_id integer      not null,
+    name      varchar(256) not null,
+    endpoint  varchar(256) not null,
+    value     bytea        not null
+);
