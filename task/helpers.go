@@ -52,8 +52,6 @@ func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan 
 
 	ids := idsFn(input)
 
-	msg.SetCount(len(ids))
-
 	pluckedIds, err := pluckIDsFn(ctx, ids)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -69,6 +67,7 @@ func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan 
 	}
 
 	for i, id := range pluckedIds {
+		msg.SetCount(i + 1)
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -112,8 +111,6 @@ func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan 
 
 	ids := idsFn(input)
 
-	msg.SetCount(len(ids))
-
 	pluckedIds, err := pluckIDsFn(ctx, ids)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -129,6 +126,7 @@ func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan 
 	}
 
 	for i, id := range pluckedIds {
+		msg.SetCount(i + 1)
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -172,9 +170,8 @@ func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan c
 
 	elements := dataFn(input)
 
-	msg.SetCount(len(elements))
-
 	for i, element := range elements {
+		msg.SetCount(i + 1)
 		if ctx.Err() != nil {
 			return msg, nil
 		}
@@ -259,7 +256,6 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 
 		c, err := actionFn(item)
 		if err != nil {
-			fmt.Println(err)
 			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
 			continue
 		}
