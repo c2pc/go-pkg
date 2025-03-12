@@ -206,7 +206,7 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 		return "", ErrTaskFileNotFound
 	}
 
-	if datautil.Contain(task.Status, model.StatusPending, model.StatusRunning) {
+	if datautil.Contain(task.Status, model.StatusPending) {
 		return "", ErrTaskFileStillOngoing
 	}
 
@@ -530,7 +530,7 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 		return "", ErrTaskTypeInvalid
 	}
 
-	if task.Status != model.StatusSuccess {
+	if datautil.Contain(task.Status, model.StatusPending) {
 		return "", ErrTaskStatusInvalid
 	}
 
