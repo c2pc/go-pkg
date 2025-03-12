@@ -232,7 +232,7 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 
 	rand, _ := secret.GenerateRandomString(5)
 	fileName := fmt.Sprintf("export_%d%s.csv", taskID, rand)
-	file, err := CreateFile(fileName)
+	file, _, err := CreateFile(fileName)
 	if err != nil {
 		return nil, apperr.ErrInternal.WithError(err)
 	}
@@ -291,18 +291,18 @@ func idToString[C string | int](id C) string {
 	}
 }
 
-func CreateFile(fileName string) (*os.File, error) {
+func CreateFile(fileName string) (*os.File, string, error) {
 	path := model2.MediaPath + "/" + fileName
 
 	err := os.MkdirAll(filepath.Dir(path), os.ModePerm)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return file, nil
+	return file, path, nil
 }
