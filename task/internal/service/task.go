@@ -181,6 +181,11 @@ func (s TaskService) Delete(ctx context.Context, id int) error {
 		return apperr.ErrBadRequest.WithError(err)
 	}
 
+	err = s.taskRepository.Delete(ctx, `auth_tasks.id = ?`, id)
+	if err != nil {
+		return err
+	}
+
 	if task.Type == model3.Export && msg != nil {
 		_ = os.Remove(task.FilePath(msg.FileName))
 	}
