@@ -35,6 +35,7 @@ var (
 	ErrTaskTypeNotFound     = apperr.New("task_type_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Тип задачи не найден", translator.EN: "Task's type not found"}), apperr.WithCode(code.NotFound))
 	ErrTaskCannotStop       = apperr.New("task_cannot_stop", apperr.WithTextTranslate(translator.Translate{translator.RU: "Невозможно остановить завершенную задачу", translator.EN: "Cannot stop a completed task"}), apperr.WithCode(code.NotFound))
 	ErrTaskUnableRerun      = apperr.New("task_unable_rerun", apperr.WithTextTranslate(translator.Translate{translator.RU: "Невозможно запустить незавершенную задачу", translator.EN: "Unable to rerun an unfinished task"}), apperr.WithCode(code.NotFound))
+	ErrTaskUnableRemove     = apperr.New("task_unable_remove", apperr.WithTextTranslate(translator.Translate{translator.RU: "Невозможно удалить незавершенную задачу", translator.EN: "Unable to remove an unfinished task"}), apperr.WithCode(code.NotFound))
 	ErrTaskFileNotFound     = apperr.New("task_file_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Файл не найден", translator.EN: "File not found"}), apperr.WithCode(code.NotFound))
 	ErrTaskFileStillOngoing = apperr.New("task_file_process", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача все еще выполняется", translator.EN: "The task is still ongoing"}), apperr.WithCode(code.NotFound))
 	ErrTaskTypeInvalid      = apperr.New("invalid_task_type", apperr.WithTextTranslate(translator.Translate{translator.RU: "Только export задачи могут генерировать ссылки для скачивания", translator.EN: "Only export tasks can generate download links"}), apperr.WithCode(code.Aborted))
@@ -164,6 +165,10 @@ func (s TaskService) Delete(ctx context.Context, id int) error {
 			return ErrTaskNotFound
 		}
 		return err
+	}
+
+	if datautil.Contain(task.Status, model.StatusPending, model.StatusRunning) {
+		return ErrTaskUnableRemove
 	}
 
 	task.Output, err = s.decompressData(task.Output)
