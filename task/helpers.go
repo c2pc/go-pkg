@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 
@@ -292,17 +293,17 @@ func idToString[C string | int](id C) string {
 }
 
 func CreateFile(fileName string) (*os.File, string, error) {
-	path := model2.MediaPath + "/" + fileName
+	filePath := path.Join(model2.MediaPath, fileName)
 
-	err := os.MkdirAll(filepath.Dir(path), os.ModePerm)
+	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
 		return nil, "", err
 	}
 
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return file, path, nil
+	return file, filePath, nil
 }
