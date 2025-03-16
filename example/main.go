@@ -22,7 +22,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api"
 	restHandler "github.com/c2pc/go-pkg/v2/example/internal/transport/api/handler"
 	profile3 "github.com/c2pc/go-pkg/v2/example/profile"
-	sse2 "github.com/c2pc/go-pkg/v2/sse"
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
 	database "github.com/c2pc/go-pkg/v2/utils/db"
@@ -32,6 +31,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
+	"github.com/c2pc/go-pkg/v2/websocket"
 )
 
 func main() {
@@ -164,24 +164,24 @@ func main() {
 
 	repositories := repository.NewRepositories(db)
 	services := service.NewServices(service.Deps{Repositories: repositories})
-	sse := sse2.New(10)
+	ws := websocket.New(10)
 
 	taskService, err := task.NewTask(ctx2, task.Config{
 		DB:          db,
 		Transaction: trx,
 		Debug:       configs.LOG.Debug,
 		Services: task.Consumers{
-			"news": services.NewsService,
+			"news": services.News,
 		},
 		TokenString: "787hhjvYTYTcfcr6556tCTTYChgUYy",
-		SseSvc:      sse,
+		WS:          ws,
 	})
 	if err != nil {
 		logger.Fatalf("[TASK] %s", err.Error())
 		return
 	}
 
-	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService, analyticService, sse)
+	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService, analyticService, ws)
 	restServer := api.NewServer(api.Input{
 		Host: configs.HTTP.Host,
 		Port: configs.HTTP.Port,

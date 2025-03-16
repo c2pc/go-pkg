@@ -22,18 +22,18 @@ import (
 )
 
 type NewsHandler struct {
-	newsService service.INewsService
+	news        service.INews
 	trx         mw.ITransaction
 	taskService task.Tasker
 }
 
 func NewNewsHandlers(
-	newsService service.INewsService,
+	news service.INews,
 	trx mw.ITransaction,
 	taskService task.Tasker,
 ) *NewsHandler {
 	return &NewsHandler{
-		newsService,
+		news,
 		trx,
 		taskService,
 	}
@@ -66,7 +66,7 @@ func (h *NewsHandler) List(c *gin.Context) {
 		model2.NewPagination[model.News](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
 		model2.NewFilter(cred.OrderBy, cred.Where),
 	)
-	if err := h.newsService.List(c.Request.Context(), &m); err != nil {
+	if err := h.news.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)
 		return
 	}
@@ -81,7 +81,7 @@ func (h *NewsHandler) GetById(c *gin.Context) {
 		return
 	}
 
-	data, err := h.newsService.GetById(c.Request.Context(), id)
+	data, err := h.news.GetById(c.Request.Context(), id)
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -97,7 +97,7 @@ func (h *NewsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	news, err := h.newsService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), dto.NewsCreate(cred))
+	news, err := h.news.Trx(request2.TxHandle(c)).Create(c.Request.Context(), dto.NewsCreate(cred))
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -119,7 +119,7 @@ func (h *NewsHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := h.newsService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.NewsUpdate(cred)); err != nil {
+	if err := h.news.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.NewsUpdate(cred)); err != nil {
 		response.Response(c, err)
 		return
 	}
@@ -134,7 +134,7 @@ func (h *NewsHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	err = h.newsService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
+	err = h.news.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
 	if err != nil {
 		response.Response(c, err)
 		return

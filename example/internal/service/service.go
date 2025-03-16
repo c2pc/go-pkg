@@ -5,7 +5,7 @@ import (
 )
 
 type Services struct {
-	NewsService INewsService
+	News News
 }
 
 type Deps struct {
@@ -14,6 +14,6 @@ type Deps struct {
 
 func NewServices(deps Deps) Services {
 	return Services{
-		NewsService: NewNewsService(deps.Repositories.NewsRepository),
+		News: NewNews(deps.Repositories.NewsRepository),
 	}
 }

@@ -6,12 +6,12 @@ import (
 	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
-	"github.com/c2pc/go-pkg/v2/sse"
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +21,7 @@ type Handler struct {
 	analyticService analytics.Analytics
 	services        service.Services
 	trx             mw.ITransaction
-	sseService      sse.SSE
+	ws              websocket.WebSocket
 }
 
 func NewHandlers(authService auth.IAuth,
@@ -29,7 +29,7 @@ func NewHandlers(authService auth.IAuth,
 	trx mw.ITransaction,
 	taskService task.Tasker,
 	analyticService analytics.Analytics,
-	sseService sse.SSE,
+	ws websocket.WebSocket,
 ) *Handler {
 	return &Handler{
 		authService:     authService,
@@ -37,7 +37,7 @@ func NewHandlers(authService auth.IAuth,
 		trx:             trx,
 		taskService:     taskService,
 		analyticService: analyticService,
-		sseService:      sseService,
+		ws:              ws,
 	}
 }
 
@@ -88,11 +88,11 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 		{
 
 			h.analyticService.InitHandler(secure)
-			h.sseService.InitHandler(secure)
+			h.ws.InitHandler(secure)
 			withLimiter := secure.Group("", h.analyticService.CollectAnalytic)
 			{
 				h.taskService.InitHandler(withLimiter, unsecured)
-				NewNewsHandlers(h.services.NewsService, h.trx, h.taskService).Init(withLimiter)
+				NewNewsHandlers(h.services.News, h.trx, h.taskService).Init(withLimiter)
 			}
 
 		}

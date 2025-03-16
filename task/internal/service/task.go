@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/sse"
-	sseModel "github.com/c2pc/go-pkg/v2/sse/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
@@ -26,6 +24,7 @@ import (
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
 )
@@ -80,7 +79,7 @@ type TaskService struct {
 	services       Consumers
 	queue          Queue
 	tokenSecret    string
-	sseService     sse.SSE
+	ws             websocket.WebSocket
 }
 
 func NewTaskService(
@@ -88,14 +87,14 @@ func NewTaskService(
 	services Consumers,
 	queue Queue,
 	tokenSecret string,
-	sseService sse.SSE,
+	ws websocket.WebSocket,
 ) TaskService {
 	return TaskService{
 		taskRepository: taskRepository,
 		services:       services,
 		queue:          queue,
 		tokenSecret:    tokenSecret,
-		sseService:     sseService,
+		ws:             ws,
 	}
 }
 
@@ -580,7 +579,7 @@ func (s TaskService) ValidateDownloadToken(ctx context.Context, tokenString stri
 }
 
 func (s TaskService) sendStatusChangedMessage(ctx context.Context, task *model.Task) error {
-	msg := sseModel.Message{
+	msg := websocket.Message{
 		Type:   model.TaskMessageType,
 		Action: model.TaskStatusChangedMessageAction,
 		Message: model.TaskMessage{
@@ -589,10 +588,10 @@ func (s TaskService) sendStatusChangedMessage(ctx context.Context, task *model.T
 			Name:   task.Name,
 			Type:   task.Type,
 		},
-		To: &task.UserID,
+		To: []int{task.UserID},
 	}
 
-	return s.sseService.SendMessage(ctx, msg)
+	return s.ws.SendMessage(ctx, msg)
 }
 
 func (s TaskService) unmarshalOutput(output []byte) (*model3.Message, error) {
