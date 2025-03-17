@@ -49,39 +49,27 @@ const (
 )
 
 var (
-	ErrNoAvailableServers   = errors.New(NoAvailableServersNotify)
-	ErrServerIsNotAvailable = errors.New("server not available")
+	ErrNoAvailableServers = errors.New(NoAvailableServersNotify)
 )
-
-type Config struct {
-	Urls        []string
-	Token       string
-	WebhookAddr string
-}
 
 type Client struct {
 	mu         sync.RWMutex
 	urls       []string
 	currentIdx int
-
-	token       string
-	webhookAddr string
-	debug       string
-
 	listeners  []chan string
 	httpClient *http.Client
 }
 
-func NewClient(config Config, debug string) (*Client, error) {
-	if len(config.Urls) == 0 {
+func NewClient(urls []string) (*Client, error) {
+	if len(urls) == 0 {
 		return nil, errors.New("no urls provided")
 	}
-	for i, url := range config.Urls {
-		if url == "" {
+	for i, u := range urls {
+		if u == "" {
 			return nil, errors.New("empty balancer url")
 		}
-		if !strings.HasSuffix(url, "/") {
-			config.Urls[i] += "/"
+		if !strings.HasSuffix(u, "/") {
+			urls[i] += "/"
 		}
 	}
 
@@ -92,13 +80,9 @@ func NewClient(config Config, debug string) (*Client, error) {
 	}
 
 	c := &Client{
-		urls:        config.Urls,
-		currentIdx:  -1,
-		token:       config.Token,
-		webhookAddr: config.WebhookAddr,
-		debug:       debug,
-		listeners:   []chan string{},
-
+		urls:       urls,
+		currentIdx: -1,
+		listeners:  []chan string{},
 		httpClient: &http.Client{
 			Transport: customTransport,
 			Timeout:   10 * time.Second,
@@ -176,7 +160,8 @@ func (c *Client) checkServerAvailability(ctx context.Context, index int) bool {
 	if err != nil {
 		return false
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+
 	return true
 }
 
