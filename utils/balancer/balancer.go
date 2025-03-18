@@ -50,43 +50,71 @@ const (
 
 var (
 	ErrNoAvailableServers = errors.New(NoAvailableServersNotify)
+	ErrEmptyUrls          = errors.New("no urls provided")
+	ErrEmptyUrl           = errors.New("empty url")
 )
 
 type Client struct {
-	mu         sync.RWMutex
-	urls       []string
-	currentIdx int
-	listeners  []chan string
-	httpClient *http.Client
+	mu          sync.RWMutex
+	urls        []string
+	currentIdx  int
+	checkPath   string
+	checkMethod string
+	listeners   []chan string
+	httpClient  *http.Client
 }
 
-func NewClient(urls []string) (*Client, error) {
+type Config struct {
+	HTTPClient  *http.Client
+	CheckPath   string
+	CheckMethod string
+}
+
+func NewClient(urls []string, cfg Config) (*Client, error) {
 	if len(urls) == 0 {
-		return nil, errors.New("no urls provided")
+		return nil, ErrEmptyUrls
 	}
+
 	for i, u := range urls {
 		if u == "" {
-			return nil, errors.New("empty balancer url")
+			return nil, ErrEmptyUrl
 		}
 		if !strings.HasSuffix(u, "/") {
 			urls[i] += "/"
 		}
 	}
 
-	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.TLSClientConfig = &tls.Config{
-		CipherSuites:       CipherSuites,
-		InsecureSkipVerify: true,
-	}
-
 	c := &Client{
 		urls:       urls,
 		currentIdx: -1,
 		listeners:  []chan string{},
-		httpClient: &http.Client{
+	}
+
+	if cfg.HTTPClient == nil {
+		customTransport := http.DefaultTransport.(*http.Transport).Clone()
+		customTransport.TLSClientConfig = &tls.Config{
+			CipherSuites:       CipherSuites,
+			InsecureSkipVerify: true,
+		}
+
+		c.httpClient = &http.Client{
 			Transport: customTransport,
 			Timeout:   10 * time.Second,
-		},
+		}
+	} else {
+		c.httpClient = cfg.HTTPClient
+	}
+
+	if strings.HasSuffix(cfg.CheckPath, "/") {
+		c.checkPath = strings.TrimSuffix(cfg.CheckPath, "/")
+	} else {
+		c.checkPath = cfg.CheckPath
+	}
+
+	if cfg.CheckMethod != "" {
+		c.checkMethod = cfg.CheckMethod
+	} else {
+		c.checkMethod = http.MethodGet
 	}
 
 	if err := c.findWorkingServer(); err != nil {
@@ -145,13 +173,13 @@ func (c *Client) checkServerAvailability(ctx context.Context, index int) bool {
 		c.mu.RUnlock()
 		return false
 	}
-	urlToCheck := c.urls[index]
+	urlToCheck := c.urls[index] + c.checkPath
 	c.mu.RUnlock()
 
 	reqCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, urlToCheck, nil)
+	req, err := http.NewRequestWithContext(reqCtx, c.checkMethod, urlToCheck, nil)
 	if err != nil {
 		return false
 	}
