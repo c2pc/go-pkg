@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
+	http2 "net/http"
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
@@ -53,6 +54,8 @@ func (s *handler) Stream(c *gin.Context) {
 		ID:   userID,
 		send: make(chan broadcast, s.manager.lenChan),
 	}
+
+	upgrader.CheckOrigin = func(r *http2.Request) bool { return true }
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
