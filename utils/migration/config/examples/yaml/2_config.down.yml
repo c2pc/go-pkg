@@ -1,0 +1,22 @@
+key1_array:
+  - 1
+  - 1
+  - 1
+key2_map:
+  key2_map_1_string: ___ip_address___
+  key2_map_2_map:
+    key2_map_2_map_1_string: ___random___
+    key2_map_2_map_2_number: 222
+    key2_map_2_map_3_array:
+      - 221
+      - 222
+      - 223
+    key2_map_2_map_4_map:
+      key2_map_2_map_4_map_1_string: ___project_name___
+      key2_map_2_map_4_map_2_number: 224
+      key2_map_2_map_4_map_3_array:
+        - 2241
+        - 2242
+        - 2243
+key3_string: ___random64___
+key4_number: 4

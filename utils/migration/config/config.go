@@ -5,6 +5,7 @@ import (
 	nurl "net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
 var (
@@ -12,59 +13,70 @@ var (
 	ErrNoPath  = fmt.Errorf("no file path")
 )
 
-func Merge(a, b map[string]interface{}) map[string]interface{} {
-	base := mergeMaps(a, b)
-	base = clearMaps(base, a)
-
-	return base
+func Merge(new, old map[string]interface{}) map[string]interface{} {
+	return mergeMaps(new, old)
 }
 
-func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
+func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{})
-	for k, v := range a {
-		out[k] = v
+	for key, value := range new {
+		out[key] = replaceFunc(value)
 	}
-	for k, v := range b {
-		if v2, ok := v.(map[string]interface{}); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = mergeMaps(bv, v2)
-					continue
+
+	for oldKey, oldValue := range old {
+		if newValue, exists := out[oldKey]; exists {
+			newValueMap, okNewValueMap := newValue.(map[string]interface{})
+			oldValueMap, okOldValueMap := oldValue.(map[string]interface{})
+			newValueArray, okNewValueArray := newValue.([]interface{})
+			oldValueArray, okOldValueArray := oldValue.([]interface{})
+
+			if okNewValueMap && okOldValueMap {
+				out[oldKey] = mergeMaps(newValueMap, oldValueMap)
+			} else if okNewValueArray && okOldValueArray {
+				if len(newValueArray) > 0 {
+					if len(oldValueArray) > 0 {
+						newValueArray2Map, okNewValueArray2 := newValueArray[0].(map[string]interface{})
+						if okNewValueArray2 {
+							newMap := make([]map[string]interface{}, len(oldValueArray))
+							for i, newValueArrayValue := range oldValueArray {
+								if i < len(newValueArray) {
+									newValueArray2Map = newValueArray[i].(map[string]interface{})
+								}
+
+								oldValueArray2Map, okOldValueArray2 := newValueArrayValue.(map[string]interface{})
+								if okOldValueArray2 {
+									newMap[i] = mergeMaps(newValueArray2Map, oldValueArray2Map)
+								}
+							}
+							out[oldKey] = newMap
+						} else {
+							out[oldKey] = replaceFunc(oldValueArray)
+						}
+
+					} else {
+						continue
+					}
 				}
+			} else if reflect.TypeOf(newValue) == reflect.TypeOf(oldValue) {
+				out[oldKey] = replaceFunc(oldValue)
 			}
-
-			out[k] = v2
-			continue
 		}
-
-		out[k] = v
 	}
 
 	return out
 }
 
-func clearMaps(c, d map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
-	for k, v := range c {
-		if v, ok := v.(map[string]interface{}); ok {
-			if bv, ok := d[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
-					out[k] = clearMaps(v, bv)
-				}
-			}
-			continue
+func replaceFunc(value interface{}) interface{} {
+	if v2, ok2 := value.(string); ok2 {
+		return replace(v2)
+	} else if v3, ok3 := value.([]string); ok3 {
+		for i, c3 := range v3 {
+			v3[i] = replace(c3)
 		}
-
-		if _, ok := d[k]; ok {
-			if v2, ok2 := v.(string); ok2 {
-				out[k] = replace(v2)
-			} else {
-				out[k] = v
-			}
-		}
+		return v3
+	} else {
+		return value
 	}
-
-	return out
 }
 
 func parseURL(url string) (string, error) {
@@ -72,15 +84,12 @@ func parseURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// concat host and path to restore full path
-	// host might be `.`
 	p := u.Opaque
 	if len(p) == 0 {
 		p = u.Host + u.Path
 	}
 
 	if len(p) == 0 {
-		// default to current directory if no path
 		wd, err := os.Getwd()
 		if err != nil {
 			return "", err

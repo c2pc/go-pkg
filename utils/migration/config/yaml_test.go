@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -18,7 +17,7 @@ func TestYaml_Up(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.Remove("./examples/config.yml"); err != nil {
-		t.Fatal(err)
-	}
+	//if err := os.Remove("./examples/config.yml"); err != nil {
+	//	t.Fatal(err)
+	//}
 }
