@@ -14,6 +14,8 @@ var (
 )
 
 func Merge(new, old map[string]interface{}) map[string]interface{} {
+	delete(old, "force")
+	delete(old, "version")
 	return mergeMaps(new, old)
 }
 
@@ -23,44 +25,51 @@ func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 		out[key] = replaceFunc(value)
 	}
 
-	for oldKey, oldValue := range old {
-		if newValue, exists := out[oldKey]; exists {
-			newValueMap, okNewValueMap := newValue.(map[string]interface{})
-			oldValueMap, okOldValueMap := oldValue.(map[string]interface{})
-			newValueArray, okNewValueArray := newValue.([]interface{})
-			oldValueArray, okOldValueArray := oldValue.([]interface{})
+	if old != nil && len(old) > 0 {
+		for oldKey, oldValue := range old {
+			fmt.Println(oldKey, oldValue)
+			if newValue, exists := out[oldKey]; exists {
+				fmt.Println("2", oldKey, oldValue)
+				newValueMap, okNewValueMap := newValue.(map[string]interface{})
+				oldValueMap, okOldValueMap := oldValue.(map[string]interface{})
+				newValueArray, okNewValueArray := newValue.([]interface{})
+				oldValueArray, okOldValueArray := oldValue.([]interface{})
 
-			if okNewValueMap && okOldValueMap {
-				out[oldKey] = mergeMaps(newValueMap, oldValueMap)
-			} else if okNewValueArray && okOldValueArray {
-				if len(newValueArray) > 0 {
-					if len(oldValueArray) > 0 {
-						newValueArray2Map, okNewValueArray2 := newValueArray[0].(map[string]interface{})
-						if okNewValueArray2 {
-							newMap := make([]map[string]interface{}, len(oldValueArray))
-							for i, newValueArrayValue := range oldValueArray {
-								if i < len(newValueArray) {
-									newValueArray2Map = newValueArray[i].(map[string]interface{})
-								}
+				if okNewValueMap && okOldValueMap {
+					out[oldKey] = mergeMaps(newValueMap, oldValueMap)
+				} else if okNewValueArray && okOldValueArray {
+					if len(newValueArray) > 0 {
+						if len(oldValueArray) > 0 {
+							newValueArray2Map, okNewValueArray2 := newValueArray[0].(map[string]interface{})
+							if okNewValueArray2 {
+								newMap := make([]map[string]interface{}, len(oldValueArray))
+								for i, newValueArrayValue := range oldValueArray {
+									if i < len(newValueArray) {
+										newValueArray2Map = newValueArray[i].(map[string]interface{})
+									}
 
-								oldValueArray2Map, okOldValueArray2 := newValueArrayValue.(map[string]interface{})
-								if okOldValueArray2 {
-									newMap[i] = mergeMaps(newValueArray2Map, oldValueArray2Map)
+									oldValueArray2Map, okOldValueArray2 := newValueArrayValue.(map[string]interface{})
+									if okOldValueArray2 {
+										newMap[i] = mergeMaps(newValueArray2Map, oldValueArray2Map)
+									}
 								}
+								out[oldKey] = newMap
+							} else {
+								fmt.Printf("3 %T %s %+v", oldValueArray, oldKey, oldValueArray)
+								out[oldKey] = replaceFunc(oldValue)
 							}
-							out[oldKey] = newMap
-						} else {
-							out[oldKey] = replaceFunc(oldValueArray)
-						}
 
-					} else {
-						continue
+						} else {
+							continue
+						}
 					}
+				} else if reflect.TypeOf(newValue) == reflect.TypeOf(oldValue) {
+					out[oldKey] = replaceFunc(oldValue)
 				}
-			} else if reflect.TypeOf(newValue) == reflect.TypeOf(oldValue) {
-				out[oldKey] = replaceFunc(oldValue)
 			}
 		}
+	} else {
+		return mergeMaps(out, out)
 	}
 
 	return out
@@ -69,9 +78,11 @@ func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 func replaceFunc(value interface{}) interface{} {
 	if v2, ok2 := value.(string); ok2 {
 		return replace(v2)
-	} else if v3, ok3 := value.([]string); ok3 {
+	} else if v3, ok3 := value.([]interface{}); ok3 {
 		for i, c3 := range v3 {
-			v3[i] = replace(c3)
+			if c2, ok := c3.(string); ok {
+				v3[i] = replace(c2)
+			}
 		}
 		return v3
 	} else {
