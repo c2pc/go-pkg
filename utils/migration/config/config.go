@@ -27,9 +27,7 @@ func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 
 	if old != nil && len(old) > 0 {
 		for oldKey, oldValue := range old {
-			fmt.Println(oldKey, oldValue)
 			if newValue, exists := out[oldKey]; exists {
-				fmt.Println("2", oldKey, oldValue)
 				newValueMap, okNewValueMap := newValue.(map[string]interface{})
 				oldValueMap, okOldValueMap := oldValue.(map[string]interface{})
 				newValueArray, okNewValueArray := newValue.([]interface{})
@@ -55,7 +53,6 @@ func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 								}
 								out[oldKey] = newMap
 							} else {
-								fmt.Printf("3 %T %s %+v", oldValueArray, oldKey, oldValueArray)
 								out[oldKey] = replaceFunc(oldValue)
 							}
 
