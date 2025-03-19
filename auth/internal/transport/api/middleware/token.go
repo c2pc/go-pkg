@@ -14,6 +14,7 @@ import (
 )
 
 const authorizationHeader = "Authorization"
+const authorizationQuery = "token"
 
 type ITokenMiddleware interface {
 	Authenticate(c *gin.Context)
@@ -84,11 +85,15 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 func (j *TokenMiddleware) parseAuthHeader(c *gin.Context) (string, error) {
 	header := c.GetHeader(authorizationHeader)
 	if header == "" {
-		return "", errors.New("empty auth header")
+		token, ok := c.GetQuery(authorizationQuery)
+		if ok && token != "" {
+			return token, nil
+		} else {
+			return "", errors.New("empty auth header")
+		}
 	}
 
 	headerParts := strings.Split(header, " ")
-
 	if len(headerParts) != 2 || headerParts[0] != "Bearer" {
 		return "", errors.New("invalid auth header")
 	}

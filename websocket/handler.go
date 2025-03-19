@@ -39,7 +39,7 @@ func newWebSocket(manager *manager) *handler {
 }
 
 func (s *handler) Init(api *gin.RouterGroup) {
-	api.GET("ws", s.Stream)
+	api.GET("stream", s.Stream)
 }
 
 func (s *handler) Stream(c *gin.Context) {
