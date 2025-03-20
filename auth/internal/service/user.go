@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 
@@ -93,22 +92,17 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c
 			return err
 		}
 
-		fmt.Printf("%+v\n", profiles)
-
 		profilesMap := make(map[int]Model)
 
 		for _, prof := range profiles {
 			profilesMap[prof.GetUserId()] = prof
 		}
 
-		fmt.Printf("%+v\n", profilesMap)
-
 		for i, user := range m.Rows {
 			if prof, ok := profilesMap[user.ID]; ok {
-				m.Rows[i].Profile = prof
+				m.Rows[i].Profile = &prof
 			}
 		}
-		fmt.Printf("%+v\n", m.Rows)
 	}
 
 	return nil

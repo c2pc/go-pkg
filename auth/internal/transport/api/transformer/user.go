@@ -57,7 +57,7 @@ func UserTransform[Model any](m *model.User, profileTransformer profile.ITransfo
 
 	if profileTransformer != nil && m.Profile != nil {
 		if prof, ok := m.Profile.(*Model); ok {
-			r.Profile = profileTransformer.TransformProfile(prof)
+			r.Profile = profileTransformer.Transform(prof)
 		}
 	}
 
@@ -98,7 +98,7 @@ func UserListTransform[Model any](c *gin.Context, p *model2.Pagination[model.Use
 
 		if profileTransformer != nil && m.Profile != nil {
 			if prof, ok := m.Profile.(*Model); ok {
-				user.Profile = profileTransformer.TransformProfile(prof)
+				user.Profile = profileTransformer.Transform(prof)
 			}
 		}
 
