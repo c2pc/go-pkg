@@ -229,27 +229,22 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Accoun
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
 	}
 
-	user, err := s.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model2.User, error) {
-		user, err := s.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
-		if err != nil {
-			return nil, err
-		}
-
-		var prof *Model
-		if s.profileService != nil {
-			prof, err = s.profileService.GetById(ctx, userID)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		user.Profile = prof
-
-		return user, nil
-	})
+	user, err := s.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
+
+	var prof *Model
+	if s.profileService != nil {
+		prof, err = s.profileService.GetById(ctx, userID)
+		if err != nil {
+			if !apperr.Is(err, profile.ErrNotFound) {
+				return nil, apperr.ErrUnauthenticated.WithError(err)
+			}
+		}
+	}
+
+	user.Profile = prof
 
 	return user, nil
 }
