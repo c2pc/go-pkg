@@ -81,10 +81,9 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c
 		return err
 	}
 
-	if s.profileService != nil {
-		users := m.Rows
-		ids := make([]int, len(users))
-		for i, user := range users {
+	if s.profileService != nil && len(m.Rows) > 0 {
+		ids := make([]int, len(m.Rows))
+		for i, user := range m.Rows {
 			ids[i] = user.ID
 		}
 
@@ -93,17 +92,16 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c
 			return err
 		}
 		profilesMap := make(map[int]Model)
-		for _, profile := range profiles {
-			profilesMap[profile.GetUserId()] = profile
+
+		for _, prof := range profiles {
+			profilesMap[prof.GetUserId()] = prof
 		}
 
-		for _, user := range users {
+		for i, user := range m.Rows {
 			if prof, ok := profilesMap[user.ID]; ok {
-				user.Profile = prof
+				m.Rows[i].Profile = prof
 			}
 		}
-
-		m.Rows = users
 	}
 
 	return nil
