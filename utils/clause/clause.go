@@ -2,6 +2,7 @@ package clause
 
 import (
 	"regexp"
+	"strings"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -61,6 +62,9 @@ func OnConflict(onConflict []interface{}, doUpdates []interface{}) clause.OnConf
 func upperModels(model string) string {
 	reg := regexp.MustCompile(`"(.)[a-zA-Z]*"[^ ]`)
 	return reg.ReplaceAllStringFunc(model, func(w string) string {
+		if len(w) > 0 && strings.ToUpper(w[0:1]) == w[0:1] {
+			return w
+		}
 		return cases.Title(language.English).String(w)
 	})
 }
