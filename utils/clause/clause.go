@@ -60,7 +60,7 @@ func OnConflict(onConflict []interface{}, doUpdates []interface{}) clause.OnConf
 
 // upperModels преобразует модель в формат заголовка, используя TitleCase
 func upperModels(model string) string {
-	reg := regexp.MustCompile(`"(.)[a-zA-Z]*"[^ ]`)
+	reg := regexp.MustCompile(`"([a-zA-Z]+)"[^ ]`)
 	return reg.ReplaceAllStringFunc(model, func(w string) string {
 		if len(w) > 0 && strings.ToUpper(w[0:1]) == w[0:1] {
 			return w
