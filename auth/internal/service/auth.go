@@ -336,7 +336,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 		}
 	}
 
-	if len(selects) > 0 || (s.profileService != nil && profileInput != nil) {
+	if len(selects) > 0 {
 		if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
 			return apperr.ErrInternal.WithError(err)
 		}
@@ -427,23 +427,23 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 			return nil, err
 		}
 
-		var prof *Model
-		if s.profileService != nil {
-			prof, err = s.profileService.GetById(ctx, input.UserID)
-			if err != nil {
-				if !apperr.Is(err, profile.ErrNotFound) {
-					return nil, err
-				}
-			}
-		}
-
-		user.Profile = prof
-
 		return user, nil
 	})
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
+
+	var prof *Model
+	if s.profileService != nil {
+		prof, err = s.profileService.GetById(ctx, input.UserID)
+		if err != nil {
+			if !apperr.Is(err, profile.ErrNotFound) {
+				return nil, apperr.ErrUnauthenticated.WithError(err)
+			}
+		}
+	}
+
+	user.Profile = prof
 
 	return &model2.AuthToken{
 		Auth: model2.Token{
