@@ -14,6 +14,8 @@ var (
 )
 
 func Merge(new, old map[string]interface{}) map[string]interface{} {
+	fmt.Println(new)
+	fmt.Println(old)
 	delete(old, "force")
 	delete(old, "version")
 	return mergeMaps(new, old)
@@ -62,6 +64,8 @@ func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 					}
 				} else if reflect.TypeOf(newValue) == reflect.TypeOf(oldValue) {
 					out[oldKey] = replaceFunc(oldValue)
+				} else if reflect.TypeOf(oldValue) == nil {
+					out[oldKey] = oldValue
 				}
 			}
 		}
@@ -75,11 +79,9 @@ func mergeMaps(new, old map[string]interface{}) map[string]interface{} {
 func replaceFunc(value interface{}) interface{} {
 	if v2, ok2 := value.(string); ok2 {
 		return replace(v2)
-	} else if v3, ok3 := value.([]interface{}); ok3 {
+	} else if v3, ok3 := value.([]string); ok3 {
 		for i, c3 := range v3 {
-			if c2, ok := c3.(string); ok {
-				v3[i] = replace(c2)
-			}
+			v3[i] = replace(c3)
 		}
 		return v3
 	} else {

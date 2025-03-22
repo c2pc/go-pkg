@@ -32,6 +32,7 @@ key5_array_map:
       key5_array_map_2_string_1: ___ip_address___
       key5_array_map_2_number_2: 1211
       key5_array_map_2_string_3: ___random___
+      key5_array_map_2_string_4: 1234
   - key5_array_map_3:
       key5_array_map_3_string_1: ___random64___
       key5_array_map_3_number_2: 1211
