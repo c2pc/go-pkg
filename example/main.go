@@ -26,7 +26,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/cache/redis"
 	database "github.com/c2pc/go-pkg/v2/utils/db"
 	"github.com/c2pc/go-pkg/v2/utils/dbworker"
-	"github.com/c2pc/go-pkg/v2/utils/ldapauth"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
@@ -111,14 +110,6 @@ func main() {
 		Permissions:   model.Permissions,
 		TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
 		MaxAttempts:   configs.LIMITER.MaxAttempts,
-		LdapConfig: &ldapauth.Config{
-			IsEnabled: configs.AUTH.LDAPConfig.Enable,
-			ServerURL: configs.AUTH.LDAPConfig.ServerURL,
-			ServerID:  configs.AUTH.LDAPConfig.ServerID,
-			Timeout:   time.Duration(configs.AUTH.LDAPConfig.Timeout) * time.Minute,
-			SecretKey: configs.AUTH.LDAPConfig.SecretKey,
-			Debug:     configs.LOG.Debug,
-		},
 	}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{
 		Service:     profile3.NewService[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput](profileRepo),
 		Request:     profile3.NewRequest[profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](),

@@ -46,8 +46,8 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(
 		auth.POST("/login", h.tr.DBTransaction, h.login)
 		auth.POST("/refresh", h.tr.DBTransaction, h.refresh)
 		auth.POST("/logout", h.tr.DBTransaction, h.logout)
-		auth.POST("/account", h.tokenMiddleware.Authenticate, h.account)
-		auth.PATCH("/account", h.tokenMiddleware.Authenticate, h.tr.DBTransaction, h.updateAccountData)
+		auth.GET("/account", h.tokenMiddleware.Authenticate, h.account)
+		//auth.PATCH("/account", h.tokenMiddleware.Authenticate, h.tr.DBTransaction, h.updateAccountData)
 	}
 }
 
