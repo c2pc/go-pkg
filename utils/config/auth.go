@@ -17,6 +17,6 @@ type LDAPAuth struct {
 	Enabled    bool   `yaml:"enabled"`
 	Addr       string `yaml:"addr"`
 	BaseDN     string `yaml:"base_dn"`
-	BaseFilter int    `yaml:"base_filter"`
-	LoginAttr  int    `yaml:"login_attr"`
+	BaseFilter string `yaml:"base_filter"`
+	LoginAttr  string `yaml:"login_attr"`
 }
