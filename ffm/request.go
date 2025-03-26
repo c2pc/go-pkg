@@ -91,7 +91,7 @@ func (f *FFM) request(ctx context.Context, method, url string, operationID strin
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, ErrServerIsNotUnavailable.WithError(err)
 	}
 
 	return resp, nil
