@@ -9,6 +9,7 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
 	"github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 )
 
@@ -188,7 +189,7 @@ func TestRunFuncError(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				msqChan <- &model.Message{Count: i * 10}
 			}
-			return nil, expectedErr
+			panic(expectedErr)
 		},
 	}
 
@@ -212,8 +213,8 @@ func TestRunFuncError(t *testing.T) {
 				if *result.Status != runner.StatusFailed {
 					t.Errorf("Expected status %s, got %s", runner.StatusFailed, *result.Status)
 				}
-				if !errors.Is(expectedErr, result.Error) {
-					t.Errorf("Expected error %v, got %v", expectedErr, result.Error)
+				if !apperr.Is(apperr.ErrInternal.WithError(expectedErr), result.Error) {
+					t.Errorf("Expected error %v, got %v", apperr.ErrInternal.WithError(expectedErr), result.Error)
 				}
 				return
 			}
@@ -248,7 +249,7 @@ func TestConcurrentRun(t *testing.T) {
 					}
 					time.Sleep(1 * time.Millisecond)
 					if id%13 == 0 {
-						return nil, errTask
+						panic(errTask)
 					}
 					return &model.Message{Count: 100}, nil
 				},
@@ -270,7 +271,7 @@ func TestConcurrentRun(t *testing.T) {
 					}
 					time.Sleep(100 * time.Nanosecond)
 					if id%15 == 0 {
-						return nil, errTask
+						panic(errTask)
 					}
 					return &model.Message{Count: 100}, nil
 				},
@@ -315,7 +316,7 @@ func TestConcurrentRun(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < numTasks; i++ {
+	for i := 0; i < numTasks*2; i++ {
 		_, ok := completedMap[i]
 		_, ok2 := stoppedMap[i]
 		_, ok3 := failedMap[i]
@@ -325,5 +326,9 @@ func TestConcurrentRun(t *testing.T) {
 		}
 	}
 
-	fmt.Printf("Completed %d / Stopped %d / Failed %d\n", len(completedMap), len(stoppedMap), len(failedMap))
+	if len(completedMap)+len(stoppedMap)+len(failedMap) != numTasks*2 {
+		t.Errorf("Expected %d completed tasks, got %d", numTasks*2, len(completedMap)+len(stoppedMap)+len(failedMap))
+	}
+
+	fmt.Printf("ALL %d / Completed %d / Stopped %d / Failed %d\n", numTasks*2, len(completedMap), len(stoppedMap), len(failedMap))
 }

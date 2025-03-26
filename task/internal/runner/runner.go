@@ -8,6 +8,7 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/task/internal/logger"
 	"github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 )
@@ -120,7 +121,7 @@ func (r *Runner) run(data Data) {
 		if rec := recover(); rec != nil {
 			r.printf(r.ctx, "Recovered from panic in task ID=%d: %v", data.ID, rec)
 			status := StatusFailed
-			r.taskResults <- TaskResult{Task: Task{ID: data.ID, ClientID: data.ClientID}, Status: &status, Error: fmt.Errorf("panic: %v", rec)}
+			r.taskResults <- TaskResult{Task: Task{ID: data.ID, ClientID: data.ClientID}, Status: &status, Error: apperr.ErrInternal.WithError(fmt.Errorf("%v", rec))}
 		}
 	}()
 
@@ -183,6 +184,14 @@ func (r *Runner) run(data Data) {
 					status = StatusRunning
 					r.sendTaskResult(TaskResult{Task: task, Message: msg})
 				}
+			}
+		}()
+
+		defer func() {
+			if rec := recover(); rec != nil {
+				r.printf(r.ctx, "Recovered from panic in task ID=%d: %v", data.ID, rec)
+				status := StatusFailed
+				r.taskResults <- TaskResult{Task: Task{ID: data.ID, ClientID: data.ClientID}, Status: &status, Error: apperr.ErrInternal.WithError(fmt.Errorf("%v", rec))}
 			}
 		}()
 
