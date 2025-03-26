@@ -4,7 +4,6 @@ import (
 	"embed"
 
 	"github.com/c2pc/go-pkg/v2/utils/config"
-	_ "github.com/c2pc/go-pkg/v2/utils/migration/config"
 )
 
 //go:embed migrations/*.yml

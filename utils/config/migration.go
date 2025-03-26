@@ -6,8 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/c2pc/go-pkg/v2/utils/migrate"
-	_ "github.com/c2pc/go-pkg/v2/utils/migration/config"
+	_ "github.com/c2pc/config-migrate/config/yaml"
+	_ "github.com/c2pc/config-migrate/replacer/ip"
+	_ "github.com/c2pc/config-migrate/replacer/project_name"
+	_ "github.com/c2pc/config-migrate/replacer/random"
+	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
