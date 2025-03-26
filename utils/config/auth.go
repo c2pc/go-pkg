@@ -14,9 +14,9 @@ type AUTH struct {
 }
 
 type LDAPAuth struct {
-	Enable    bool   `yaml:"enable"`
-	ServerURL string `yaml:"server_url"`
-	SecretKey string `yaml:"secret_key"`
-	ServerID  int    `yaml:"server_id"`
-	Timeout   int    `yaml:"timeout,omitempty"`
+	Enabled    bool   `yaml:"enabled"`
+	Addr       string `yaml:"addr"`
+	BaseDN     string `yaml:"base_dn"`
+	BaseFilter int    `yaml:"base_filter"`
+	LoginAttr  int    `yaml:"login_attr"`
 }
