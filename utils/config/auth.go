@@ -19,4 +19,5 @@ type LDAPAuth struct {
 	BaseDN     string `yaml:"base_dn"`
 	BaseFilter string `yaml:"base_filter"`
 	LoginAttr  string `yaml:"login_attr"`
+	Domain     string `yaml:"domain"`
 }
