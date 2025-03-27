@@ -5,19 +5,19 @@ import (
 )
 
 func TestName(t *testing.T) {
-
 	auth, err := NewAuthService(Config{
 		Enabled:    true,
-		Addr:       "ldap://127.0.0.1:389",
+		Addr:       "ldap://172.27.7.3:389",
 		LoginAttr:  "sAMAccountName",
-		BaseDN:     "OU=ru,DC=example,DC=com",
+		BaseDN:     "DC=ts,DC=lab",
 		BaseFilter: "(objectClass=Person)",
+		Domain:     "ts.lab",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = auth.CheckAuth("admin", "admin")
+	err = auth.CheckAuth("админBeta12", "!23QweAsd")
 	if err != nil {
 		t.Fatal(err)
 	}

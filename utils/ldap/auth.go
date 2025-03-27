@@ -27,6 +27,7 @@ type Config struct {
 	BaseDN     string
 	BaseFilter string
 	LoginAttr  string
+	Domain     string
 }
 
 type Auth struct {
@@ -34,6 +35,7 @@ type Auth struct {
 	addr       string
 	baseDN     string
 	baseFilter string
+	domain     string
 	secured    bool
 	loginAttr  string
 }
@@ -52,6 +54,9 @@ func NewAuthService(cfg Config) (*Auth, error) {
 		if cfg.Addr == "" {
 			return nil, errors.New("LDAP addr is required")
 		}
+		if cfg.Domain == "" {
+			return nil, errors.New("LDAP domain is required")
+		}
 
 		protoHostPort := strings.Split(cfg.Addr, "://")
 		if len(protoHostPort) != 2 {
@@ -65,6 +70,7 @@ func NewAuthService(cfg Config) (*Auth, error) {
 			auth.secured = false
 		}
 
+		auth.domain = cfg.Domain
 		auth.baseDN = cfg.BaseDN
 		auth.baseFilter = cfg.BaseFilter
 		auth.loginAttr = cfg.LoginAttr
@@ -83,19 +89,20 @@ func (a *Auth) CheckAuth(username, password string) error {
 }
 
 func (a *Auth) bind(login, password string) error {
-	var con *ldap.Conn
+	var conn *ldap.Conn
 	var err error
 
 	if a.secured {
-		con, err = ldap.DialTLS("tcp", a.addr, &tls.Config{InsecureSkipVerify: true})
+		conn, err = ldap.DialTLS("tcp", a.addr, &tls.Config{InsecureSkipVerify: true})
 	} else {
-		con, err = ldap.Dial("tcp", a.addr)
+		conn, err = ldap.Dial("tcp", a.addr)
 	}
 	if err != nil {
 		return ErrServerIsNotUnavailable.WithError(err)
 	}
+	defer conn.Close()
 
-	err = con.Bind(login, password)
+	err = conn.Bind(fmt.Sprintf("%s@%s", login, a.domain), password)
 	if err != nil {
 		var e *ldap.Error
 		if errors.As(err, &e) {
@@ -107,7 +114,7 @@ func (a *Auth) bind(login, password string) error {
 		return apperr.ErrInternal.WithError(err)
 	}
 
-	entry, err := a.getDN(con, login)
+	entry, err := a.getDN(conn, login)
 	if err != nil {
 		return err
 	}
