@@ -114,6 +114,10 @@ func Translate(err error, lang string) string {
 		err = ErrInternal.WithError(err)
 	}
 
+	if appError.TextTranslate == nil {
+		return appError.ID
+	}
+
 	text := appError.TextTranslate.Translate(lang, appError.TextTranslateArgs...)
 	if text == "" {
 		text = appError.Text

@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	model2 "github.com/c2pc/go-pkg/v2/task/internal/model"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 
 	"github.com/c2pc/go-pkg/v2/task/model"
@@ -78,12 +79,21 @@ func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan 
 			ctx2 = mcontext.WithOperationIDContext(ctx, opID+"-"+idToString(id))
 		}
 
-		err = actionFn(ctx2, input, id)
-		if err != nil {
-			msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
-		} else {
-			msg.AddSuccess(idToString(id))
-		}
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.WarningfLog(ctx2, "TASK", "%v", err)
+					msg.AddError(idToString(id), apperr.Translate(apperr.ErrInternal, translator.RU.String()))
+				}
+			}()
+
+			err = actionFn(ctx2, input, id)
+			if err != nil {
+				msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
+			} else {
+				msg.AddSuccess(idToString(id))
+			}
+		}()
 
 		if i%100 == 0 {
 			msgChan <- msg
@@ -137,12 +147,21 @@ func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan 
 			ctx2 = mcontext.WithOperationIDContext(ctx, opID+"-"+idToString(id))
 		}
 
-		err = actionFn(ctx2, id, input)
-		if err != nil {
-			msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
-		} else {
-			msg.AddSuccess(idToString(id))
-		}
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.WarningfLog(ctx2, "TASK", "%v", err)
+					msg.AddError(idToString(id), apperr.Translate(apperr.ErrInternal, translator.RU.String()))
+				}
+			}()
+
+			err = actionFn(ctx2, id, input)
+			if err != nil {
+				msg.AddError(idToString(id), apperr.Translate(err, translator.RU.String()))
+			} else {
+				msg.AddSuccess(idToString(id))
+			}
+		}()
 
 		if i%100 == 0 {
 			msgChan <- msg
@@ -182,20 +201,30 @@ func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan c
 			ctx2 = mcontext.WithOperationIDContext(ctx, opID+"-"+idToString(i))
 		}
 
-		key, prevErr, err := actionFn(ctx2, input, element)
-
 		k := strconv.Itoa(i)
-		if idToString(key) != "" {
-			k = idToString(key)
-		}
 
-		if err != nil {
-			msg.AddError(k, apperr.Translate(err, translator.RU.String()))
-		} else if prevErr != nil {
-			msg.AddError(k, prevErr.Error())
-		} else {
-			msg.AddSuccess(k)
-		}
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.WarningfLog(ctx2, "TASK", "%v", err)
+					msg.AddError(k, apperr.Translate(apperr.ErrInternal, translator.RU.String()))
+				}
+			}()
+
+			key, prevErr, err := actionFn(ctx2, input, element)
+
+			if idToString(key) != "" {
+				k = idToString(key)
+			}
+
+			if err != nil {
+				msg.AddError(k, apperr.Translate(err, translator.RU.String()))
+			} else if prevErr != nil {
+				msg.AddError(k, prevErr.Error())
+			} else {
+				msg.AddSuccess(k)
+			}
+		}()
 
 		if i%100 == 0 {
 			msgChan <- msg
@@ -255,13 +284,21 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 			return msg, nil
 		}
 
-		c, err := actionFn(item)
-		if err != nil {
-			msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
-			continue
-		}
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.WarningfLog(ctx, "TASK", "%v", err)
+					msg.AddError(strconv.Itoa(i), apperr.Translate(apperr.ErrInternal, translator.RU.String()))
+				}
+			}()
 
-		export = append(export, c)
+			c, err := actionFn(item)
+			if err != nil {
+				msg.AddError(strconv.Itoa(i), apperr.Translate(err, translator.RU.String()))
+			}
+
+			export = append(export, c)
+		}()
 
 		if i%100 == 0 {
 			if err := enc.Encode(export); err != nil {

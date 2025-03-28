@@ -141,7 +141,7 @@ func (e *Task) listen(ctx context.Context) {
 }
 
 func (e *Task) reset(ctx context.Context) error {
-	list, err := e.taskService.GetFull(ctx, nil, model.StatusRunning)
+	list, err := e.taskService.GetFull(ctx, nil, model.StatusRunning, model.StatusPending)
 	if err != nil {
 		return err
 	}
@@ -152,15 +152,10 @@ func (e *Task) reset(ctx context.Context) error {
 			ids = append(ids, t.ID)
 		}
 
-		err = e.taskService.UpdateStatus(ctx, model.StatusPending, ids...)
+		err = e.taskService.UpdateStatus(ctx, model.StatusStopped, ids...)
 		if err != nil {
 			return err
 		}
-	}
-
-	err = e.taskService.RunTasks(ctx, []string{model.StatusPending})
-	if err != nil {
-		return err
 	}
 
 	return nil

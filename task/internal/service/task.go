@@ -40,7 +40,7 @@ var (
 	ErrTaskTypeInvalid      = apperr.New("invalid_task_type", apperr.WithTextTranslate(translator.Translate{translator.RU: "Только export задачи могут генерировать ссылки для скачивания", translator.EN: "Only export tasks can generate download links"}), apperr.WithCode(code.Aborted))
 	ErrTaskStatusInvalid    = apperr.New("invalid_task_status", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача все еще находится в исполнении", translator.EN: "The task is still in progress"}), apperr.WithCode(code.Aborted))
 	ErrGenerateToken        = apperr.New("token_generation_failed", apperr.WithTextTranslate(translator.Translate{translator.RU: "Не удалось сгенерировать токен", translator.EN: "Failed to generate token"}), apperr.WithCode(code.Internal))
-	ErrInvalidLink          = apperr.New("invalid_link")
+	ErrInvalidLink          = apperr.New("invalid_link", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неправильная ссылка", translator.EN: "Invalid link"}), apperr.WithCode(code.NotFound))
 )
 
 type Queue interface {

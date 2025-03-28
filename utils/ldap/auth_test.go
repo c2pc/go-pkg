@@ -7,17 +7,17 @@ import (
 func TestName(t *testing.T) {
 	auth, err := NewAuthService(Config{
 		Enabled:    true,
-		Addr:       "ldap://172.27.7.3:389",
+		Addr:       "ldap://example.com",
 		LoginAttr:  "sAMAccountName",
-		BaseDN:     "DC=ts,DC=lab",
+		BaseDN:     "DC=example,DC=com",
 		BaseFilter: "(objectClass=Person)",
-		Domain:     "ts.lab",
+		Domain:     "example.com",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = auth.CheckAuth("админBeta12", "!23QweAsd")
+	err = auth.CheckAuth("qwerty", "qwerty")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,16 +18,19 @@ func TestMassDelete(t *testing.T) {
 		IDs []int `json:"ids"`
 	}
 
-	data := []byte(`{"ids": [1, 2, 3]}`)
+	data := []byte(`{"ids": [1, 2, 3, 4]}`)
 	checkDatafn := func(input Input) error { return nil }
 	idsFn := func(input Input) []int {
 		return input.IDs
 	}
 
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) {
-		return []int{2, 3}, nil
+		return []int{2, 3, 4}, nil
 	}
 	actionFn := func(ctx context.Context, input Input, id int) error {
+		if id == 2 {
+			panic("error")
+		}
 		if id == 3 {
 			return apperr.ErrBadRequest
 		}
@@ -51,12 +54,14 @@ func TestMassDelete(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
-	assert.Len(t, msg.GetErrors(), 2)
+	assert.Len(t, msg.GetErrors(), 3)
 	assert.Len(t, msg.GetSuccesses(), 1)
 	assert.Equal(t, "1", msg.GetErrors()[0].Key)
 	assert.Equal(t, "Не найдено", msg.GetErrors()[0].Value)
-	assert.Equal(t, "3", msg.GetErrors()[1].Key)
-	assert.Equal(t, "Неверный запрос", msg.GetErrors()[1].Value)
+	assert.Equal(t, "2", msg.GetErrors()[1].Key)
+	assert.Equal(t, "Ошибка сервера", msg.GetErrors()[1].Value)
+	assert.Equal(t, "3", msg.GetErrors()[2].Key)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[2].Value)
 }
 
 func TestMassUpdate(t *testing.T) {
@@ -65,16 +70,19 @@ func TestMassUpdate(t *testing.T) {
 		IDs []int `json:"ids"`
 	}
 
-	data := []byte(`{"ids": [1, 2, 3]}`)
+	data := []byte(`{"ids": [1, 2, 3, 4]}`)
 	checkDatafn := func(input Input) error { return nil }
 	idsFn := func(input Input) []int {
 		return input.IDs
 	}
 
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) {
-		return []int{2, 3}, nil
+		return []int{2, 3, 4}, nil
 	}
 	actionFn := func(ctx context.Context, id int, input Input) error {
+		if id == 2 {
+			panic("error")
+		}
 		if id == 3 {
 			return apperr.ErrBadRequest
 		}
@@ -98,12 +106,14 @@ func TestMassUpdate(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
-	assert.Len(t, msg.GetErrors(), 2)
+	assert.Len(t, msg.GetErrors(), 3)
 	assert.Len(t, msg.GetSuccesses(), 1)
 	assert.Equal(t, "1", msg.GetErrors()[0].Key)
 	assert.Equal(t, "Не найдено", msg.GetErrors()[0].Value)
-	assert.Equal(t, "3", msg.GetErrors()[1].Key)
-	assert.Equal(t, "Неверный запрос", msg.GetErrors()[1].Value)
+	assert.Equal(t, "2", msg.GetErrors()[1].Key)
+	assert.Equal(t, "Ошибка сервера", msg.GetErrors()[1].Value)
+	assert.Equal(t, "3", msg.GetErrors()[2].Key)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[2].Value)
 }
 
 func TestImport(t *testing.T) {
@@ -112,12 +122,15 @@ func TestImport(t *testing.T) {
 		Elements []int `json:"elements"`
 	}
 
-	data := []byte(`{"elements": [1, 2, 3]}`)
+	data := []byte(`{"elements": [1, 2, 3, 4]}`)
 	checkDatafn := func(input Input) error { return nil }
 	dataFn := func(input Input) []int {
 		return input.Elements
 	}
 	actionFn := func(ctx context.Context, input Input, element int) (int, error, error) {
+		if element == 1 {
+			panic("error")
+		}
 		if element == 2 {
 			return 0, errors.New(apperr.Translate(apperr.ErrBadRequest, translator.RU.String())), nil
 		}
@@ -141,11 +154,12 @@ func TestImport(t *testing.T) {
 	msg, err := task.Import(ctx, 10, msgChan, data, checkDatafn, dataFn, actionFn)
 
 	assert.NoError(t, err)
-	assert.Equal(t, 3, msg.GetCount())
-	assert.Len(t, msg.GetErrors(), 2)
+	assert.Equal(t, 4, msg.GetCount())
+	assert.Len(t, msg.GetErrors(), 3)
 	assert.Len(t, msg.GetSuccesses(), 1)
 	assert.Equal(t, "0", msg.GetErrors()[0].Key)
-	assert.Equal(t, "Неверный запрос", msg.GetErrors()[0].Value)
+	assert.Equal(t, "Ошибка сервера", msg.GetErrors()[0].Value)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[1].Value)
 }
 
 func TestExport(t *testing.T) {
@@ -160,6 +174,9 @@ func TestExport(t *testing.T) {
 		return []int{1, 2, 3}, nil
 	}
 	actionFn := func(item int) (Output, error) {
+		if item == 2 {
+			panic("error")
+		}
 		if item == 3 {
 			return Output{}, apperr.ErrBadRequest
 		}
@@ -184,10 +201,12 @@ func TestExport(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, msg.GetCount())
-	assert.Len(t, msg.GetErrors(), 1)
+	assert.Len(t, msg.GetErrors(), 2)
 	assert.NotNil(t, msg.GetFileName())
-	assert.Equal(t, "2", msg.GetErrors()[0].Key)
-	assert.Equal(t, "Неверный запрос", msg.GetErrors()[0].Value)
+	assert.Equal(t, "1", msg.GetErrors()[0].Key)
+	assert.Equal(t, "2", msg.GetErrors()[1].Key)
+	assert.Equal(t, "Ошибка сервера", msg.GetErrors()[0].Value)
+	assert.Equal(t, "Неверный запрос", msg.GetErrors()[1].Value)
 }
 
 func TestMassDelete_InvalidJSON(t *testing.T) {
@@ -240,7 +259,7 @@ func TestMassDelete_ContextCancelled(t *testing.T) {
 	msg, err := task.MassDelete(ctx, 10, msgChan, data, errors.New("not found"), checkDatafn, idsFn, pluckIDsFn, actionFn)
 
 	assert.NoError(t, err)
-	assert.Equal(t, 3, msg.GetCount())
+	assert.Equal(t, 1, msg.GetCount())
 	assert.Empty(t, msg.GetErrors())
 	assert.Empty(t, msg.GetSuccesses())
 }
