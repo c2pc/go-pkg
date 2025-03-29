@@ -5,5 +5,5 @@ const (
 )
 
 func GetPermissionListKey() string {
-	return PermissionList
+	return ServiceName + PermissionList
 }

@@ -98,22 +98,24 @@ func main() {
 
 	profileRepo := profile3.NewProfileRepository(db)
 
-	authService, err := auth.New[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](auth.Config{
-		Debug:         configs.LOG.Debug,
-		DB:            db,
-		Rdb:           rdb,
-		Transaction:   trx,
-		Hasher:        hasher,
-		AccessExpire:  time.Duration(configs.AUTH.AccessTokenTTL) * time.Minute,
-		RefreshExpire: time.Duration(configs.AUTH.RefreshTokenTTL) * time.Minute,
-		AccessSecret:  configs.AUTH.Key,
-		Permissions:   model.Permissions,
-		TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
-		MaxAttempts:   configs.LIMITER.MaxAttempts,
-	}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{
-		Service:     profile3.NewService[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput](profileRepo),
-		Request:     profile3.NewRequest[profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](),
-		Transformer: profile3.NewTransformer[profile3.Profile]()})
+	authService, err := auth.New[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](
+		"example",
+		auth.Config{
+			Debug:         configs.LOG.Debug,
+			DB:            db,
+			Rdb:           rdb,
+			Transaction:   trx,
+			Hasher:        hasher,
+			AccessExpire:  time.Duration(configs.AUTH.AccessTokenTTL) * time.Minute,
+			RefreshExpire: time.Duration(configs.AUTH.RefreshTokenTTL) * time.Minute,
+			AccessSecret:  configs.AUTH.Key,
+			Permissions:   model.Permissions,
+			TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
+			MaxAttempts:   configs.LIMITER.MaxAttempts,
+		}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{
+			Service:     profile3.NewService[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput](profileRepo),
+			Request:     profile3.NewRequest[profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](),
+			Transformer: profile3.NewTransformer[profile3.Profile]()})
 
 	if err != nil {
 		logger.Fatalf("[AUTH] %s", err.Error())

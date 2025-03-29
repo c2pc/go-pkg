@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 
+	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/ldap"
 
@@ -50,7 +52,13 @@ type Config struct {
 	LdapConfig    ldap.Config
 }
 
-func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
+func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](serviceName string, cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
+	if serviceName == "" {
+		return nil, errors.New("service name is required")
+	}
+
+	cachekey.SetServiceName(serviceName)
+
 	model2.SetPermissions(cfg.Permissions)
 	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
 

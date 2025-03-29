@@ -6,9 +6,9 @@ const (
 )
 
 func GetUsernameKey() string {
-	return USERNAME
+	return ServiceName + USERNAME
 }
 
 func GetUserIPKey() string {
-	return USERIP
+	return ServiceName + USERIP
 }

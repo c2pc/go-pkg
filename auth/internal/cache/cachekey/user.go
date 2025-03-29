@@ -9,5 +9,5 @@ const (
 )
 
 func GetUserInfoKey(userID int) string {
-	return UserInfo + stringutil.IntToString(userID)
+	return ServiceName + UserInfo + stringutil.IntToString(userID)
 }

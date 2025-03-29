@@ -10,5 +10,5 @@ const (
 )
 
 func GetTokenKey(userID int, DeviceID int) string {
-	return UidPidToken + stringutil.IntToString(userID) + ":" + model.DeviceIDToName(DeviceID)
+	return ServiceName + UidPidToken + stringutil.IntToString(userID) + ":" + model.DeviceIDToName(DeviceID)
 }
