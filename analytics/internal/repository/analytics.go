@@ -22,14 +22,17 @@ var analyticSearchable = clause.FieldSearchable{
 }
 
 var analyticOrderBy = clause.FieldOrderBy{
-	"id":          {Column: `auth_analytics."id"`},
-	"user_id":     {Column: `auth_analytics."user_id"`},
-	"status_code": {Column: `auth_analytics."status_code"`},
-	"client_ip":   {Column: `auth_analytics."client_ip"`},
-	"first_name":  {Column: `auth_analytics."first_name"`},
-	"second_name": {Column: `auth_analytics."second_name"`},
-	"last_name":   {Column: `auth_analytics."last_name"`},
-	"created_at":  {Column: `auth_analytics."created_at"`},
+	"id":           {Column: `auth_analytics."id"`},
+	"user_id":      {Column: `auth_analytics."user_id"`},
+	"method":       {Column: `auth_analytics."method"`},
+	"path":         {Column: `auth_analytics."path"`},
+	"operation_id": {Column: `auth_analytics."operation_id"`},
+	"status_code":  {Column: `auth_analytics."status_code"`},
+	"client_ip":    {Column: `auth_analytics."client_ip"`},
+	"first_name":   {Column: `auth_analytics."first_name"`},
+	"second_name":  {Column: `auth_analytics."second_name"`},
+	"last_name":    {Column: `auth_analytics."last_name"`},
+	"created_at":   {Column: `auth_analytics."created_at"`},
 }
 
 type AnalyticsRepository struct {
