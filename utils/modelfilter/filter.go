@@ -187,6 +187,21 @@ func evaluateOperation(
 		}
 		return evaluateDateTimeOperation(strVal, operator, value)
 
+	case clause.Time:
+		strVal, ok := fieldValue.(string)
+		if !ok {
+			timeVal2, ok := fieldValue.(*string)
+			if !ok {
+				return false, clause.ErrFilterInvalidValue.WithErrorText(value)
+			}
+			if timeVal2 != nil {
+				strVal = *timeVal2
+			} else {
+				strVal = ""
+			}
+		}
+		return evaluateTimeOperation(strVal, operator, value)
+
 	default:
 		return false, clause.ErrFilterInvalidValue.WithErrorText(value)
 	}
@@ -296,6 +311,38 @@ func evaluateBoolOperation(fieldValue bool, operator, value string) (bool, error
 }
 
 func evaluateDateTimeOperation(fieldValue string, operator, value string) (bool, error) {
+	trimmedValue := trimBackticks(value)
+	tm, err := time.Parse(clause.TypeDateTime, trimmedValue)
+	if err != nil {
+		return false, clause.ErrFilterInvalidValue.WithErrorText(err.Error())
+	}
+
+	fieldTime, err := time.Parse(clause.TypeDateTime, fieldValue)
+	if err != nil {
+		return false, clause.ErrFilterInvalidValue.WithErrorText(err.Error())
+	}
+
+	switch operator {
+	case clause.OpEq:
+		return fieldTime.Equal(tm), nil
+	case clause.OpNe:
+		return fieldTime.Equal(tm), nil
+	case clause.OpGt:
+		return fieldTime.After(tm), nil
+	case clause.OpLt:
+		return fieldTime.Before(tm), nil
+	case clause.OpGte:
+		return fieldTime.After(tm) || fieldTime.Equal(tm), nil
+	case clause.OpLte:
+		return fieldTime.Before(tm) || fieldTime.Equal(tm), nil
+	case clause.OpNne:
+		return !fieldTime.Equal(tm), nil
+	default:
+		return false, clause.ErrFilterUnknownOperator.WithErrorText(operator)
+	}
+}
+
+func evaluateTimeOperation(fieldValue string, operator, value string) (bool, error) {
 	trimmedValue := trimBackticks(value)
 	tm, err := time.Parse(clause.TypeTime, trimmedValue)
 	if err != nil {
