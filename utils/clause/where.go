@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	TypeTime = "2006-01-02 15:04:05"
+	TypeDateTime = "2006-01-02 15:04:05"
+	TypeTime     = "15:04:05"
 )
 
 // Ошибки для фильтрации
@@ -39,6 +40,7 @@ const (
 	Int      Type = "int"      // Целое число
 	Bool     Type = "bool"     // Логическое значение
 	DateTime Type = "datetime" // Дата и время
+	Time     Type = "time"     // Дата и время
 )
 
 // Константы операций фильтрации
@@ -170,6 +172,8 @@ func formatWhereString(quoteTo func(string) string, expr ExpressionWhere, search
 			return formatBoolWhere(expr, column)
 		case DateTime:
 			return formatDateTimeWhere(expr, column)
+		case Time:
+			return formatTimeWhere(expr, column)
 		default:
 			return "", nil, fmt.Errorf("unknown type %s for %s", search.Type, expr.Column)
 		}
@@ -297,6 +301,34 @@ func formatBoolWhere(expr ExpressionWhere, column string) (string, interface{}, 
 func formatDateTimeWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
 	if len(expr.Value) < 3 || expr.Value[0] != '`' || expr.Value[len(expr.Value)-1] != '`' {
 		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("datetime len(expr.Value) < 3")
+	}
+	tm, err := time.Parse(TypeDateTime, strings.ReplaceAll(expr.Value, "`", ""))
+	if err != nil {
+		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
+	}
+
+	value := tm.Format(TypeDateTime)
+
+	switch expr.Operation {
+	case OpGt:
+		return fmt.Sprintf("%s > ?", column), value, nil
+	case OpLt:
+		return fmt.Sprintf("%s < ?", column), value, nil
+	case OpGte:
+		return fmt.Sprintf("%s >= ?", column), value, nil
+	case OpLte:
+		return fmt.Sprintf("%s <= ?", column), value, nil
+	case OpNe:
+		return fmt.Sprintf("%s = ?", column), value, nil
+	default:
+		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+	}
+}
+
+// formatTimeWhere форматирует условие для столбцов с типом времени
+func formatTimeWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+	if len(expr.Value) < 3 || expr.Value[0] != '`' || expr.Value[len(expr.Value)-1] != '`' {
+		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("time len(expr.Value) < 3")
 	}
 	tm, err := time.Parse(TypeTime, strings.ReplaceAll(expr.Value, "`", ""))
 	if err != nil {
