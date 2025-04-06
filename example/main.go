@@ -115,13 +115,13 @@ func main() {
 			MaxAttempts:   configs.LIMITER.MaxAttempts,
 			SSO: auth.SSO{
 				OIDC: oidc.Config{
-					Enabled:           true,
-					ConfigURL:         "https://main.dev.sso.s7corp.ru:443/oauth2/token",
-					ClientID:          "Hi7BnHUqiolqWNtxx8BIy9W2WcEa",
-					ClientSecret:      "amyprvx_5vR8nqsjh5q4LjfEzUsa",
-					RedirectURL:       "https://work.fps.flat-soft.ru:8061/api/v1/auth/sso/callback",
-					LoginAttr:         "sub",
-					ValidRedirectURLs: []string{"http://172.30.30.236:2222"},
+					Enabled:           configs.AUTH.SSO.OIDC.Enabled,
+					ConfigURL:         configs.AUTH.SSO.OIDC.ConfigURL,
+					ClientID:          configs.AUTH.SSO.OIDC.ClientID,
+					ClientSecret:      configs.AUTH.SSO.OIDC.ClientSecret,
+					RedirectURL:       configs.AUTH.SSO.OIDC.RedirectURL,
+					LoginAttr:         configs.AUTH.SSO.OIDC.LoginAttr,
+					ValidRedirectURLs: configs.AUTH.SSO.OIDC.ValidRedirectURLs,
 				},
 			},
 		}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{

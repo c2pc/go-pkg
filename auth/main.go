@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"strconv"
 	"time"
@@ -120,6 +121,7 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 	//	//TODO
 	//}
 
+	cfg.SSO.OIDC.RedirectURL = strings.TrimRight(cfg.SSO.OIDC.RedirectURL, "/") + "/api/v1/auth/sso/callback"
 	oidcAuthService, err := oidc.NewAuthService(ctx, cfg.SSO.OIDC)
 	if err != nil {
 		return nil, err
