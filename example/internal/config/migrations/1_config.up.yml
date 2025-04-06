@@ -1,13 +1,36 @@
+app______:
+app_______: Настройки сервиса
 app:
+  debug______:
+  debug_______: production или development
   debug: production
+  log______:
+  log_______: Папка с логами
   log: logs
 
+http______:
+http_______: Настройка сети
 http:
-  host: localhost
+  host______:
+  host_______: Адрес
+  host________: localhost - при настройке nginx(http/https)
+  host_________: ip адрес - доступ по IP адресу, настройка nginx не требуется
+  host: ___ip_address___
+
+  port______:
+  port_______: Порт
+  port________: Укажите любой свободный порт
+  port_________: При настройке nginx укажите этот порт в proxy настройках
   port: 8061
 
-postgres_url: postgres:postgres@localhost:5432/auth?sslmode=disable
+postgres_url______:
+postgres_url_______: Настройка подключения к Postgres
+postgres_url________: Для настройки TLS укажите сертификаты (https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-PROTECTION)
+postgres_url_________: postgres:postgres@postgretls:5432/auth?sslmode=require&sslrootcert=server.crt&sslcert=client.crt&sslkey=client.key
+postgres_url: postgres:postgres@___ip_address___:5432/auth?sslmode=disable
 
+redis______:
+redis_______: Настройка подключения к REDIS
 redis:
   address: [ localhost:6379 ]
   username:
@@ -16,9 +39,21 @@ redis:
   db: 0
   max_retry: 10
 
+auth______:
+auth_______: Настройка авторизации
 auth:
+  key______:
+  key_______: Укажите рандомный ключ
   key: 23ogj2309gh9283gi23gnoi230o23f82
+  access_token_ttl______:
+  access_token_ttl_______: Время жизни access токена в минутах. По умолчанию 15 минут
   access_token_ttl: 30
+  refresh_token_ttl______:
+  refresh_token_ttl_______: Время жизни refresh токена в минутах. По умолчанию 8 часов(540 минут)
   refresh_token_ttl: 540
 
+password_salt______:
+password_salt_______: Ключ хеширования паролей. Укажите рандомный ключ
+password_salt________: Если поменяете, то все пароли станут недействительными
+password_salt_________: и вам придется удалить всех пользователей с ролями SuperAdmin и перезапустить сервис
 password_salt: affwf32r2398h2gfu2o3ig293

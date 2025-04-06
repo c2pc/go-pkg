@@ -1,18 +1,28 @@
 package handler
 
 import (
+	"fmt"
+	"html/template"
+	"math"
 	"net/http"
-
-	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
+	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/templates"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/utils/sso"
+	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,6 +32,7 @@ type AuthHandler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 	tokenMiddleware    middleware.ITokenMiddleware
 	profileTransformer profile.ITransformer[Model]
 	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
+	oidcAuth           oidc.AuthService
 }
 
 func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
@@ -30,6 +41,7 @@ func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfi
 	tokenMiddleware middleware.ITokenMiddleware,
 	profileTransformer profile.ITransformer[Model],
 	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
+	oidcAuth oidc.AuthService,
 ) *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	return &AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
 		authService,
@@ -37,6 +49,7 @@ func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfi
 		tokenMiddleware,
 		profileTransformer,
 		profileRequest,
+		oidcAuth,
 	}
 }
 
@@ -47,7 +60,8 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(
 		auth.POST("/refresh", h.tr.DBTransaction, h.refresh)
 		auth.POST("/logout", h.tr.DBTransaction, h.logout)
 		auth.GET("/account", h.tokenMiddleware.Authenticate, h.account)
-		//auth.PATCH("/account", h.tokenMiddleware.Authenticate, h.tr.DBTransaction, h.updateAccountData)
+		auth.GET("/sso/login", h.ssoLogin)
+		auth.GET("/sso/callback", h.tr.DBTransaction, h.ssoVerify)
 	}
 }
 
@@ -160,4 +174,128 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) updat
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoLogin(c *gin.Context) {
+	cred, err := request2.BindQuery[request.AuthSSOLoginRequest](c)
+	if err != nil {
+		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("sso.BindQuery error: %v", err))
+		executeTemplate(c, "bad_request.html")
+		return
+	}
+
+	origin := c.GetHeader("Origin")
+
+	if !strings.Contains(cred.RedirectURL, origin) {
+		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("RedirectURL and origin is not the same"))
+		executeTemplate(c, "bad_redirect_url.html")
+		return
+	}
+
+	if h.oidcAuth.IsEnabled() {
+		if ok := h.oidcAuth.CheckRedirectURLs(cred.RedirectURL); !ok {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.CheckRedirectURLs redirect url not valid"))
+			executeTemplate(c, "bad_redirect_url.html")
+			return
+		}
+
+		state, code, err := h.oidcAuth.SumState(cred.RedirectURL, cred.DeviceID)
+		if err != nil {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.SumState error: %v", err))
+			executeTemplate(c, "bad_request.html")
+			return
+		}
+
+		setCallbackCookie(c.Writer, c.Request, "state", state)
+
+		http.Redirect(c.Writer, c.Request, code, http.StatusFound)
+		//} else if h.samlAuth.IsEnabled() {
+		//	executeTemplate(c, "sso_not_supported.html")
+		//	return
+	} else {
+		executeTemplate(c, "sso_not_supported.html")
+		return
+	}
+}
+
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoVerify(c *gin.Context) {
+	ctx := mcontext.WithOperationIDContext(c.Request.Context(), strconv.Itoa(int(time.Now().UTC().Unix())))
+
+	if h.oidcAuth.IsEnabled() {
+		state, err := c.Request.Cookie("state")
+		if err != nil {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("cookie state error: %v", err))
+			executeTemplate(c, "sso_invalid_state.html")
+			return
+		}
+
+		if c.Request.URL.Query().Get("state") != state.Value {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("cookie state error: %v", err))
+			executeTemplate(c, "sso_invalid_state.html")
+			return
+		}
+
+		token, err := h.oidcAuth.Verify(ctx, c.Request.URL.Query().Get("state"), c.Request.URL.Query().Get("code"))
+		if err != nil {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.Verify error: %v", err))
+			executeTemplate(c, "sso_invalid_state.html")
+			return
+		}
+
+		accessExpire := math.Ceil(token.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes())
+
+		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(ctx, service.SSO{
+			ServiceName:  sso.OIDC,
+			RefreshToken: token.IDToken.RefreshToken,
+			AccessExpire: time.Duration(accessExpire) * time.Minute,
+			Login:        *token.Login,
+			DeviceID:     token.State.DeviceID,
+		})
+		if userID != 0 {
+			c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(ctx, userID))
+		}
+		if err != nil {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
+			if apperr.Is(err, service.ErrAuthNoAccess) {
+				executeTemplate(c, "sso_no_access.html")
+			} else if apperr.Is(err, service.ErrSSONotSupported) {
+				executeTemplate(c, "sso_not_supported.html")
+			} else {
+				executeTemplate(c, "sso_unauthenticated.html")
+			}
+			return
+		}
+
+		http.Redirect(c.Writer, c.Request,
+			fmt.Sprintf("%s?accessToken=%s&refreshToken=%s&expires=%d",
+				token.State.RedirectURL, authToken.Auth.Token, authToken.Auth.RefreshToken, int(authToken.Auth.ExpiresAt)),
+			http.StatusFound)
+		//} else if h.samlAuth.IsEnabled() {
+		//	executeTemplate(c, "sso_not_supported.html")
+		//	return
+	} else {
+		executeTemplate(c, "sso_not_supported.html")
+		return
+	}
+}
+
+func executeTemplate(c *gin.Context, name string) {
+	tmpl, err := template.New(name).ParseFS(templates.Templates, name)
+	if err != nil {
+		return
+	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	_ = tmpl.Execute(c.Writer, nil)
+	c.Status(http.StatusBadRequest)
+}
+
+func setCallbackCookie(w http.ResponseWriter, r *http.Request, name, value string) {
+	c := &http.Cookie{
+		Name:     name,
+		Value:    value,
+		MaxAge:   int(time.Hour.Seconds()),
+		Secure:   r.TLS != nil,
+		HttpOnly: true,
+	}
+	http.SetCookie(w, c)
 }

@@ -22,9 +22,6 @@ func NewConfig(configPath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.AUTH.LDAPConfig.Timeout == 0 {
-		cfg.AUTH.LDAPConfig.Timeout = config.DefaultTimeout
-	}
 
 	if cfg.AUTH.AccessTokenTTL == 0 {
 		cfg.AUTH.AccessTokenTTL = config.DefaultAccessTokenTTL

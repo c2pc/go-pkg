@@ -12,9 +12,11 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/ldap"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
+	"github.com/c2pc/go-pkg/v2/utils/sso"
+	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
+	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/rs/xid"
@@ -22,7 +24,8 @@ import (
 )
 
 var (
-	ErrAuthNoAccess = apperr.New("auth_blocked", apperr.WithTextTranslate(i18n.ErrAuthNoAccess), apperr.WithCode(code.PermissionDenied))
+	ErrAuthNoAccess    = apperr.New("auth_blocked", apperr.WithTextTranslate(i18n.ErrAuthNoAccess), apperr.WithCode(code.PermissionDenied))
+	ErrSSONotSupported = apperr.New("sso_not_supported", apperr.WithTextTranslate(i18n.ErrSSONotSupported), apperr.WithCode(code.Aborted))
 )
 
 type IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
@@ -32,6 +35,7 @@ type IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] inter
 	Logout(ctx context.Context, input AuthLogout) (int, error)
 	Account(ctx context.Context) (*model2.User, error)
 	UpdateAccountData(ctx context.Context, input AuthUpdateAccountData, profileInput *UpdateProfileInput) error
+	SSO(ctx context.Context, input SSO) (*model2.AuthToken, int, error)
 }
 
 type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
@@ -44,6 +48,7 @@ type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct
 	accessExpire    time.Duration
 	refreshExpire   time.Duration
 	ldapAuth        ldap.AuthService
+	oidcAuth        oidc.AuthService
 	accessSecret    string
 }
 
@@ -58,6 +63,7 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 	refreshExpire time.Duration,
 	accessSecret string,
 	ldapAuth ldap.AuthService,
+	oidcAuth oidc.AuthService,
 ) AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	return AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]{
 		profileService:  profileService,
@@ -70,6 +76,7 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 		refreshExpire:   refreshExpire,
 		accessSecret:    accessSecret,
 		ldapAuth:        ldapAuth,
+		oidcAuth:        oidcAuth,
 	}
 }
 
@@ -135,6 +142,41 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 	return data, user.ID, err
 }
 
+type SSO struct {
+	ServiceName  string
+	RefreshToken string
+	AccessExpire time.Duration
+	Login        string
+	DeviceID     int
+}
+
+func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) SSO(ctx context.Context, input SSO) (*model2.AuthToken, int, error) {
+	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
+	if err != nil {
+		return nil, 0, ErrAuthNoAccess.WithError(err)
+	}
+
+	if user.Blocked {
+		return nil, user.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
+	}
+
+	if input.ServiceName == sso.OIDC && !s.oidcAuth.IsEnabled() {
+		return nil, user.ID, ErrSSONotSupported
+	}
+
+	data, err := s.createSession(ctx, createSessionInput{
+		IsLogin:          true,
+		UserID:           user.ID,
+		DeviceID:         input.DeviceID,
+		ServiceName:      input.ServiceName,
+		RefreshExpiredAt: s.refreshExpire,
+		RefreshToken:     input.RefreshToken,
+		AccessExpiredAt:  input.AccessExpire,
+	})
+
+	return data, user.ID, err
+}
+
 type AuthRefresh struct {
 	Token    string
 	DeviceID int
@@ -155,20 +197,43 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 		return nil, token.User.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
 	}
 
-	if time.Now().UTC().After(token.ExpiresAt) {
-		_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
-		return nil, token.UserID, apperr.ErrUnauthenticated.WithErrorText("token is expired")
-	}
-
 	var serviceName, refreshToken string
 	var refreshExpiredAt, accessExpiredAt time.Duration
-	if token.ServiceName == nil || (token.ServiceName != nil && *token.ServiceName == "ldap") {
-		serviceName = *token.ServiceName
-		refreshExpiredAt = s.refreshExpire
-		accessExpiredAt = s.accessExpire
-		refreshToken = xid.New().String()
-	} else {
-		return nil, token.User.ID, ErrAuthNoAccess.WithErrorText("invalid service name")
+	err = func() error {
+		if time.Now().UTC().After(token.ExpiresAt) {
+			return apperr.ErrUnauthenticated.WithErrorText("token is expired")
+		}
+
+		if token.ServiceName == nil || (token.ServiceName != nil && *token.ServiceName == "ldap") {
+			if token.ServiceName != nil {
+				serviceName = *token.ServiceName
+			}
+			refreshExpiredAt = s.refreshExpire
+			accessExpiredAt = s.accessExpire
+			refreshToken = xid.New().String()
+		} else if token.ServiceName != nil {
+			if *token.ServiceName == sso.OIDC && s.oidcAuth.IsEnabled() {
+				oidcToken, err := s.oidcAuth.Refresh(ctx, input.Token)
+				if err != nil {
+					_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
+					return ErrAuthNoAccess.WithErrorText("sso not enabled")
+				}
+				serviceName = sso.OIDC
+				refreshExpiredAt = s.refreshExpire
+				accessExpiredAt = time.Duration(oidcToken.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes()) * time.Minute
+				refreshToken = oidcToken.IDToken.RefreshToken
+			} else {
+				return apperr.ErrUnauthenticated.WithError(ErrSSONotSupported)
+			}
+		} else {
+			return apperr.ErrUnauthenticated.WithErrorText("invalid name service")
+		}
+
+		return nil
+	}()
+	if err != nil {
+		_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
+		return nil, token.User.ID, err
 	}
 
 	data, err := s.createSession(ctx, createSessionInput{

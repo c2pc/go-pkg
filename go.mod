@@ -3,7 +3,8 @@ module github.com/c2pc/go-pkg/v2
 go 1.23.7
 
 require (
-	github.com/c2pc/config-migrate v1.0.0
+	github.com/c2pc/config-migrate v1.0.3
+	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/dtm-labs/rockscache v0.1.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-ldap/ldap/v3 v3.4.10
@@ -26,6 +27,7 @@ require (
 	github.com/rs/xid v1.6.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/mock v0.4.0
+	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.10.0
 	golang.org/x/text v0.21.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1
@@ -61,6 +63,7 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lithammer/shortuuid v3.0.0+incompatible // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -69,6 +72,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pquerna/cachecontrol v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
@@ -78,4 +82,5 @@ require (
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
+	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 )

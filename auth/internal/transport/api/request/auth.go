@@ -25,3 +25,8 @@ type AuthUpdateAccountDataRequest struct {
 	Email      *string `json:"email" binding:"omitempty,len=0|email,max=255"`
 	Phone      *string `json:"phone" binding:"omitempty,len=0|min=1,max=255"`
 }
+
+type AuthSSOLoginRequest struct {
+	RedirectURL string `form:"redirect_url" binding:"required,url"`
+	DeviceID    int    `form:"device_id" binding:"required,device_id"`
+}

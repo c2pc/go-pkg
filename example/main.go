@@ -30,6 +30,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
+	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
 	"github.com/c2pc/go-pkg/v2/websocket"
 )
 
@@ -112,6 +113,17 @@ func main() {
 			Permissions:   model.Permissions,
 			TTL:           time.Duration(configs.LIMITER.TTL) * time.Second,
 			MaxAttempts:   configs.LIMITER.MaxAttempts,
+			SSO: auth.SSO{
+				OIDC: oidc.Config{
+					Enabled:           true,
+					ConfigURL:         "https://main.dev.sso.s7corp.ru:443/oauth2/token",
+					ClientID:          "Hi7BnHUqiolqWNtxx8BIy9W2WcEa",
+					ClientSecret:      "amyprvx_5vR8nqsjh5q4LjfEzUsa",
+					RedirectURL:       "https://work.fps.flat-soft.ru:8061/api/v1/auth/sso/callback",
+					LoginAttr:         "sub",
+					ValidRedirectURLs: []string{"http://172.30.30.236:2222"},
+				},
+			},
 		}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{
 			Service:     profile3.NewService[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput](profileRepo),
 			Request:     profile3.NewRequest[profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](),

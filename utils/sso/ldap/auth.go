@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrServerIsNotUnavailable = apperr.New("ad_server_is_not_unavailable", apperr.WithTextTranslate(translator.Translate{translator.RU: "Сервер недоступен", translator.EN: "Server is unavailable"}), apperr.WithCode(code.Unavailable))
+	ErrServerIsNotUnavailable = apperr.New("ldap_server_is_not_unavailable", apperr.WithTextTranslate(translator.Translate{translator.RU: "Сервер LDAP недоступен", translator.EN: "Server LDAP is unavailable"}), apperr.WithCode(code.Unavailable))
 )
 
 type AuthService interface {

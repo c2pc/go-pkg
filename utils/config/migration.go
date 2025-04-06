@@ -6,7 +6,9 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/c2pc/config-migrate/config/yaml"
+	migrator "github.com/c2pc/config-migrate/driver"
+	"github.com/c2pc/config-migrate/driver/yaml"
+	_ "github.com/c2pc/config-migrate/driver/yaml"
 	_ "github.com/c2pc/config-migrate/replacer/ip"
 	_ "github.com/c2pc/config-migrate/replacer/project_name"
 	_ "github.com/c2pc/config-migrate/replacer/random"
@@ -19,12 +21,6 @@ import (
 // migrationsDir - директория в файловой системе, где хранятся миграции.
 // migratePath - путь к файлу миграции.
 func Migrate(fs embed.FS, migrationsDir, migratePath string) error {
-	// Создание нового источника миграций на основе файловой системы
-	d, err := iofs.New(fs, migrationsDir)
-	if err != nil {
-		return err
-	}
-
 	// Если путь к миграции не содержит разделителей путей, добавляем рабочую директорию
 	if !strings.Contains(migratePath, "/") && !strings.Contains(migratePath, "\\") {
 		wd, err := os.Getwd()
@@ -34,8 +30,20 @@ func Migrate(fs embed.FS, migrationsDir, migratePath string) error {
 		migratePath = wd + "/" + migratePath
 	}
 
+	yamlMigr := yaml.New(migrator.Settings{
+		Path:                    migratePath,
+		Perm:                    0666,
+		UnableToReplaceComments: true,
+	})
+
+	// Создание нового источника миграций на основе файловой системы
+	d, err := iofs.New(fs, migrationsDir)
+	if err != nil {
+		return err
+	}
+
 	// Создание нового миграционного экземпляра с источником миграций
-	m, err := migrate.NewWithSourceInstance("iofs", d, "yaml://"+migratePath)
+	m, err := migrate.NewWithInstance("iofs", d, "yaml", yamlMigr)
 	if err != nil {
 		return err
 	}

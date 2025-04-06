@@ -190,7 +190,7 @@ func (l *logger) middleware(c *gin.Context) {
 
 		operationID, _ := mcontext.GetOperationID(ctx)
 
-		var importantKeys = []string{"pass", "token", "pwd"}
+		var importantKeys = []string{"pass", "token", "pwd", "code"}
 		var compressedRequest []byte
 		if len(requestBody) > 0 {
 			data := compressData(jsonutil.JsonHideImportantData(requestBody, importantKeys...))
@@ -285,10 +285,20 @@ func (l *logger) flush() {
 		log.Printf("error when adding user data to the request")
 	}
 
+	var entries []models.Analytics
+	for _, entry := range l.entries {
+		if strings.Contains(strings.ToLower(entry.FirstName), "broker") ||
+			strings.Contains(strings.ToLower(entry.FirstName), "брокер") {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
 	err := l.db.Create(&l.entries).Error
 	if err != nil {
 		log.Printf("error when inserting analytics: %v", err)
 	}
+
 	l.entries = l.entries[:0]
 	l.userIDMap = make(map[int]struct{})
 }

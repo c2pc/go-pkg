@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
-	"github.com/c2pc/go-pkg/v2/utils/ldap"
-
 	"strconv"
 	"time"
+
+	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
+	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
 
 	cache3 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/database"
@@ -37,6 +38,11 @@ type IAuth interface {
 	LimiterMiddleware(c *gin.Context)
 }
 
+type SSO struct {
+	LDAP ldap.Config
+	OIDC oidc.Config
+}
+
 type Config struct {
 	Debug         string
 	DB            *gorm.DB
@@ -49,7 +55,7 @@ type Config struct {
 	Permissions   []model.Permission
 	TTL           time.Duration
 	MaxAttempts   int
-	LdapConfig    ldap.Config
+	SSO           SSO
 }
 
 func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](serviceName string, cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
@@ -103,27 +109,45 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		profileRequest = nil
 	}
 
-	ldapAuthService, err := ldap.NewAuthService(cfg.LdapConfig)
+	ldapAuthService, err := ldap.NewAuthService(cfg.SSO.LDAP)
 	if err != nil {
 		return nil, err
 	}
 
-	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository, tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService)
+	//if cfg.SSO.OIDC.Enabled {
+	//	cfg.SSO.SAML.Enabled = false
+	//} else if cfg.SSO.SAML.Enabled {
+	//	//TODO
+	//}
+
+	oidcAuthService, err := oidc.NewAuthService(ctx, cfg.SSO.OIDC)
+	if err != nil {
+		return nil, err
+	}
+
+	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository,
+		tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService, oidcAuthService)
 	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
-	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository, repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
-	userService := service2.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository, repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
+	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository,
+		repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
+	userService := service2.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository,
+		repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
 	settingService := service2.NewSettingService(repositories.SettingRepository)
 	sessionService := service2.NewSessionService(repositories.TokenRepository, tokenCache, userCache, cfg.RefreshExpire)
 	filterService := service2.NewFilterService(repositories.FilterRepository)
 
 	tokenMiddleware := middleware2.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
-	permissionMiddleware := middleware2.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository, repositories.PermissionRepository, cfg.Debug)
+	permissionMiddleware := middleware2.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository,
+		repositories.PermissionRepository, cfg.Debug)
 	authLimiterMiddleware := middleware2.NewAuthLimiterMiddleware(middleware2.ConfigLimiter{
 		MaxAttempts: cfg.MaxAttempts,
 		TTL:         cfg.TTL,
 	}, limiterCache, cfg.Debug)
 
-	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](authService, permissionService, roleService, userService, settingService, filterService, sessionService, cfg.Transaction, tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest)
+	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](
+		authService, permissionService, roleService, userService,
+		settingService, filterService, sessionService, cfg.Transaction,
+		tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest, oidcAuthService)
 
 	return Auth{
 		handler:              handlers,

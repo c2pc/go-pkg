@@ -20,6 +20,7 @@ var (
 var (
 	ErrSessionNotFound = translator.Translate{translator.RU: "Сессия не найдена", translator.EN: "Session not found"}
 	ErrAuthNoAccess    = translator.Translate{translator.RU: "Нет доступа", translator.EN: "No access"}
+	ErrSSONotSupported = translator.Translate{translator.RU: "Не поддерживается", translator.EN: "Not supported"}
 )
 
 var (
