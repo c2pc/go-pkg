@@ -25,8 +25,9 @@ import (
 )
 
 var (
-	ErrAuthNoAccess    = apperr.New("auth_blocked", apperr.WithTextTranslate(i18n.ErrAuthNoAccess), apperr.WithCode(code.PermissionDenied))
-	ErrSSONotSupported = apperr.New("sso_not_supported", apperr.WithTextTranslate(i18n.ErrSSONotSupported), apperr.WithCode(code.Aborted))
+	ErrAuthNoAccess    = apperr.New("auth_no_access", apperr.WithTextTranslate(i18n.ErrAuthNoAccess), apperr.WithCode(code.PermissionDenied))
+	ErrAuthBlocked     = apperr.New("auth_blocked", apperr.WithTextTranslate(i18n.ErrAuthNoAccess), apperr.WithCode(code.PermissionDenied))
+	ErrSSONotSupported = apperr.New("sso_not_supported", apperr.WithTextTranslate(i18n.ErrSSONotSupported), apperr.WithCode(code.Unauthenticated))
 )
 
 type IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
@@ -109,11 +110,10 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 	}
 
 	if user.Blocked {
-		return nil, user.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
+		return nil, user.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
 	var provider, refreshToken string
-	var refreshExpiredAt, accessExpiredAt time.Duration
 	if input.IsDomain && s.ldapAuth != nil && s.ldapAuth.IsEnabled() {
 		err = s.ldapAuth.CheckAuth(input.Login, input.Password)
 		if err != nil {
@@ -121,26 +121,20 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 		}
 
 		provider = "ldap"
-		refreshExpiredAt = s.refreshExpire
-		accessExpiredAt = s.accessExpire
 		refreshToken = xid.New().String()
 	} else {
 		if !s.hasher.HashMatchesString(user.Password, input.Password) {
 			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 		}
-		refreshExpiredAt = s.refreshExpire
-		accessExpiredAt = s.accessExpire
 		refreshToken = xid.New().String()
 	}
 
 	data, err := s.createSession(ctx, createSessionInput{
-		IsLogin:          true,
-		UserID:           user.ID,
-		DeviceID:         input.DeviceID,
-		Provider:         provider,
-		RefreshExpiredAt: refreshExpiredAt,
-		RefreshToken:     refreshToken,
-		AccessExpiredAt:  accessExpiredAt,
+		IsLogin:      true,
+		UserID:       user.ID,
+		DeviceID:     input.DeviceID,
+		Provider:     provider,
+		RefreshToken: refreshToken,
 	})
 
 	return data, user.ID, err
@@ -149,7 +143,6 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 type SSO struct {
 	Provider     string
 	RefreshToken string
-	AccessExpire time.Duration
 	Login        string
 	DeviceID     int
 }
@@ -161,7 +154,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) SSO(ct
 	}
 
 	if user.Blocked {
-		return nil, user.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
+		return nil, user.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
 	if input.Provider == sso.OIDC && !s.oidcAuth.IsEnabled() {
@@ -173,17 +166,14 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) SSO(ct
 			return nil, user.ID, ErrSSONotSupported
 		}
 		input.RefreshToken = xid.New().String()
-		input.AccessExpire = s.accessExpire
 	}
 
 	data, err := s.createSession(ctx, createSessionInput{
-		IsLogin:          true,
-		UserID:           user.ID,
-		DeviceID:         input.DeviceID,
-		Provider:         input.Provider,
-		RefreshExpiredAt: s.refreshExpire,
-		RefreshToken:     input.RefreshToken,
-		AccessExpiredAt:  input.AccessExpire,
+		IsLogin:      true,
+		UserID:       user.ID,
+		DeviceID:     input.DeviceID,
+		Provider:     input.Provider,
+		RefreshToken: input.RefreshToken,
 	})
 
 	return data, user.ID, err
@@ -203,14 +193,13 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 	if token.User.Blocked {
 		err := s.clearSession(ctx, token.UserID, token.DeviceID, true)
 		if err != nil {
-			return nil, token.User.ID, ErrAuthNoAccess.WithError(err)
+			return nil, token.User.ID, ErrAuthBlocked.WithError(err)
 		}
 
-		return nil, token.User.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
+		return nil, token.User.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
 	var provider, refreshToken string
-	var refreshExpiredAt, accessExpiredAt time.Duration
 	err = func() error {
 		if time.Now().UTC().After(token.ExpiresAt) {
 			return apperr.ErrUnauthenticated.WithErrorText("token is expired")
@@ -220,24 +209,18 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 			if token.Provider != nil {
 				provider = *token.Provider
 			}
-			refreshExpiredAt = s.refreshExpire
-			accessExpiredAt = s.accessExpire
 			refreshToken = xid.New().String()
 		} else if token.Provider != nil {
 			if *token.Provider == sso.OIDC && s.oidcAuth.IsEnabled() {
 				oidcToken, err := s.oidcAuth.Refresh(ctx, input.Token)
 				if err != nil {
 					_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
-					return ErrAuthNoAccess.WithErrorText("sso not enabled")
+					return apperr.ErrUnauthenticated.WithErrorText("error to refresh token")
 				}
 				provider = sso.OIDC
-				refreshExpiredAt = s.refreshExpire
-				accessExpiredAt = time.Duration(oidcToken.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes()) * time.Minute
 				refreshToken = oidcToken.IDToken.RefreshToken
 			} else if *token.Provider == sso.SAML && s.samlAuth.IsEnabled() {
 				provider = sso.SAML
-				refreshExpiredAt = s.refreshExpire
-				accessExpiredAt = s.accessExpire
 				refreshToken = xid.New().String()
 			} else {
 				return apperr.ErrUnauthenticated.WithError(ErrSSONotSupported)
@@ -254,13 +237,11 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 	}
 
 	data, err := s.createSession(ctx, createSessionInput{
-		IsLogin:          false,
-		UserID:           token.UserID,
-		DeviceID:         token.DeviceID,
-		Provider:         provider,
-		RefreshExpiredAt: refreshExpiredAt,
-		RefreshToken:     refreshToken,
-		AccessExpiredAt:  accessExpiredAt,
+		IsLogin:      false,
+		UserID:       token.UserID,
+		DeviceID:     token.DeviceID,
+		Provider:     provider,
+		RefreshToken: refreshToken,
 	})
 
 	return data, token.UserID, err
@@ -405,25 +386,23 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 }
 
 type createSessionInput struct {
-	IsLogin          bool
-	UserID           int
-	DeviceID         int
-	Provider         string
-	RefreshExpiredAt time.Duration
-	RefreshToken     string
-	AccessExpiredAt  time.Duration
+	IsLogin      bool
+	UserID       int
+	DeviceID     int
+	Provider     string
+	RefreshToken string
 }
 
 func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) createSession(ctx context.Context, input createSessionInput) (*model2.AuthToken, error) {
-	claims := tokenverify.BuildClaims(input.UserID, input.DeviceID, input.AccessExpiredAt)
+	claims := tokenverify.BuildClaims(input.UserID, input.DeviceID, s.accessExpire)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.accessSecret))
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	doUpdate := []interface{}{"token", "expires_at", "updated_at"}
-	doCreate := []interface{}{"logged_at", "provider"}
+	doUpdate := []interface{}{"token", "expires_at", "updated_at", "provider"}
+	doCreate := []interface{}{"logged_at"}
 	if input.IsLogin {
 		doUpdate = append(doUpdate, []string{"logged_at"})
 	}
@@ -439,7 +418,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		Token:     input.RefreshToken,
 		LoggedAt:  time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		ExpiresAt: time.Now().UTC().Add(input.RefreshExpiredAt),
+		ExpiresAt: time.Now().UTC().Add(s.refreshExpire),
 		Provider:  provider,
 	}, []interface{}{"user_id", "device_id"}, doUpdate, doCreate); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -482,7 +461,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		Auth: model2.Token{
 			Token:        tokenString,
 			RefreshToken: input.RefreshToken,
-			ExpiresAt:    input.RefreshExpiredAt.Seconds(),
+			ExpiresAt:    s.refreshExpire.Seconds(),
 			TokenType:    "Bearer",
 			UserID:       input.UserID,
 		},

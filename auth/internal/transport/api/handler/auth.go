@@ -3,7 +3,6 @@ package handler
 import (
 	"fmt"
 	"html/template"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -259,12 +258,9 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcV
 			return
 		}
 
-		accessExpire := math.Ceil(token.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes())
-
 		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(ctx, service.SSO{
 			Provider:     sso.OIDC,
 			RefreshToken: token.IDToken.RefreshToken,
-			AccessExpire: time.Duration(accessExpire) * time.Minute,
 			Login:        *token.Login,
 			DeviceID:     token.State.DeviceID,
 		})
@@ -274,6 +270,8 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcV
 		if err != nil {
 			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
 			if apperr.Is(err, service.ErrAuthNoAccess) {
+				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
+			} else if apperr.Is(err, service.ErrAuthBlocked) {
 				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
 			} else if apperr.Is(err, service.ErrSSONotSupported) {
 				executeTemplate(c, "sso_not_supported.html")
@@ -335,6 +333,8 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) samlL
 		if err != nil {
 			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
 			if apperr.Is(err, service.ErrAuthNoAccess) {
+				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
+			} else if apperr.Is(err, service.ErrAuthBlocked) {
 				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
 			} else if apperr.Is(err, service.ErrSSONotSupported) {
 				executeTemplate(c, "sso_not_supported.html")
