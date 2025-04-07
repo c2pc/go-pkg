@@ -3,7 +3,7 @@ module github.com/c2pc/go-pkg/v2
 go 1.23.7
 
 require (
-	github.com/c2pc/config-migrate v1.0.4
+	github.com/c2pc/config-migrate v1.0.5
 	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/crewjam/saml v0.4.14
 	github.com/dtm-labs/rockscache v0.1.1

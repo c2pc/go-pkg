@@ -13,7 +13,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "encrypt",
 		Short:   "Text Encryptor",
-		Example: "encrypt qwerty",
+		Example: "encrypt 'qwerty'",
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				cmd.Usage()
