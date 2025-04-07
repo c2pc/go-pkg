@@ -16,7 +16,10 @@ func UserSeeder(ctx context.Context, userRepository repository2.IUserRepository,
 			login := "admin"
 			name := "Admin"
 			password := "admin"
-			pass := hasher.HashString(password)
+			pass, err := hasher.HashString(password)
+			if err != nil {
+				return nil, err
+			}
 
 			admin, err := userRepository.FirstOrCreate(ctx, &model.User{
 				Login:     login,

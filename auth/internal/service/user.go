@@ -143,7 +143,10 @@ type UserCreateInput struct {
 }
 
 func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(ctx context.Context, input UserCreateInput, profileInput *CreateInput) (*model.User, error) {
-	password := s.hasher.HashString(input.Password)
+	password, err := s.hasher.HashString(input.Password)
+	if err != nil {
+		return nil, err
+	}
 
 	user, err := s.userRepository.Create(ctx, &model.User{
 		Login:      input.Login,
@@ -215,7 +218,10 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 		selects = append(selects, "first_name")
 	}
 	if input.Password != nil && *input.Password != "" {
-		password := s.hasher.HashString(*input.Password)
+		password, err := s.hasher.HashString(*input.Password)
+		if err != nil {
+			return err
+		}
 		user.Password = password
 		selects = append(selects, "password")
 	}

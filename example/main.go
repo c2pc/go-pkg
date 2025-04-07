@@ -90,7 +90,7 @@ func main() {
 		return
 	}
 
-	hasher, err := secret.New(configs.PasswordSalt)
+	hasher, err := secret.New(configs.PasswordSalt, false)
 	if err != nil {
 		logger.Fatalf("[SECRET] %s", err.Error())
 		return

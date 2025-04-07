@@ -335,7 +335,10 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 	}
 
 	if input.Password != nil && *input.Password != "" {
-		password := s.hasher.HashString(*input.Password)
+		password, err := s.hasher.HashString(*input.Password)
+		if err != nil {
+			return apperr.ErrUnauthenticated.WithError(err)
+		}
 		user.Password = password
 		selects = append(selects, "password")
 	}
