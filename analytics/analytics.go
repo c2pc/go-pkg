@@ -37,6 +37,14 @@ func New(config Config) Analytics {
 
 	handler := handlers.NewAnalyticsHandler(svc)
 
+	if config.SkipRequests == nil {
+		config.SkipRequests = make(map[string][]string)
+	}
+
+	config.SkipRequests["/auth/settings"] = []string{}
+	config.SkipRequests["/stream"] = []string{}
+	config.SkipRequests["/version"] = []string{}
+
 	collectorConfig := collector.LoggerConfig{
 		DB:                  config.DB,
 		FlushInterval:       config.FlushInterval,

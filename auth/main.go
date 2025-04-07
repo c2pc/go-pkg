@@ -14,14 +14,14 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
 	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 
-	cache3 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/database"
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
-	service2 "github.com/c2pc/go-pkg/v2/auth/internal/service"
+	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/handler"
-	middleware2 "github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
-	cache2 "github.com/c2pc/go-pkg/v2/utils/cache"
+	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
+	"github.com/c2pc/go-pkg/v2/utils/cache"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
@@ -61,7 +61,12 @@ type Config struct {
 	SSO           SSO
 }
 
-func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](serviceName string, cfg Config, prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput]) (IAuth, error) {
+func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
+	serviceName string,
+	version string,
+	cfg Config,
+	prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput],
+) (IAuth, error) {
 	if serviceName == "" {
 		return nil, errors.New("service name is required")
 	}
@@ -77,13 +82,13 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		return nil, err
 	}
 
-	rcClient := rockscache.NewClient(cfg.Rdb, cache2.GetRocksCacheOptions())
-	batchHandler := cache2.NewBatchDeleterRedis(cfg.Rdb, cache2.GetRocksCacheOptions())
+	rcClient := rockscache.NewClient(cfg.Rdb, cache.GetRocksCacheOptions())
+	batchHandler := cache.NewBatchDeleterRedis(cfg.Rdb, cache.GetRocksCacheOptions())
 
-	tokenCache := cache3.NewTokenCache(cfg.Rdb, cfg.AccessExpire)
-	userCache := cache3.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
-	permissionCache := cache3.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
-	limiterCache := cache3.NewLimiterCache(cfg.Rdb)
+	tokenCache := cache2.NewTokenCache(cfg.Rdb, cfg.AccessExpire)
+	userCache := cache2.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
+	permissionCache := cache2.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
+	limiterCache := cache2.NewLimiterCache(cfg.Rdb)
 
 	var profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
 	if prof != nil {
@@ -135,29 +140,43 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		return nil, err
 	}
 
-	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository,
+	authService := service.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository,
 		tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService, oidcAuthService, samlAuthService)
-	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
-	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository,
+	permissionService := service.NewPermissionService(repositories.PermissionRepository, permissionCache)
+	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository,
 		repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
-	userService := service2.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository,
+	userService := service.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository,
 		repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
-	settingService := service2.NewSettingService(repositories.SettingRepository)
-	sessionService := service2.NewSessionService(repositories.TokenRepository, tokenCache, userCache, cfg.RefreshExpire)
-	filterService := service2.NewFilterService(repositories.FilterRepository)
+	settingService := service.NewSettingService(repositories.SettingRepository)
+	sessionService := service.NewSessionService(repositories.TokenRepository, tokenCache, userCache, cfg.RefreshExpire)
+	filterService := service.NewFilterService(repositories.FilterRepository)
+	versionService := service.NewVersionService(version, repositories.MigrationRepository)
 
-	tokenMiddleware := middleware2.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
-	permissionMiddleware := middleware2.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository,
+	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
+	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository,
 		repositories.PermissionRepository, cfg.Debug)
-	authLimiterMiddleware := middleware2.NewAuthLimiterMiddleware(middleware2.ConfigLimiter{
+	authLimiterMiddleware := middleware.NewAuthLimiterMiddleware(middleware.ConfigLimiter{
 		MaxAttempts: cfg.MaxAttempts,
 		TTL:         cfg.TTL,
 	}, limiterCache, cfg.Debug)
 
 	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](
-		authService, permissionService, roleService, userService,
-		settingService, filterService, sessionService, cfg.Transaction,
-		tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest, oidcAuthService, samlAuthService)
+		authService,
+		permissionService,
+		roleService,
+		userService,
+		settingService,
+		filterService,
+		sessionService,
+		cfg.Transaction,
+		tokenMiddleware,
+		permissionMiddleware,
+		profileTransformer,
+		profileRequest,
+		oidcAuthService,
+		samlAuthService,
+		versionService,
+	)
 
 	return Auth{
 		handler:              handlers,
@@ -170,9 +189,9 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 
 type Auth struct {
 	handler              handler.IHandler
-	tokenMiddleware      middleware2.ITokenMiddleware
-	permissionMiddleware middleware2.IPermissionMiddleware
-	limiterMiddleware    middleware2.AuthMiddleware
+	tokenMiddleware      middleware.ITokenMiddleware
+	permissionMiddleware middleware.IPermissionMiddleware
+	limiterMiddleware    middleware.AuthMiddleware
 	adminID              int
 }
 
