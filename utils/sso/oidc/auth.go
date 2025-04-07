@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
@@ -19,7 +20,7 @@ import (
 )
 
 var (
-	ErrServerIsNotUnavailable = apperr.New("ad_server_is_not_unavailable", apperr.WithTextTranslate(translator.Translate{translator.RU: "Сервер недоступен", translator.EN: "Server is unavailable"}), apperr.WithCode(code.Unavailable))
+	ErrServerIsNotUnavailable = apperr.New("oidc_server_is_not_unavailable", apperr.WithTextTranslate(translator.Translate{translator.RU: "Сервер недоступен", translator.EN: "Server is unavailable"}), apperr.WithCode(code.Unavailable))
 	ErrInvalidState           = apperr.New("oidc_invalid_state", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неизвестный источник", translator.EN: "Unknown source"}), apperr.WithCode(code.InvalidArgument))
 	ErrInvalidCode            = apperr.New("oidc_invalid_code", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неизвестный код", translator.EN: "Unknown code"}), apperr.WithCode(code.InvalidArgument))
 	ErrInvalidToken           = apperr.New("oidc_invalid_token", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неверный токен", translator.EN: "Invalid token"}), apperr.WithCode(code.InvalidArgument))
@@ -39,7 +40,7 @@ type Config struct {
 	ConfigURL         string
 	ClientID          string
 	ClientSecret      string
-	RedirectURL       string
+	RootURL           string
 	LoginAttr         string
 	ValidRedirectURLs []string
 }
@@ -74,7 +75,7 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 			return nil, apperr.New("OIDC client secret is required")
 		}
 
-		if cfg.RedirectURL == "" {
+		if cfg.RootURL == "" {
 			return nil, apperr.New("OIDC redirect url is required")
 		}
 
@@ -91,7 +92,7 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 		auth.oauth2 = &oauth2.Config{
 			ClientID:     cfg.ClientID,
 			ClientSecret: cfg.ClientSecret,
-			RedirectURL:  cfg.RedirectURL,
+			RedirectURL:  cfg.RootURL,
 			Endpoint:     provider.Endpoint(),
 			Scopes:       []string{oidc.ScopeOpenID},
 		}
@@ -109,11 +110,16 @@ func (auth *Auth) IsEnabled() bool {
 }
 
 func (auth *Auth) CheckRedirectURLs(redirectURL string) bool {
+	if len(auth.validRedirectURLs) == 0 {
+		return true
+	}
+
 	for _, u := range auth.validRedirectURLs {
-		if redirectURL == u {
+		if strings.Index(redirectURL, u) == 0 {
 			return true
 		}
 	}
+
 	return false
 }
 

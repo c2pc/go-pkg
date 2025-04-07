@@ -81,7 +81,7 @@ func (h *Handler) initAPI(handler *gin.Engine) {
 	{
 		unsecured := api.Group("", h.analyticService.CollectAnalytic)
 		{
-			h.authService.InitHandler(unsecured)
+			h.authService.InitHandler(handler, unsecured)
 		}
 
 		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)

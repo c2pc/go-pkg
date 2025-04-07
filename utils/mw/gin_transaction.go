@@ -53,7 +53,7 @@ func (tr *Transaction) DBTransaction(c *gin.Context) {
 	c.Set(constant.TxValue, txHandle)
 	c.Next()
 
-	if statusInList(c.Writer.Status(), []int{http.StatusOK, http.StatusCreated, http.StatusNoContent}) {
+	if statusInList(c.Writer.Status(), []int{http.StatusOK, http.StatusCreated, http.StatusNoContent, http.StatusFound}) {
 		if err := txHandle.Commit().Error; err != nil {
 			response.Response(c, apperr.ErrDBInternal.WithError(err))
 			return

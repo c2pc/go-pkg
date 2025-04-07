@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
+	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 
 	service2 "github.com/c2pc/go-pkg/v2/auth/internal/service"
 	middleware2 "github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
@@ -14,7 +15,7 @@ import (
 )
 
 type IHandler interface {
-	Init(api *gin.RouterGroup)
+	Init(engine *gin.Engine, api *gin.RouterGroup)
 }
 
 type Handler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
@@ -31,6 +32,7 @@ type Handler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput 
 	profileTransformer   profile.ITransformer[Model]
 	profileRequest       profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 	oidcAuth             oidc.AuthService
+	samlAuth             saml.AuthService
 }
 
 func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
@@ -47,6 +49,7 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 	profileTransformer profile.ITransformer[Model],
 	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
 	oidcAuth oidc.AuthService,
+	samlAuth saml.AuthService,
 ) *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		customValidator.DotUnderscoreHyphenValidation(v)      //dot_underscore_hyphen
@@ -69,11 +72,12 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 		profileTransformer,
 		profileRequest,
 		oidcAuth,
+		samlAuth,
 	}
 }
 
-func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api *gin.RouterGroup) {
-	authHandler := NewAuthHandlers(h.authService, h.tr, h.tokenMiddleware, h.profileTransformer, h.profileRequest, h.oidcAuth)
+func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engine *gin.Engine, api *gin.RouterGroup) {
+	authHandler := NewAuthHandlers(h.authService, h.tr, h.tokenMiddleware, h.profileTransformer, h.profileRequest, h.oidcAuth, h.samlAuth)
 	permissionHandler := NewPermissionHandlers(h.permissionService)
 	roleHandler := NewRoleHandlers(h.roleService, h.tr)
 	userHandler := NewUserHandlers(h.userService, h.tr, h.profileTransformer, h.profileRequest)
@@ -83,7 +87,7 @@ func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api 
 
 	handler := api.Group("/auth")
 	{
-		authHandler.Init(handler)
+		authHandler.Init(engine, handler)
 		//Authenticate
 		auth := handler.Group("", h.tokenMiddleware.Authenticate)
 		{

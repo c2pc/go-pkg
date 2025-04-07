@@ -23,6 +23,7 @@ import (
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/sso"
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
+	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,6 +34,7 @@ type AuthHandler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 	profileTransformer profile.ITransformer[Model]
 	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
 	oidcAuth           oidc.AuthService
+	samlAuth           saml.AuthService
 }
 
 func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
@@ -42,6 +44,7 @@ func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfi
 	profileTransformer profile.ITransformer[Model],
 	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
 	oidcAuth oidc.AuthService,
+	samlAuth saml.AuthService,
 ) *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	return &AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
 		authService,
@@ -50,18 +53,35 @@ func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfi
 		profileTransformer,
 		profileRequest,
 		oidcAuth,
+		samlAuth,
 	}
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api *gin.RouterGroup) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engine *gin.Engine, api *gin.RouterGroup) {
 	auth := api.Group("")
 	{
 		auth.POST("/login", h.tr.DBTransaction, h.login)
 		auth.POST("/refresh", h.tr.DBTransaction, h.refresh)
 		auth.POST("/logout", h.tr.DBTransaction, h.logout)
 		auth.GET("/account", h.tokenMiddleware.Authenticate, h.account)
-		auth.GET("/sso/login", h.ssoLogin)
-		auth.GET("/sso/callback", h.tr.DBTransaction, h.ssoVerify)
+
+		if h.oidcAuth.IsEnabled() {
+			auth.GET("/sso/login", h.oidcLogin)
+			auth.GET("/sso/callback", h.tr.DBTransaction, h.oidcVerify)
+		} else if h.samlAuth.IsEnabled() {
+			auth.GET("/sso/login", h.samlAuth.SamlSP().RequireAccount, h.tr.DBTransaction, h.samlLogin)
+		} else {
+			auth.GET("/sso/login", func(c *gin.Context) {
+				executeTemplate(c, "sso_not_supported.html")
+			})
+			auth.GET("/sso/callback", func(c *gin.Context) {
+				executeTemplate(c, "sso_not_supported.html")
+			})
+		}
+	}
+
+	if h.samlAuth.IsEnabled() {
+		engine.Any("/saml/:key", h.samlAuth.SamlSP().ServeHTTP)
 	}
 }
 
@@ -176,7 +196,7 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) updat
 	c.Status(http.StatusOK)
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoLogin(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcLogin(c *gin.Context) {
 	cred, err := request2.BindQuery[request.AuthSSOLoginRequest](c)
 	if err != nil {
 		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("sso.BindQuery error: %v", err))
@@ -184,11 +204,11 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoLo
 		return
 	}
 
-	origin := c.GetHeader("Origin")
+	origin := c.GetHeader("Referer")
 
-	if !strings.Contains(cred.RedirectURL, origin) {
+	if strings.Index(cred.RedirectURL, origin) != 0 {
 		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("RedirectURL and origin is not the same"))
-		executeTemplate(c, "bad_redirect_url.html")
+		executeTemplate(c, "bad_redirect_url2.html")
 		return
 	}
 
@@ -209,16 +229,13 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoLo
 		setCallbackCookie(c.Writer, c.Request, "state", state)
 
 		http.Redirect(c.Writer, c.Request, code, http.StatusFound)
-		//} else if h.samlAuth.IsEnabled() {
-		//	executeTemplate(c, "sso_not_supported.html")
-		//	return
 	} else {
 		executeTemplate(c, "sso_not_supported.html")
 		return
 	}
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoVerify(c *gin.Context) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcVerify(c *gin.Context) {
 	ctx := mcontext.WithOperationIDContext(c.Request.Context(), strconv.Itoa(int(time.Now().UTC().Unix())))
 
 	if h.oidcAuth.IsEnabled() {
@@ -238,14 +255,14 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoVe
 		token, err := h.oidcAuth.Verify(ctx, c.Request.URL.Query().Get("state"), c.Request.URL.Query().Get("code"))
 		if err != nil {
 			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.Verify error: %v", err))
-			executeTemplate(c, "sso_invalid_state.html")
+			executeTemplate(c, "sso_invalid_state.html", http.StatusUnauthorized)
 			return
 		}
 
 		accessExpire := math.Ceil(token.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes())
 
 		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(ctx, service.SSO{
-			ServiceName:  sso.OIDC,
+			Provider:     sso.OIDC,
 			RefreshToken: token.IDToken.RefreshToken,
 			AccessExpire: time.Duration(accessExpire) * time.Minute,
 			Login:        *token.Login,
@@ -257,11 +274,11 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoVe
 		if err != nil {
 			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
 			if apperr.Is(err, service.ErrAuthNoAccess) {
-				executeTemplate(c, "sso_no_access.html")
+				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
 			} else if apperr.Is(err, service.ErrSSONotSupported) {
 				executeTemplate(c, "sso_not_supported.html")
 			} else {
-				executeTemplate(c, "sso_unauthenticated.html")
+				executeTemplate(c, "sso_unauthenticated.html", http.StatusUnauthorized)
 			}
 			return
 		}
@@ -270,23 +287,85 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) ssoVe
 			fmt.Sprintf("%s?accessToken=%s&refreshToken=%s&expires=%d",
 				token.State.RedirectURL, authToken.Auth.Token, authToken.Auth.RefreshToken, int(authToken.Auth.ExpiresAt)),
 			http.StatusFound)
-		//} else if h.samlAuth.IsEnabled() {
-		//	executeTemplate(c, "sso_not_supported.html")
-		//	return
 	} else {
 		executeTemplate(c, "sso_not_supported.html")
 		return
 	}
 }
 
-func executeTemplate(c *gin.Context, name string) {
+func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) samlLogin(c *gin.Context) {
+	ctx := mcontext.WithOperationIDContext(c.Request.Context(), strconv.Itoa(int(time.Now().UTC().Unix())))
+
+	cred, err := request2.BindQuery[request.AuthSSOLoginRequest](c)
+	if err != nil {
+		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("sso.BindQuery error: %v", err))
+		executeTemplate(c, "bad_request.html")
+		return
+	}
+
+	origin := c.GetHeader("Origin")
+
+	if !strings.Contains(cred.RedirectURL, origin) {
+		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("RedirectURL and origin is not the same"))
+		executeTemplate(c, "bad_redirect_url.html")
+		return
+	}
+
+	if h.samlAuth.IsEnabled() {
+		if ok := h.samlAuth.CheckRedirectURLs(cred.RedirectURL); !ok {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("samlAuth.CheckRedirectURLs redirect url not valid"))
+			executeTemplate(c, "bad_redirect_url.html")
+			return
+		}
+
+		login := h.samlAuth.GetLoginFromContext(c.Request.Context())
+		if login == "" {
+			executeTemplate(c, "sso_invalid_state.html", http.StatusUnauthorized)
+			return
+		}
+
+		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(ctx, service.SSO{
+			Provider: sso.SAML,
+			Login:    login,
+			DeviceID: cred.DeviceID,
+		})
+		if userID != 0 {
+			c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(ctx, userID))
+		}
+		if err != nil {
+			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
+			if apperr.Is(err, service.ErrAuthNoAccess) {
+				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
+			} else if apperr.Is(err, service.ErrSSONotSupported) {
+				executeTemplate(c, "sso_not_supported.html")
+			} else {
+				executeTemplate(c, "sso_unauthenticated.html", http.StatusUnauthorized)
+			}
+			return
+		}
+
+		http.Redirect(c.Writer, c.Request,
+			fmt.Sprintf("%s?accessToken=%s&refreshToken=%s&expires=%d",
+				cred.RedirectURL, authToken.Auth.Token, authToken.Auth.RefreshToken, int(authToken.Auth.ExpiresAt)),
+			http.StatusFound)
+	} else {
+		executeTemplate(c, "sso_not_supported.html")
+		return
+	}
+}
+
+func executeTemplate(c *gin.Context, name string, code ...int) {
 	tmpl, err := template.New(name).ParseFS(templates.Templates, name)
 	if err != nil {
 		return
 	}
+	if len(code) > 0 {
+		c.Status(code[0])
+	} else {
+		c.Status(http.StatusBadRequest)
+	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	_ = tmpl.Execute(c.Writer, nil)
-	c.Status(http.StatusBadRequest)
 }
 
 func setCallbackCookie(w http.ResponseWriter, r *http.Request, name, value string) {

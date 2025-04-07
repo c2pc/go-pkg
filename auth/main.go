@@ -12,6 +12,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
+	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 
 	cache3 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/database"
@@ -32,7 +33,7 @@ import (
 )
 
 type IAuth interface {
-	InitHandler(api *gin.RouterGroup)
+	InitHandler(engine *gin.Engine, api *gin.RouterGroup)
 	Authenticate(c *gin.Context)
 	CanPermission(c *gin.Context)
 	GetAdminID() int
@@ -42,6 +43,7 @@ type IAuth interface {
 type SSO struct {
 	LDAP ldap.Config
 	OIDC oidc.Config
+	SAML saml.Config
 }
 
 type Config struct {
@@ -115,20 +117,26 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		return nil, err
 	}
 
-	//if cfg.SSO.OIDC.Enabled {
-	//	cfg.SSO.SAML.Enabled = false
-	//} else if cfg.SSO.SAML.Enabled {
-	//	//TODO
-	//}
+	if cfg.SSO.OIDC.Enabled {
+		cfg.SSO.SAML.Enabled = false
+	} else if cfg.SSO.SAML.Enabled {
+		//TODO
+	}
 
-	cfg.SSO.OIDC.RedirectURL = strings.TrimRight(cfg.SSO.OIDC.RedirectURL, "/") + "/api/v1/auth/sso/callback"
+	cfg.SSO.OIDC.RootURL = strings.TrimRight(cfg.SSO.OIDC.RootURL, "/") + "/api/v1/auth/sso/callback"
 	oidcAuthService, err := oidc.NewAuthService(ctx, cfg.SSO.OIDC)
 	if err != nil {
 		return nil, err
 	}
 
+	cfg.SSO.SAML.RootURL = strings.TrimRight(cfg.SSO.SAML.RootURL, "/") + "/api/v1/auth/sso/login"
+	samlAuthService, err := saml.NewAuthService(ctx, cfg.SSO.SAML)
+	if err != nil {
+		return nil, err
+	}
+
 	authService := service2.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository,
-		tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService, oidcAuthService)
+		tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService, oidcAuthService, samlAuthService)
 	permissionService := service2.NewPermissionService(repositories.PermissionRepository, permissionCache)
 	roleService := service2.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository,
 		repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
@@ -149,7 +157,7 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](
 		authService, permissionService, roleService, userService,
 		settingService, filterService, sessionService, cfg.Transaction,
-		tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest, oidcAuthService)
+		tokenMiddleware, permissionMiddleware, profileTransformer, profileRequest, oidcAuthService, samlAuthService)
 
 	return Auth{
 		handler:              handlers,
@@ -168,8 +176,8 @@ type Auth struct {
 	adminID              int
 }
 
-func (a Auth) InitHandler(api *gin.RouterGroup) {
-	a.handler.Init(api)
+func (a Auth) InitHandler(engine *gin.Engine, api *gin.RouterGroup) {
+	a.handler.Init(engine, api)
 }
 
 func (a Auth) Authenticate(c *gin.Context) {

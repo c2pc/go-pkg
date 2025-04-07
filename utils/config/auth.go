@@ -25,6 +25,7 @@ type LDAP struct {
 
 type SSO struct {
 	OIDC OIDC `yaml:"oidc"`
+	SAML SAML `yaml:"saml"`
 }
 
 type OIDC struct {
@@ -32,7 +33,18 @@ type OIDC struct {
 	ConfigURL         string   `yaml:"config_url"`
 	ClientID          string   `yaml:"client_id"`
 	ClientSecret      string   `yaml:"client_secret"`
-	RedirectURL       string   `yaml:"redirect_url"`
+	RootURL           string   `yaml:"root_url"`
 	LoginAttr         string   `yaml:"login_attr"`
-	ValidRedirectURLs []string `json:"valid_redirect_urls"`
+	ValidRedirectURLs []string `yaml:"valid_redirect_urls"`
+}
+
+type SAML struct {
+	Enabled           bool     `yaml:"enabled"`
+	MetaDataURL       string   `yaml:"meta_data_url"`
+	MetaDataPath      string   `yaml:"meta_data_path"`
+	CertFile          string   `yaml:"cert_file"`
+	KeyFile           string   `yaml:"key_file"`
+	RootURL           string   `yaml:"root_url"`
+	LoginAttr         string   `yaml:"login_attr"`
+	ValidRedirectURLs []string `yaml:"valid_redirect_urls"`
 }

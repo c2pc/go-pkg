@@ -31,6 +31,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
+	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 	"github.com/c2pc/go-pkg/v2/websocket"
 )
 
@@ -119,9 +120,19 @@ func main() {
 					ConfigURL:         configs.AUTH.SSO.OIDC.ConfigURL,
 					ClientID:          configs.AUTH.SSO.OIDC.ClientID,
 					ClientSecret:      configs.AUTH.SSO.OIDC.ClientSecret,
-					RedirectURL:       configs.AUTH.SSO.OIDC.RedirectURL,
+					RootURL:           configs.AUTH.SSO.OIDC.RootURL,
 					LoginAttr:         configs.AUTH.SSO.OIDC.LoginAttr,
 					ValidRedirectURLs: configs.AUTH.SSO.OIDC.ValidRedirectURLs,
+				},
+				SAML: saml.Config{
+					Enabled:           configs.AUTH.SSO.SAML.Enabled,
+					MetaDataURL:       configs.AUTH.SSO.SAML.MetaDataURL,
+					MetaDataPath:      configs.AUTH.SSO.SAML.MetaDataPath,
+					CertFile:          configs.AUTH.SSO.SAML.CertFile,
+					KeyFile:           configs.AUTH.SSO.SAML.KeyFile,
+					RootURL:           configs.AUTH.SSO.SAML.RootURL,
+					LoginAttr:         configs.AUTH.SSO.SAML.LoginAttr,
+					ValidRedirectURLs: configs.AUTH.SSO.SAML.ValidRedirectURLs,
 				},
 			},
 		}, &profile2.Profile[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput]{

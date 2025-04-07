@@ -17,6 +17,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/sso"
 	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
+	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/rs/xid"
@@ -49,6 +50,7 @@ type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct
 	refreshExpire   time.Duration
 	ldapAuth        ldap.AuthService
 	oidcAuth        oidc.AuthService
+	samlAuth        saml.AuthService
 	accessSecret    string
 }
 
@@ -64,6 +66,7 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 	accessSecret string,
 	ldapAuth ldap.AuthService,
 	oidcAuth oidc.AuthService,
+	samlAuth saml.AuthService,
 ) AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
 	return AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]{
 		profileService:  profileService,
@@ -77,6 +80,7 @@ func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
 		accessSecret:    accessSecret,
 		ldapAuth:        ldapAuth,
 		oidcAuth:        oidcAuth,
+		samlAuth:        samlAuth,
 	}
 }
 
@@ -108,7 +112,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 		return nil, user.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
 	}
 
-	var serviceName, refreshToken string
+	var provider, refreshToken string
 	var refreshExpiredAt, accessExpiredAt time.Duration
 	if input.IsDomain && s.ldapAuth != nil && s.ldapAuth.IsEnabled() {
 		err = s.ldapAuth.CheckAuth(input.Login, input.Password)
@@ -116,7 +120,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 			return nil, user.ID, apperr.ErrUnauthenticated.WithError(err)
 		}
 
-		serviceName = "ldap"
+		provider = "ldap"
 		refreshExpiredAt = s.refreshExpire
 		accessExpiredAt = s.accessExpire
 		refreshToken = xid.New().String()
@@ -133,7 +137,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 		IsLogin:          true,
 		UserID:           user.ID,
 		DeviceID:         input.DeviceID,
-		ServiceName:      serviceName,
+		Provider:         provider,
 		RefreshExpiredAt: refreshExpiredAt,
 		RefreshToken:     refreshToken,
 		AccessExpiredAt:  accessExpiredAt,
@@ -143,7 +147,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 }
 
 type SSO struct {
-	ServiceName  string
+	Provider     string
 	RefreshToken string
 	AccessExpire time.Duration
 	Login        string
@@ -160,15 +164,23 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) SSO(ct
 		return nil, user.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
 	}
 
-	if input.ServiceName == sso.OIDC && !s.oidcAuth.IsEnabled() {
+	if input.Provider == sso.OIDC && !s.oidcAuth.IsEnabled() {
 		return nil, user.ID, ErrSSONotSupported
+	}
+
+	if input.Provider == sso.SAML {
+		if !s.samlAuth.IsEnabled() {
+			return nil, user.ID, ErrSSONotSupported
+		}
+		input.RefreshToken = xid.New().String()
+		input.AccessExpire = s.accessExpire
 	}
 
 	data, err := s.createSession(ctx, createSessionInput{
 		IsLogin:          true,
 		UserID:           user.ID,
 		DeviceID:         input.DeviceID,
-		ServiceName:      input.ServiceName,
+		Provider:         input.Provider,
 		RefreshExpiredAt: s.refreshExpire,
 		RefreshToken:     input.RefreshToken,
 		AccessExpiredAt:  input.AccessExpire,
@@ -197,28 +209,28 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 		return nil, token.User.ID, ErrAuthNoAccess.WithErrorText("user is blocked")
 	}
 
-	var serviceName, refreshToken string
+	var provider, refreshToken string
 	var refreshExpiredAt, accessExpiredAt time.Duration
 	err = func() error {
 		if time.Now().UTC().After(token.ExpiresAt) {
 			return apperr.ErrUnauthenticated.WithErrorText("token is expired")
 		}
 
-		if token.ServiceName == nil || (token.ServiceName != nil && *token.ServiceName == "ldap") {
-			if token.ServiceName != nil {
-				serviceName = *token.ServiceName
+		if token.Provider == nil || (token.Provider != nil && *token.Provider == "ldap") {
+			if token.Provider != nil {
+				provider = *token.Provider
 			}
 			refreshExpiredAt = s.refreshExpire
 			accessExpiredAt = s.accessExpire
 			refreshToken = xid.New().String()
-		} else if token.ServiceName != nil {
-			if *token.ServiceName == sso.OIDC && s.oidcAuth.IsEnabled() {
+		} else if token.Provider != nil {
+			if *token.Provider == sso.OIDC && s.oidcAuth.IsEnabled() {
 				oidcToken, err := s.oidcAuth.Refresh(ctx, input.Token)
 				if err != nil {
 					_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
 					return ErrAuthNoAccess.WithErrorText("sso not enabled")
 				}
-				serviceName = sso.OIDC
+				provider = sso.OIDC
 				refreshExpiredAt = s.refreshExpire
 				accessExpiredAt = time.Duration(oidcToken.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes()) * time.Minute
 				refreshToken = oidcToken.IDToken.RefreshToken
@@ -240,7 +252,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 		IsLogin:          false,
 		UserID:           token.UserID,
 		DeviceID:         token.DeviceID,
-		ServiceName:      serviceName,
+		Provider:         provider,
 		RefreshExpiredAt: refreshExpiredAt,
 		RefreshToken:     refreshToken,
 		AccessExpiredAt:  accessExpiredAt,
@@ -388,7 +400,7 @@ type createSessionInput struct {
 	IsLogin          bool
 	UserID           int
 	DeviceID         int
-	ServiceName      string
+	Provider         string
 	RefreshExpiredAt time.Duration
 	RefreshToken     string
 	AccessExpiredAt  time.Duration
@@ -402,25 +414,25 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	doUpdate := []interface{}{"token", "expires_at", "updated_at", "domain"}
-	doCreate := []interface{}{"logged_at", "domain"}
+	doUpdate := []interface{}{"token", "expires_at", "updated_at"}
+	doCreate := []interface{}{"logged_at", "provider"}
 	if input.IsLogin {
 		doUpdate = append(doUpdate, []string{"logged_at"})
 	}
 
-	var serviceName *string
-	if input.ServiceName != "" {
-		serviceName = &input.ServiceName
+	var provider *string
+	if input.Provider != "" {
+		provider = &input.Provider
 	}
 
 	if _, err := s.tokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
-		UserID:      input.UserID,
-		DeviceID:    input.DeviceID,
-		Token:       input.RefreshToken,
-		LoggedAt:    time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
-		ExpiresAt:   time.Now().UTC().Add(input.RefreshExpiredAt),
-		ServiceName: serviceName,
+		UserID:    input.UserID,
+		DeviceID:  input.DeviceID,
+		Token:     input.RefreshToken,
+		LoggedAt:  time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(input.RefreshExpiredAt),
+		Provider:  provider,
 	}, []interface{}{"user_id", "device_id"}, doUpdate, doCreate); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
