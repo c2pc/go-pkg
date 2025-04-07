@@ -234,6 +234,11 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 				refreshExpiredAt = s.refreshExpire
 				accessExpiredAt = time.Duration(oidcToken.IDToken.Expiry.UTC().Sub(time.Now().UTC()).Minutes()) * time.Minute
 				refreshToken = oidcToken.IDToken.RefreshToken
+			} else if *token.Provider == sso.SAML && s.samlAuth.IsEnabled() {
+				provider = sso.SAML
+				refreshExpiredAt = s.refreshExpire
+				accessExpiredAt = s.accessExpire
+				refreshToken = xid.New().String()
 			} else {
 				return apperr.ErrUnauthenticated.WithError(ErrSSONotSupported)
 			}
