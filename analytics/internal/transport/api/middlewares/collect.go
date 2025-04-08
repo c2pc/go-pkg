@@ -294,7 +294,7 @@ func (l *logger) flush() {
 		entries = append(entries, entry)
 	}
 
-	err := l.db.Create(&l.entries).Error
+	err := l.db.Create(&entries).Error
 	if err != nil {
 		log.Printf("error when inserting analytics: %v", err)
 	}
