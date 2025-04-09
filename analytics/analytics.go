@@ -28,6 +28,7 @@ type Config struct {
 	ExcludeInputBodies  map[string][]string
 	ExcludeOutputBodies map[string][]string
 	SkipRequests        map[string][]string
+	HiddenKeys          []string
 }
 
 func New(config Config) Analytics {
@@ -52,6 +53,7 @@ func New(config Config) Analytics {
 		ExcludeInputBodies:  config.ExcludeInputBodies,
 		ExcludeOutputBodies: config.ExcludeOutputBodies,
 		SkipRequests:        config.SkipRequests,
+		HiddenKeys:          config.HiddenKeys,
 	}
 
 	middleware, shutdown := collector.New(collectorConfig)

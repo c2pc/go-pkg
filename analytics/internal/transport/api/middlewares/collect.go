@@ -28,6 +28,7 @@ type LoggerConfig struct {
 	ExcludeInputBodies  map[string][]string
 	ExcludeOutputBodies map[string][]string
 	SkipRequests        map[string][]string
+	HiddenKeys          []string
 }
 
 type logger struct {
@@ -42,6 +43,7 @@ type logger struct {
 	ExcludeInputBodies  map[string][]string
 	ExcludeOutputBodies map[string][]string
 	SkipRequests        map[string][]string
+	HiddenKeys          []string
 }
 
 type responseWriter struct {
@@ -75,6 +77,8 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 		cfg.BatchSize = 100
 	}
 
+	cfg.HiddenKeys = append(cfg.HiddenKeys, "pass", "token", "pwd", "code")
+
 	l := &logger{
 		db:                  cfg.DB,
 		batchSize:           cfg.BatchSize,
@@ -84,6 +88,7 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 		ExcludeInputBodies:  cfg.ExcludeInputBodies,
 		ExcludeOutputBodies: cfg.ExcludeOutputBodies,
 		SkipRequests:        cfg.SkipRequests,
+		HiddenKeys:          cfg.HiddenKeys,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,10 +195,9 @@ func (l *logger) middleware(c *gin.Context) {
 
 		operationID, _ := mcontext.GetOperationID(ctx)
 
-		var importantKeys = []string{"pass", "token", "pwd", "code"}
 		var compressedRequest []byte
 		if len(requestBody) > 0 {
-			data := compressData(jsonutil.JsonHideImportantData(requestBody, importantKeys...))
+			data := compressData(jsonutil.JsonHideImportantData(requestBody, l.HiddenKeys...))
 			compressedRequest = data
 		} else {
 			compressedRequest = nil
@@ -202,7 +206,7 @@ func (l *logger) middleware(c *gin.Context) {
 		var compressedResponse []byte
 		if w != nil {
 			if w.flag && w.body != nil && w.body.Len() > 0 {
-				data := compressData(jsonutil.JsonHideImportantData(w.body.Bytes(), importantKeys...))
+				data := compressData(jsonutil.JsonHideImportantData(w.body.Bytes(), l.HiddenKeys...))
 				compressedResponse = data
 			} else {
 				compressedResponse = nil
