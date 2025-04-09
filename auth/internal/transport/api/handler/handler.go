@@ -53,11 +53,13 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 	samlAuth saml.AuthService,
 	versionService service.VersionService,
 ) *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
+
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		customValidator.DotUnderscoreHyphenValidation(v)      //dot_underscore_hyphen
 		customValidator.DotUnderscoreHyphenSpaceValidation(v) //dot_underscore_hyphen_space
 		customValidator.DeviceIDValidation(v)                 //device_id
 		customValidator.SpecCharsValidation(v)                //spec_chars
+		customValidator.PhoneNumberValidation(v)              //phone_number
 	}
 
 	return &Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
