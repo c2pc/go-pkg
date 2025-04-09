@@ -298,9 +298,11 @@ func (l *logger) flush() {
 		entries = append(entries, entry)
 	}
 
-	err := l.db.Create(&entries).Error
-	if err != nil {
-		log.Printf("error when inserting analytics: %v", err)
+	if len(entries) > 0 {
+		err := l.db.Create(&entries).Error
+		if err != nil {
+			log.Printf("error when inserting analytics: %v", err)
+		}
 	}
 
 	l.entries = l.entries[:0]
