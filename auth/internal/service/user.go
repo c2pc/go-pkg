@@ -327,12 +327,7 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 		}
 	}
 
-	if len(selects) > 0 || profileInput != nil {
-		if input.Password != nil && *input.Password != "" {
-			if err := s.tokenCache.DeleteAllUserTokens(ctx, user.ID); err != nil {
-				return apperr.ErrInternal.WithError(err)
-			}
-		}
+	if len(selects) > 0 || input.Roles != nil || profileInput != nil {
 		if err := s.userCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
 			return apperr.ErrInternal.WithError(err)
 		}
