@@ -3,12 +3,11 @@ package service
 import (
 	"context"
 
-	"github.com/c2pc/go-pkg/v2/auth/profile"
-
 	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
@@ -328,8 +327,8 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 		}
 	}
 
-	if len(selects) > 0 || input.Roles != nil || profileInput != nil {
-		if input.Roles != nil || (input.Password != nil && *input.Password != "") {
+	if len(selects) > 0 || profileInput != nil {
+		if input.Password != nil && *input.Password != "" {
 			if err := s.tokenCache.DeleteAllUserTokens(ctx, user.ID); err != nil {
 				return apperr.ErrInternal.WithError(err)
 			}
