@@ -159,7 +159,7 @@ func (r Repo[C]) Joins(models ...string) Repo[C] {
 	newModels := r.reformatModels(models...)
 	for _, m := range newModels {
 		if isJoin := func() bool {
-			if m[len(m)-1:] == "s" {
+			if strings.Index(m, ".") != -1 || m[len(m)-1:] == "s" {
 				return false
 			}
 
