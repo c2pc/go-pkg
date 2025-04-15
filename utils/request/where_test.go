@@ -101,6 +101,18 @@ func TestParseWhere(t *testing.T) {
 			},
 		},
 		{
+			input: "a in [true,false] and b eq true or c nin [false]",
+			expected: &clause.ExpressionWhere{
+				Expressions: []clause.ExpressionWhere{
+					{Column: "a", Operation: "in", Value: "true,false"},
+					{Operation: "and"},
+					{Column: "b", Operation: "eq", Value: "true"},
+					{Operation: "or"},
+					{Column: "c", Operation: "nin", Value: "false"},
+				},
+			},
+		},
+		{
 			input: "a pt",
 			expected: &clause.ExpressionWhere{
 				Expressions: nil,

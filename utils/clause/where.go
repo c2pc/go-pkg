@@ -280,18 +280,39 @@ func formatIntWhere(expr ExpressionWhere, column string) (string, interface{}, e
 
 // formatBoolWhere форматирует условие для логических столбцов
 func formatBoolWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
-	var value bool
-	if expr.Value == "true" {
-		value = true
-	} else if expr.Value == "false" {
-		value = false
+	var values []bool
+	if expr.Operation != OpIn && expr.Operation != OpNin {
+		if expr.Value == "true" {
+			values = []bool{true}
+		} else if expr.Value == "false" {
+			values = []bool{false}
+		} else {
+			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
+		}
 	} else {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
+		values = []bool{}
+		vals := strings.Split(expr.Value, ",")
+		for _, val := range vals {
+			if val == "true" {
+				values = append(values, true)
+			} else if val == "false" {
+				values = append(values, false)
+			} else {
+				return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
+			}
+		}
+		if len(values) == 0 {
+			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("int len(values) == 0")
+		}
 	}
 
 	switch expr.Operation {
 	case OpNe:
-		return fmt.Sprintf("%s = ?", column), value, nil
+		return fmt.Sprintf("%s = ?", column), values[0], nil
+	case OpIn:
+		return fmt.Sprintf("%s IN ?", column), values, nil
+	case OpNin:
+		return fmt.Sprintf("%s NOT IN ?", column), values, nil
 	default:
 		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}

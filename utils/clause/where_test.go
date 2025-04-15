@@ -230,6 +230,7 @@ func TestFormatWhereString(t *testing.T) {
 		"age":    {Column: "user_age", Type: Int},
 		"active": {Column: "is_active", Type: Bool},
 		"date":   {Column: "created_at", Type: DateTime},
+		"status": {Column: "status", Type: Bool},
 	}
 
 	// Test for invalid operator
@@ -295,6 +296,30 @@ func TestFormatWhereString(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "user_name IN ?", query)
 		assert.Equal(t, []string{"John", "John2"}, args)
+		assert.Empty(t, joins)
+	})
+	t.Run(OpIn, func(t *testing.T) {
+		expr := ExpressionWhere{Column: "status", Operation: OpIn, Value: "true,false"}
+		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
+		assert.NoError(t, err)
+		assert.Equal(t, "status IN ?", query)
+		assert.Equal(t, []bool{true, false}, args)
+		assert.Empty(t, joins)
+	})
+	t.Run(OpNin, func(t *testing.T) {
+		expr := ExpressionWhere{Column: "status", Operation: OpIn, Value: "true"}
+		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
+		assert.NoError(t, err)
+		assert.Equal(t, "status NOT IN ?", query)
+		assert.Equal(t, []bool{true}, args)
+		assert.Empty(t, joins)
+	})
+	t.Run(OpEq, func(t *testing.T) {
+		expr := ExpressionWhere{Column: "status", Operation: OpEq, Value: "true"}
+		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
+		assert.NoError(t, err)
+		assert.Equal(t, "status = ?", query)
+		assert.Equal(t, true, args)
 		assert.Empty(t, joins)
 	})
 }
