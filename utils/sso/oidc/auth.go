@@ -30,7 +30,9 @@ var (
 type AuthService interface {
 	IsEnabled() bool
 	SumState(redirectURL string, deviceID int) (string, string, error)
+	SumStateAny(state any) (string, string, error)
 	Verify(ctx context.Context, state string, code string) (*Token, error)
+	VerifyAny(ctx context.Context, state string, code string, s any) (*Token, error)
 	Refresh(ctx context.Context, token string) (*Token, error)
 	CheckRedirectURLs(redirectURL string) bool
 }
@@ -135,11 +137,18 @@ func (auth *Auth) SumState(redirectURL string, deviceID int) (string, string, er
 		return "", "", err
 	}
 
-	n, err := json.Marshal(StateCode{
+	return auth.SumStateAny(StateCode{
 		Rand:        string(b),
 		RedirectURL: redirectURL,
 		DeviceID:    deviceID,
 	})
+}
+
+func (auth *Auth) SumStateAny(state any) (string, string, error) {
+	n, err := json.Marshal(state)
+	if err != nil {
+		return "", "", err
+	}
 
 	s := base64.RawURLEncoding.EncodeToString(n)
 
@@ -153,13 +162,22 @@ type Token struct {
 }
 
 func (auth *Auth) Verify(ctx context.Context, state string, code string) (*Token, error) {
+	var s StateCode
+	token, err := auth.VerifyAny(ctx, state, code, &s)
+	if err != nil {
+		return nil, err
+	}
+	token.State = &s
+	return token, nil
+}
+
+func (auth *Auth) VerifyAny(ctx context.Context, state string, code string, s any) (*Token, error) {
 	d, err := base64.RawURLEncoding.DecodeString(state)
 	if err != nil {
 		return nil, err
 	}
 
-	var s StateCode
-	err = json.Unmarshal(d, &s)
+	err = json.Unmarshal(d, s)
 	if err != nil {
 		return nil, ErrInvalidState.WithError(err)
 	}
@@ -197,7 +215,6 @@ func (auth *Auth) Verify(ctx context.Context, state string, code string) (*Token
 	return &Token{
 		IDToken: oauth2Token,
 		Login:   &loginStr,
-		State:   &s,
 	}, nil
 }
 

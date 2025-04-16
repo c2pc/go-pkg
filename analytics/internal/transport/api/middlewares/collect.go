@@ -225,6 +225,7 @@ func (l *logger) middleware(c *gin.Context) {
 			RequestBody:  compressedRequest,
 			ResponseBody: compressedResponse,
 			Duration:     duration,
+			CreatedAt:    time.Now().UTC(),
 		}
 
 		l.addEntry(entry)
