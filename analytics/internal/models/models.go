@@ -14,7 +14,7 @@ type Analytics struct {
 	ClientIP     string    `json:"client_ip"`
 	RequestBody  []byte    `json:"request_body" gorm:"type:bytea;null"`
 	ResponseBody []byte    `json:"response_body" gorm:"type:bytea;null"`
-	CreatedAt    time.Time `json:"created_at"  gorm:"autoCreateTime"`
+	CreatedAt    time.Time `json:"created_at"`
 	FirstName    string    `json:"first_name"`
 	SecondName   string    `json:"second_name"`
 	LastName     string    `json:"last_name"`

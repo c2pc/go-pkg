@@ -9,7 +9,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
-	"github.com/c2pc/go-pkg/v2/utils/udatetime"
 	"github.com/gin-gonic/gin"
 )
 
@@ -56,7 +55,7 @@ func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
 		ClientIP:     m.ClientIP,
 		RequestBody:  decompressGzip(m.RequestBody),
 		ResponseBody: decompressGzip(m.ResponseBody),
-		CreatedAt:    udatetime.ConvertToUTC(m.CreatedAt),
+		CreatedAt:    m.CreatedAt,
 		UserID:       m.UserID,
 		FirstName:    m.FirstName,
 		SecondName:   m.SecondName,
@@ -86,7 +85,7 @@ func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
 		Method:      m.Method,
 		StatusCode:  m.StatusCode,
 		ClientIP:    m.ClientIP,
-		CreatedAt:   udatetime.ConvertToUTC(m.CreatedAt),
+		CreatedAt:   m.CreatedAt,
 		UserID:      m.UserID,
 		FirstName:   m.FirstName,
 		SecondName:  m.SecondName,
