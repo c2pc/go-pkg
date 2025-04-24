@@ -14,7 +14,7 @@ var (
 	ErrNotFoundTranslate = translator.Translate{translator.RU: "Профиль не найден", translator.EN: "Profile not found"}
 	ErrExistsTranslate   = translator.Translate{translator.RU: "Профиль уже зарегистрирован", translator.EN: "A profile is already registered"}
 	ErrNotFound          = apperr.New("profile_not_found", apperr.WithTextTranslate(ErrNotFoundTranslate), apperr.WithCode(code.NotFound))
-	ErrExists            = apperr.New("profile_exists_error", apperr.WithTextTranslate(ErrExistsTranslate), apperr.WithCode(code.InvalidArgument))
+	ErrExists            = apperr.New("profile_exists_error", apperr.WithTextTranslate(ErrExistsTranslate), apperr.WithCode(code.AlreadyExists))
 )
 
 type IModel interface {

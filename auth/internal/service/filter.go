@@ -16,7 +16,7 @@ import (
 
 var (
 	ErrFilterNotFound = apperr.New("filter_not_found", apperr.WithTextTranslate(i18n.ErrFilterNotFound), apperr.WithCode(code.NotFound))
-	ErrFilterExists   = apperr.New("filter_exists_error", apperr.WithTextTranslate(i18n.ErrFilterExists), apperr.WithCode(code.InvalidArgument))
+	ErrFilterExists   = apperr.New("filter_exists_error", apperr.WithTextTranslate(i18n.ErrFilterExists), apperr.WithCode(code.AlreadyExists))
 )
 
 type IFilterService interface {

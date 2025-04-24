@@ -17,7 +17,7 @@ import (
 
 var (
 	ErrRoleNotFound        = apperr.New("role_not_found", apperr.WithTextTranslate(i18n.ErrRoleNotFound), apperr.WithCode(code.NotFound))
-	ErrRoleExists          = apperr.New("role_exists_error", apperr.WithTextTranslate(i18n.ErrRoleExists), apperr.WithCode(code.InvalidArgument))
+	ErrRoleExists          = apperr.New("role_exists_error", apperr.WithTextTranslate(i18n.ErrRoleExists), apperr.WithCode(code.AlreadyExists))
 	ErrRoleCannotBeChanged = apperr.New("role_cannot_be_changed", apperr.WithTextTranslate(i18n.ErrRoleCannotBeChanged), apperr.WithCode(code.PermissionDenied))
 	ErrRoleCannotBeDeleted = apperr.New("role_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrRoleCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 )

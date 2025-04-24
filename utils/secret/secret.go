@@ -39,7 +39,7 @@ func (p *Password) HashMatchesString(hash, password string) bool {
 
 func (p *Password) HashString(str string) (string, error) {
 	if p.useBcrypt {
-		bytes, err := bcrypt.GenerateFromPassword([]byte(str), 14)
+		bytes, err := bcrypt.GenerateFromPassword([]byte(str), 10)
 		return string(bytes), err
 	}
 

@@ -20,7 +20,7 @@ import (
 var (
 	ErrNewsNotFound    = apperr.New("news_not_found", apperr.WithTextTranslate(i18n.ErrNewsNotFound), apperr.WithCode(code.NotFound))
 	ErrNewsListIsEmpty = apperr.New("news_list_is_empty", apperr.WithTextTranslate(i18n.ErrNewsListIsEmpty), apperr.WithCode(code.NotFound))
-	ErrNewsExists      = apperr.New("news_exists_error", apperr.WithTextTranslate(i18n.ErrNewsExists), apperr.WithCode(code.InvalidArgument))
+	ErrNewsExists      = apperr.New("news_exists_error", apperr.WithTextTranslate(i18n.ErrNewsExists), apperr.WithCode(code.AlreadyExists))
 )
 
 type INews interface {
