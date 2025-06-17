@@ -62,6 +62,7 @@ type Config struct {
 }
 
 func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
+	ctx context.Context,
 	serviceName string,
 	version string,
 	cfg Config,
@@ -74,7 +75,7 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 	cachekey.SetServiceName(serviceName)
 
 	model2.SetPermissions(cfg.Permissions)
-	ctx := mcontext.WithOperationIDContext(context.Background(), strconv.Itoa(int(time.Now().UTC().Unix())))
+	ctx = mcontext.WithOperationIDContext(ctx, strconv.Itoa(int(time.Now().UTC().Unix())))
 
 	repositories := repository.NewRepositories(cfg.DB)
 	admin, err := database.SeedersRun(ctx, cfg.DB, repositories, cfg.Hasher, model2.GetPermissionsKeys())
@@ -178,13 +179,17 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		versionService,
 	)
 
-	return Auth{
+	auth := Auth{
 		handler:              handlers,
 		tokenMiddleware:      tokenMiddleware,
 		permissionMiddleware: permissionMiddleware,
 		adminID:              admin.ID,
 		limiterMiddleware:    authLimiterMiddleware,
-	}, nil
+	}
+
+	go auth.startSessionCleaner(ctx, cfg.DB)
+
+	return auth, nil
 }
 
 type Auth struct {
@@ -213,4 +218,18 @@ func (a Auth) GetAdminID() int {
 
 func (a Auth) LimiterMiddleware(c *gin.Context) {
 	a.limiterMiddleware.LimiterMiddleware(c)
+}
+
+func (a Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
+	tm := time.NewTimer(10 * time.Minute)
+	defer tm.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tm.C:
+			db.WithContext(ctx).Where("expires_at < ?", time.Now().UTC()).Delete(&model2.RefreshToken{})
+		}
+	}
 }

@@ -15,7 +15,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "encrypt 'string to encrypt'",
 		Short:   "Text Encryptor",
-		Example: `"encrypt -t="qwerty"`,
+		Example: `encrypt -t='qwerty'`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(plaintext) == 0 {
 				if len(args) == 0 {

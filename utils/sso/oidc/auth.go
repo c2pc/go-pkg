@@ -172,41 +172,49 @@ func (auth *Auth) Verify(ctx context.Context, state string, code string) (*Token
 }
 
 func (auth *Auth) VerifyAny(ctx context.Context, state string, code string, s any) (*Token, error) {
+	//Декодирование state
 	d, err := base64.RawURLEncoding.DecodeString(state)
 	if err != nil {
 		return nil, err
 	}
 
+	//Получение отправленных раннее данных в state
 	err = json.Unmarshal(d, s)
 	if err != nil {
 		return nil, ErrInvalidState.WithError(err)
 	}
 
+	//Конвертирование кода в токен
 	oauth2Token, err := auth.oauth2.Exchange(ctx, code)
 	if err != nil {
 		return nil, ErrInvalidCode.WithError(err)
 	}
 
+	//Проверка типа данных токена
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
 		return nil, ErrInvalidToken
 	}
 
+	//Парсинг и проверка токена
 	idToken, err := auth.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return nil, ErrInvalidToken.WithError(err)
 	}
 
+	//Получение всех аттрибутов из токена
 	var idTokenClaims map[string]interface{}
 	if err = idToken.Claims(&idTokenClaims); err != nil {
 		return nil, ErrInvalidToken.WithError(err)
 	}
 
+	//Проверка логина в аттрибутах(аттрибут логина указан в конфиге)
 	login, ok := idTokenClaims[auth.loginAttr]
 	if !ok {
 		return nil, ErrInvalidAttribute.WithErrorText(fmt.Sprintf("%s is missing or does not exist", auth.loginAttr))
 	}
 
+	//Проверка типа данных логина
 	loginStr, ok := login.(string)
 	if !ok {
 		return nil, ErrInvalidAttribute.WithErrorText(fmt.Sprintf("%s is not a string", auth.loginAttr))

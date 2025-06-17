@@ -53,7 +53,7 @@ func main() {
 	logger.Initialize(logger.Config{
 		MachineReadable: false,
 		Filename:        "app.log",
-		Dir:             configs.LOG.Dir,
+		Dir:             configs.LOG.Directory,
 		MaxSize:         configs.LOG.MaxSize,
 		MaxBackups:      configs.LOG.MaxBackups,
 		MaxAge:          configs.LOG.MaxAge,
@@ -101,7 +101,9 @@ func main() {
 	profileRepo := profile3.NewProfileRepository(db)
 
 	authService, err := auth.New[profile3.Profile, profile3.ProfileCreateInput, profile3.ProfileUpdateInput, profile3.ProfileUpdateProfileInput](
+		context.Background(),
 		"example",
+		"0.0.1",
 		auth.Config{
 			Debug:         configs.LOG.Debug,
 			DB:            db,
