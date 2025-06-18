@@ -221,7 +221,7 @@ func (a Auth) LimiterMiddleware(c *gin.Context) {
 }
 
 func (a Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
-	tm := time.NewTimer(10 * time.Minute)
+	tm := time.NewTicker(10 * time.Minute)
 	defer tm.Stop()
 
 	for {
