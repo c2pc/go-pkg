@@ -52,10 +52,15 @@ func (e Error) Error() string {
 
 // LastError возвращает последнюю ошибку из цепочки ошибок.
 func (e Error) LastError() error {
+	if e.Err == nil {
+		return e
+	}
+
 	var appError Error
 	if errors.As(e.Err, &appError) {
 		return appError.LastError()
 	}
+
 	return e.Err
 }
 
