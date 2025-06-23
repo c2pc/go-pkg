@@ -9,7 +9,7 @@ import (
 type WebSocket interface {
 	InitHandler(api *gin.RouterGroup)
 	SendMessage(ctx context.Context, m Message) error
-	RegisterClientListener() chan<- Listener
+	RegisterClientListener() <-chan Listener
 	ShutDown()
 }
 
@@ -40,6 +40,6 @@ func (s *websocket) ShutDown() {
 	s.websocketManager.shutdown()
 }
 
-func (s *websocket) RegisterClientListener() chan<- Listener {
+func (s *websocket) RegisterClientListener() <-chan Listener {
 	return s.websocketManager.registerListener()
 }

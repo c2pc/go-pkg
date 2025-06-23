@@ -136,7 +136,7 @@ func (mgr *manager) notifyNewMessage(client *Client, msg []byte) {
 	}
 }
 
-func (mgr *manager) registerListener() chan<- Listener {
+func (mgr *manager) registerListener() <-chan Listener {
 	ch := make(chan Listener)
 	mgr.listeners = append(mgr.listeners, ch)
 	return ch
