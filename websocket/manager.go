@@ -108,6 +108,7 @@ func (mgr *manager) sendMessage(ctx context.Context, m Message) error {
 		MessageAction: m.Action,
 		From:          m.From,
 		To:            m.To,
+		ContentType:   m.ContentType,
 	}
 
 	select {

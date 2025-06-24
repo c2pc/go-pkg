@@ -1,11 +1,12 @@
 package websocket
 
 type Message struct {
-	Type    string      `json:"type"`
-	Action  string      `json:"action"`
-	Message interface{} `json:"message"`
-	From    *int        `json:"from,omitempty"`
-	To      []int       `json:"to,omitempty"`
+	Type        string      `json:"type"`
+	Action      string      `json:"action"`
+	Message     interface{} `json:"message"`
+	From        *int        `json:"from,omitempty"`
+	To          []int       `json:"to,omitempty"`
+	ContentType int         `json:"-"`
 }
 
 type broadcast struct {
@@ -14,4 +15,5 @@ type broadcast struct {
 	MessageAction string      `json:"message_action"`
 	From          *int        `json:"-"`
 	To            []int       `json:"-"`
+	ContentType   int         `json:"-"`
 }

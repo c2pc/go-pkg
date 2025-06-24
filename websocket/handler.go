@@ -3,6 +3,7 @@ package websocket
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log"
 	http2 "net/http"
 	"time"
@@ -109,18 +110,31 @@ func (s *handler) writePump(conn *ws.Conn, client *Client) {
 				return
 			}
 
-			w, err := conn.NextWriter(ws.TextMessage)
+			m, tp, err := getContent(message)
+			if err != nil {
+				continue
+			}
+
+			w, err := conn.NextWriter(tp)
 			if err != nil {
 				return
 			}
 
-			m, _ := json.Marshal(message)
 			_, _ = w.Write(m)
 
 			n := len(client.send)
 			for i := 0; i < n; i++ {
 				_, _ = w.Write(newline)
-				m, _ = json.Marshal(<-client.send)
+				m, tp, err = getContent(<-client.send)
+				if err != nil {
+					continue
+				}
+
+				w, err = conn.NextWriter(tp)
+				if err != nil {
+					return
+				}
+
 				_, _ = w.Write(m)
 			}
 
@@ -134,4 +148,32 @@ func (s *handler) writePump(conn *ws.Conn, client *Client) {
 			}
 		}
 	}
+}
+
+func getContent(message broadcast) ([]byte, int, error) {
+	var m []byte
+	var err error
+	var tp = ws.TextMessage
+
+	switch message.ContentType {
+	case 0:
+		m, err = json.Marshal(message)
+		if err != nil {
+			return nil, 0, err
+		}
+	case ws.TextMessage:
+		b, ok := message.Message.(string)
+		if !ok {
+			return nil, 0, errors.New("message is not a TextMessage")
+		}
+		m = []byte(b)
+	case ws.BinaryMessage:
+		b, ok := message.Message.([]byte)
+		if !ok {
+			return nil, 0, errors.New("message is not a TextMessage")
+		}
+		m = b
+	}
+
+	return m, tp, nil
 }
