@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	model3 "github.com/c2pc/go-pkg/v2/task/model"
+	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -47,7 +48,6 @@ type Tasker interface {
 }
 
 type Task struct {
-	debug       string
 	db          *gorm.DB
 	handler     handler.IHandler
 	runner      Queue
@@ -55,7 +55,6 @@ type Task struct {
 }
 
 type Config struct {
-	Debug       string
 	DB          *gorm.DB
 	Transaction mw.ITransaction
 	Services    Consumers
@@ -64,7 +63,7 @@ type Config struct {
 }
 
 func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
-	queue := runner.NewRunner(ctx, cfg.Debug)
+	queue := runner.NewRunner(ctx)
 
 	repositories := repository.NewRepositories(cfg.DB)
 
@@ -86,7 +85,6 @@ func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
 		runner:      queue,
 		taskService: taskService,
 		db:          cfg.DB,
-		debug:       cfg.Debug,
 	}
 
 	go exporter.listen(ctx)
@@ -132,7 +130,7 @@ func (e *Task) listen(ctx context.Context) {
 
 			err := e.taskService.Update(ctx2, result.ID, input)
 
-			if level.Is(e.debug, level.TEST) {
+			if logger2.IsDebugEnabled(level.TEST) {
 				logger.LogInfo(ctx2, "TYPE - %s | ID - %d | STATUS - %s | NAME - %s | CLIENT_ID - %d | TASK_ERROR - %v | UPDATE_ERROR - %v",
 					result.Type, result.ID, status, result.Name, result.ClientID, appError, err)
 			}

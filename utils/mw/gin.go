@@ -47,11 +47,11 @@ func CorsHandler() gin.HandlerFunc {
 	}
 }
 
-func LogHandler(moduleID, debug string) gin.LoggerConfig {
+func LogHandler(moduleID string) gin.LoggerConfig {
 	writer := logger.NewLogWriter(moduleID, false, 0)
 
 	prefix := ""
-	if level.Is(debug, level.TEST) {
+	if logger.IsDebugEnabled(level.TEST) {
 		prefix = "\t"
 	}
 
@@ -115,8 +115,8 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func GinBodyLogMiddleware(module, debug string) gin.HandlerFunc {
-	if level.Is(debug, level.TEST) {
+func GinBodyLogMiddleware(module string) gin.HandlerFunc {
+	if logger.IsDebugEnabled(level.TEST) {
 		return func(c *gin.Context) {
 			var buf bytes.Buffer
 			blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}

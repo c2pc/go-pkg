@@ -58,9 +58,9 @@ func main() {
 		MaxBackups:      configs.LOG.MaxBackups,
 		MaxAge:          configs.LOG.MaxAge,
 		Compress:        configs.LOG.Compress,
-	})
+	}, configs.LOG.Debug)
 
-	db, err := database.ConnectPostgres(configs.PostgresUrl, configs.LOG.Debug, 10, 100)
+	db, err := database.ConnectPostgres(configs.PostgresUrl, 10, 100)
 	if err != nil {
 		logger.Fatalf("[DB] %s", err.Error())
 		return
@@ -84,7 +84,7 @@ func main() {
 		Password:    configs.Redis.Password,
 		MaxRetry:    configs.Redis.MaxRetry,
 		DB:          configs.Redis.DB,
-	}, configs.LOG.Debug)
+	})
 	if err != nil {
 		logger.Fatalf("[REDIS] %s", err.Error())
 		return
@@ -105,7 +105,6 @@ func main() {
 		"example",
 		"0.0.1",
 		auth.Config{
-			Debug:         configs.LOG.Debug,
 			DB:            db,
 			Rdb:           rdb,
 			Transaction:   trx,
@@ -187,7 +186,6 @@ func main() {
 	taskService, err := task.NewTask(ctx2, task.Config{
 		DB:          db,
 		Transaction: trx,
-		Debug:       configs.LOG.Debug,
 		Services: task.Consumers{
 			"news": services.News,
 		},
@@ -203,7 +201,7 @@ func main() {
 	restServer := api.NewServer(api.Input{
 		Host: configs.HTTP.Host,
 		Port: configs.HTTP.Port,
-	}, restHandlers.Init(configs.LOG.Debug))
+	}, restHandlers.Init())
 
 	go func() {
 		logger.Infof("Starting Rest Server")

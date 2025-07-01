@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/c2pc/go-pkg/v2/utils/level"
+	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -22,7 +23,7 @@ type RedisClient struct {
 }
 
 // NewRedisClient создает новый экземпляр клиента Redis в зависимости от конфигурации.
-func NewRedisClient(config *RedisClient, debug string) (redis.UniversalClient, error) {
+func NewRedisClient(config *RedisClient) (redis.UniversalClient, error) {
 	// Проверка наличия адресов Redis
 	if len(config.Address) == 0 {
 		return nil, errors.New("redis address is empty")
@@ -55,7 +56,7 @@ func NewRedisClient(config *RedisClient, debug string) (redis.UniversalClient, e
 	}
 
 	// Установка логгера для клиента Redis, если режим отладки активен
-	if level.Is(debug, level.TEST) {
+	if logger2.IsDebugEnabled(level.TEST) {
 		redis.SetLogger(defaultLogger())
 	}
 

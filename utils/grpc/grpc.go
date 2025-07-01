@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/interceptors"
+	level2 "github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -15,15 +17,13 @@ import (
 	"google.golang.org/grpc/resolver/manual"
 )
 
-const test = "c2pc"
-
 var (
 	ErrNoURLs             = errors.New("no URLs provided")
 	ErrEmptyURL           = errors.New("empty url")
 	ErrConnectionNotReady = errors.New("connection not ready")
 )
 
-func Connect(urls []string, debug string, serviceName string) (*grpc.ClientConn, error) {
+func Connect(urls []string, serviceName string) (*grpc.ClientConn, error) {
 	if len(urls) == 0 {
 		return nil, ErrNoURLs
 	}
@@ -36,7 +36,7 @@ func Connect(urls []string, debug string, serviceName string) (*grpc.ClientConn,
 		addr = append(addr, resolver.Address{Addr: url})
 	}
 	var dialOptions []grpc.DialOption
-	if debug == test {
+	if logger.IsDebugEnabled(level2.TEST) {
 		opts := []logging.Option{
 			logging.WithLogOnEvents(logging.StartCall, logging.FinishCall, logging.PayloadSent, logging.PayloadReceived),
 		}

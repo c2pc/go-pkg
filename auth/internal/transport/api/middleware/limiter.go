@@ -1,17 +1,17 @@
 package middleware
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/level"
-
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
@@ -33,12 +33,11 @@ type ConfigLimiter struct {
 }
 
 type AuthMiddleware struct {
-	debug string
 	cfg   ConfigLimiter
 	cache cache.ILimiterCache
 }
 
-func NewAuthLimiterMiddleware(cfg ConfigLimiter, cache cache.ILimiterCache, debug string) AuthMiddleware {
+func NewAuthLimiterMiddleware(cfg ConfigLimiter, cache cache.ILimiterCache) AuthMiddleware {
 	if cfg.MaxAttempts == 0 {
 		cfg.MaxAttempts = 10
 	}
@@ -47,7 +46,7 @@ func NewAuthLimiterMiddleware(cfg ConfigLimiter, cache cache.ILimiterCache, debu
 		cfg.TTL = time.Second
 	}
 
-	return AuthMiddleware{cfg: cfg, cache: cache, debug: debug}
+	return AuthMiddleware{cfg: cfg, cache: cache}
 }
 
 type AuthLimiter interface {
@@ -77,7 +76,7 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 
 	attempts, err := a.cache.GetAttempts(c.Request.Context(), key)
 
-	if level.Is(a.debug, level.TEST) && err != nil {
+	if logger.IsDebugEnabled(level.TEST) && err != nil {
 		logger.Warningf("[REDIS] error get attempts - %v", err)
 	}
 
@@ -88,7 +87,7 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 	if attempts >= a.cfg.MaxAttempts {
 		ttl, err := a.cache.GetTTL(c.Request.Context(), key)
 		if err != nil {
-			if level.Is(a.debug, level.TEST) {
+			if logger.IsDebugEnabled(level.TEST) {
 				logger.Warningf("[REDIS] error get TTL - %v", err)
 			}
 		} else {
@@ -105,7 +104,7 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 	statusCode := c.Writer.Status()
 	if statusCode == http.StatusUnauthorized {
 		_, err = a.cache.IncrAttempts(c.Request.Context(), key, a.cfg.TTL)
-		if level.Is(a.debug, level.TEST) && err != nil {
+		if logger.IsDebugEnabled(level.TEST) && err != nil {
 			logger.Warningf("[REDIS] error incr attempts - %v", err)
 		}
 		if err != nil {

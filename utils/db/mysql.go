@@ -2,19 +2,20 @@ package db
 
 import (
 	"github.com/c2pc/go-pkg/v2/utils/level"
+	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
 )
 
-func ConnectMysql(url, debug string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
+func ConnectMysql(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.Open(url), gormConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	if level.Is(debug, level.DEVELOPMENT, level.TEST) {
-		db.Logger = NewLogger(defaultLogger(debug))
+	if logger2.IsDebugEnabled(level.DEVELOPMENT, level.TEST) {
+		db.Logger = NewLogger(defaultLogger())
 	} else {
 		db.Logger = gormLogger.Default.LogMode(gormLogger.Silent)
 	}

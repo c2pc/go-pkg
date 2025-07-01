@@ -15,9 +15,9 @@ import (
 	"gorm.io/gorm/utils"
 )
 
-func defaultLogger(debug string) (gormLogger.Writer, gormLogger.Config) {
+func defaultLogger() (gormLogger.Writer, gormLogger.Config) {
 	logLevel := gormLogger.Error
-	if level.Is(debug, level.TEST) {
+	if logger2.IsDebugEnabled(level.TEST) {
 		logLevel = gormLogger.Info
 	}
 	writer := logger2.NewLogWriter(constant.DB_ID, false, 0)

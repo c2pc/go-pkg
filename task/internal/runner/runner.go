@@ -10,6 +10,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/level"
+	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 )
 
@@ -57,17 +58,15 @@ type Runner struct {
 	locker    sync.Mutex
 	semaphore chan struct{}
 	ctx       context.Context
-	debug     string
 }
 
-func NewRunner(ctx context.Context, debug string) *Runner {
+func NewRunner(ctx context.Context) *Runner {
 	runner := &Runner{
 		taskResults: make(chan TaskResult, 100), // Buffered channel for task results
 		runner:      make(chan Data, 50),        // Buffered channel for data
 		stopper:     make(chan int, 50),         // Buffered channel for stopper
 		semaphore:   make(chan struct{}, 15),    // Limit concurrency to 15 tasks
 		ctx:         ctx,
-		debug:       debug,
 	}
 
 	runner.printf(runner.ctx, "Runner initialized")
@@ -302,7 +301,7 @@ func (r *Runner) sendTaskResult(data TaskResult) {
 }
 
 func (r *Runner) printf(ctx context.Context, format string, v ...any) {
-	if level.Is(r.debug, level.TEST) {
+	if logger2.IsDebugEnabled(level.TEST) {
 		logger.LogInfo(ctx, format, v...)
 	}
 	//log.Printf(logger.WithOperationID(ctx, fmt.Sprintf(format+"\n", v...)))

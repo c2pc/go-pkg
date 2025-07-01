@@ -22,7 +22,6 @@ type IPermissionMiddleware interface {
 }
 
 type PermissionMiddleware struct {
-	debug                string
 	userCache            cache2.IUserCache
 	permissionCache      cache2.IPermissionCache
 	userRepository       repository2.IUserRepository
@@ -30,9 +29,8 @@ type PermissionMiddleware struct {
 }
 
 func NewPermissionMiddleware(userCache cache2.IUserCache, permissionCache cache2.IPermissionCache, userRepository repository2.IUserRepository,
-	permissionRepository repository2.IPermissionRepository, debug string) *PermissionMiddleware {
+	permissionRepository repository2.IPermissionRepository) *PermissionMiddleware {
 	return &PermissionMiddleware{
-		debug:                debug,
 		userCache:            userCache,
 		permissionCache:      permissionCache,
 		userRepository:       userRepository,

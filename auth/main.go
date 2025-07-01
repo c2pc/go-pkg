@@ -47,7 +47,6 @@ type SSO struct {
 }
 
 type Config struct {
-	Debug         string
 	DB            *gorm.DB
 	Rdb           redis.UniversalClient
 	Transaction   mw.ITransaction
@@ -155,11 +154,11 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 
 	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
 	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository,
-		repositories.PermissionRepository, cfg.Debug)
+		repositories.PermissionRepository)
 	authLimiterMiddleware := middleware.NewAuthLimiterMiddleware(middleware.ConfigLimiter{
 		MaxAttempts: cfg.MaxAttempts,
 		TTL:         cfg.TTL,
-	}, limiterCache, cfg.Debug)
+	}, limiterCache)
 
 	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](
 		authService,

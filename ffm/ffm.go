@@ -44,13 +44,11 @@ func (f *FFM) Unpack(ctx context.Context, request FileUnpackRequest) (*FileInfo,
 type FFM struct {
 	addr    string
 	service string
-	debug   string
 }
 
 type Config struct {
 	Addr    string
 	Service string
-	Debug   string
 }
 
 func New(cfg Config) (FileManager, error) {
@@ -65,7 +63,6 @@ func New(cfg Config) (FileManager, error) {
 	ffm := &FFM{
 		addr:    cfg.Addr,
 		service: cfg.Service,
-		debug:   cfg.Debug,
 	}
 
 	return ffm, nil
@@ -178,7 +175,7 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfo, er
 		return nil, err
 	}
 
-	if level.Is(f.debug, level.TEST) {
+	if logger.IsDebugEnabled(level.TEST) {
 		r := map[string]interface{}{"path": request.Path, "files": len(request.Files), "append": request.Append}
 		logger.Infof("REQUEST - %s - %s - %s - files -> %v", operationID, method, url, r)
 	}
@@ -194,14 +191,14 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfo, er
 
 	var output []FileInfo
 	if status, err := parseResult(resp, &output); err != nil {
-		if level.Is(f.debug, level.TEST) {
+		if logger.IsDebugEnabled(level.TEST) {
 			logger.Infof("RESPONSE - %s - %s - %s - %+v - %d", operationID, method, url, err, status)
 		}
 
 		return nil, err
 	}
 
-	if level.Is(f.debug, level.TEST) {
+	if logger.IsDebugEnabled(level.TEST) {
 		logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, output)
 	}
 

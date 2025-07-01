@@ -122,7 +122,7 @@ func (f *FFM) jsonRequest(ctx context.Context, method, url string, input interfa
 		operationID = op2
 	}
 
-	if level.Is(f.debug, level.TEST) {
+	if logger.IsDebugEnabled(level.TEST) {
 		logger.Infof("REQUEST - %s - %s - %s - %+v", operationID, method, url, string(reqBody))
 	}
 
@@ -136,14 +136,14 @@ func (f *FFM) jsonRequest(ctx context.Context, method, url string, input interfa
 	defer resp.Body.Close()
 
 	if status, err := parseResult(resp, output); err != nil {
-		if level.Is(f.debug, level.TEST) {
+		if logger.IsDebugEnabled(level.TEST) {
 			logger.Infof("RESPONSE - %s - %s - %s - %+v - %d", operationID, method, url, err, status)
 		}
 
 		return err
 	}
 
-	if level.Is(f.debug, level.TEST) {
+	if logger.IsDebugEnabled(level.TEST) {
 		logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, output)
 	}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/websocket"
@@ -41,7 +42,7 @@ func NewHandlers(authService auth.IAuth,
 	}
 }
 
-func (h *Handler) Init(debug string) *gin.Engine {
+func (h *Handler) Init() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	handler := gin.New()
 
@@ -53,10 +54,10 @@ func (h *Handler) Init(debug string) *gin.Engine {
 		mw.GinParseOperationID(),
 	)
 
-	if level.Is(debug, level.DEVELOPMENT, level.TEST) {
+	if logger.IsDebugEnabled(level.DEVELOPMENT, level.TEST) {
 		handler.Use(
-			gin.LoggerWithConfig(mw.LogHandler("HTTP", debug)),
-			mw.GinBodyLogMiddleware("HTTP", debug),
+			gin.LoggerWithConfig(mw.LogHandler("HTTP")),
+			mw.GinBodyLogMiddleware("HTTP"),
 		)
 	}
 

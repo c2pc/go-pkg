@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	level2 "github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/op/go-logging"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -17,6 +18,8 @@ const (
 	ModuleID = "LOG"
 	logs     = "logs"
 )
+
+var DebugLevel = level2.PRODUCTION
 
 var level logging.Level
 var initialized bool
@@ -72,7 +75,7 @@ type Config struct {
 }
 
 // Initialize logger with given level
-func Initialize(config Config) {
+func Initialize(config Config, debug string) {
 	machineReadable = config.MachineReadable
 	level = loggingLevel("")
 	ActiveLogFile = getLogFile(config)
@@ -82,6 +85,7 @@ func Initialize(config Config) {
 	initialized = true
 
 	Debug("")
+	SetDebug(debug)
 }
 
 func logInfo(logger *logging.Logger, stdout bool, msg string) {
@@ -266,4 +270,12 @@ func getFatalErrorMsg() string {
 func addFatalError(module, msg string) {
 	msg = strings.TrimSpace(msg)
 	fatalErrors = append(fatalErrors, fmt.Sprintf("[%s]\n%s", module, msg))
+}
+
+func SetDebug(debug string) {
+	DebugLevel = debug
+}
+
+func IsDebugEnabled(levels ...level2.Level) bool {
+	return level2.Is(DebugLevel, levels...)
 }
