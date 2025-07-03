@@ -5,6 +5,10 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
 )
 
+var (
+	ErrMap = make(map[string]Error)
+)
+
 // Объявление стандартных ошибок приложения
 var (
 	ErrSyntax               = New("syntax_error", WithTextTranslate(i18n.ErrSyntax), WithCode(code.InvalidArgument))

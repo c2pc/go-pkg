@@ -47,8 +47,6 @@ func NewConfig(configPath string) (*Config, error) {
 				cfg.PostgresUrl = pair[1]
 			case "PASSWORD_SALT":
 				cfg.PasswordSalt = pair[1]
-			case "APP_LOG":
-				cfg.LOG.Dir = pair[1]
 			case "JWT_SIGNING_KEY":
 				cfg.AUTH.Key = pair[1]
 			}

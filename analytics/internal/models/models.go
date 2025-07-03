@@ -15,10 +15,12 @@ type Analytics struct {
 	RequestBody  []byte    `json:"request_body" gorm:"type:bytea;null"`
 	ResponseBody []byte    `json:"response_body" gorm:"type:bytea;null"`
 	CreatedAt    time.Time `json:"created_at"`
+	Login        *string   `json:"login"`
 	FirstName    string    `json:"first_name"`
 	SecondName   string    `json:"second_name"`
 	LastName     string    `json:"last_name"`
 	Duration     int64     `json:"duration"`
+	Error        *string   `json:"error"`
 
 	User *User `json:"user"`
 }
