@@ -47,3 +47,43 @@ func (r AnalyticsRepository) With(models ...string) AnalyticsRepository {
 	r.Repo = r.Repo.With(models...)
 	return r
 }
+
+func (r AnalyticsRepository) FilterByField(value, field string) (AnalyticsRepository, error) {
+	exp := &clause.ExpressionWhere{
+		Column:    field,
+		Operation: "=",
+		Value:     value,
+	}
+
+	var err error
+
+	r.Repo, err = r.Repo.Where(exp)
+	if err != nil {
+		return r, err
+	}
+
+	return r, nil
+}
+
+func (r AnalyticsRepository) OrderByField(field string, isDesc bool) (AnalyticsRepository, error) {
+	order := "ASC"
+	if isDesc {
+		order = "DESC"
+	}
+
+	exp := []clause.ExpressionOrderBy{
+		{
+			Column: field,
+			Order:  order,
+		},
+	}
+
+	var err error
+
+	r.Repo, err = r.Repo.OrderBy(exp)
+	if err != nil {
+		return r, err
+	}
+
+	return r, nil
+}
