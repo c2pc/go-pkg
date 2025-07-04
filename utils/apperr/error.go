@@ -26,7 +26,7 @@ func New(id string, annotators ...Annotator) Error {
 		annotator(&err)
 	}
 
-	ErrMap[id] = err
+	ErrMapManager.Set(id, err)
 
 	return err
 }

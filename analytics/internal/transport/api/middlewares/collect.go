@@ -230,7 +230,10 @@ func (l *logger) middleware(c *gin.Context) {
 
 		var errDetailRU *string
 		if errResponse != nil {
-			*errDetailRU = apperr.ErrMap[errResponse.ID].TextTranslate.Translate("RU")
+			errFromMap, err := apperr.ErrMapManager.Get(errResponse.ID)
+			if err == nil {
+				*errDetailRU = errFromMap.TextTranslate.Translate("RU")
+			}
 		}
 
 		entry := models.Analytics{
