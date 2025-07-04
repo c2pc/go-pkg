@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"gorm.io/gorm"
 	"io"
 	"log"
@@ -232,7 +233,7 @@ func (l *logger) middleware(c *gin.Context) {
 		if errResponse != nil {
 			errFromMap, err := apperr.ErrMapManager.Get(errResponse.ID)
 			if err == nil {
-				*errDetailRU = errFromMap.TextTranslate.Translate("RU")
+				*errDetailRU = apperr.Translate(errFromMap, string(translator.RU))
 			}
 		}
 
