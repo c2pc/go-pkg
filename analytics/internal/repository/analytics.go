@@ -19,6 +19,8 @@ var analyticSearchable = clause.FieldSearchable{
 	"second_name":  {Column: `auth_analytics."second_name"`, Type: clause.String},
 	"last_name":    {Column: `auth_analytics."last_name"`, Type: clause.String},
 	"created_at":   {Column: `auth_analytics."created_at"`, Type: clause.DateTime},
+	"login":        {Column: `auth_analytics."login"`, Type: clause.String},
+	"error":        {Column: `auth_analytics."error"`, Type: clause.String},
 }
 
 var analyticOrderBy = clause.FieldOrderBy{
@@ -33,6 +35,8 @@ var analyticOrderBy = clause.FieldOrderBy{
 	"second_name":  {Column: `auth_analytics."second_name"`},
 	"last_name":    {Column: `auth_analytics."last_name"`},
 	"created_at":   {Column: `auth_analytics."created_at"`},
+	"login":        {Column: `auth_analytics."login"`},
+	"error":        {Column: `auth_analytics."error"`},
 }
 
 type AnalyticsRepository struct {
@@ -46,44 +50,4 @@ func NewAnalyticRepository(db *gorm.DB) AnalyticsRepository {
 func (r AnalyticsRepository) With(models ...string) AnalyticsRepository {
 	r.Repo = r.Repo.With(models...)
 	return r
-}
-
-func (r AnalyticsRepository) FilterByField(value, field string) (AnalyticsRepository, error) {
-	exp := &clause.ExpressionWhere{
-		Column:    field,
-		Operation: "=",
-		Value:     value,
-	}
-
-	var err error
-
-	r.Repo, err = r.Repo.Where(exp)
-	if err != nil {
-		return r, err
-	}
-
-	return r, nil
-}
-
-func (r AnalyticsRepository) OrderByField(field string, isDesc bool) (AnalyticsRepository, error) {
-	order := "ASC"
-	if isDesc {
-		order = "DESC"
-	}
-
-	exp := []clause.ExpressionOrderBy{
-		{
-			Column: field,
-			Order:  order,
-		},
-	}
-
-	var err error
-
-	r.Repo, err = r.Repo.OrderBy(exp)
-	if err != nil {
-		return r, err
-	}
-
-	return r, nil
 }
