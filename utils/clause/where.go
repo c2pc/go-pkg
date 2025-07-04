@@ -210,11 +210,11 @@ func formatStringWhere(expr ExpressionWhere, column string) (string, interface{}
 	case OpEq:
 		return fmt.Sprintf("%s = ?", column), values[0], nil
 	case OpCo:
-		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0] + "%", nil
+		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), "%" + values[0] + "%", nil
 	case OpSw:
-		return fmt.Sprintf("%s LIKE ?", column), values[0] + "%", nil
+		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), values[0] + "%", nil
 	case OpEw:
-		return fmt.Sprintf("%s LIKE ?", column), "%" + values[0], nil
+		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), "%" + values[0], nil
 	case OpPt:
 		return fmt.Sprintf("(%s IS NULL OR %s = '')", column, column), nil, nil
 	case OpNp:
