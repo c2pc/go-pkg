@@ -43,6 +43,7 @@ require (
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0
+	resty.dev/v3 v3.0.0-beta.3
 )
 
 require (

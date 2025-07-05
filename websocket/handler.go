@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/level"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
@@ -69,11 +72,11 @@ func (s *handler) Stream(c *gin.Context) {
 
 	s.manager.registerClient(&cl)
 
-	go s.writePump(conn, &cl)
-	go s.readPump(conn, &cl)
+	go s.writePump(c.Request.Context(), conn, &cl)
+	go s.readPump(c.Request.Context(), conn, &cl)
 }
 
-func (s *handler) readPump(conn *ws.Conn, client *Client) {
+func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
 	defer func() {
 		s.manager.unregisterClient(client)
 		_ = conn.Close()
@@ -86,7 +89,9 @@ func (s *handler) readPump(conn *ws.Conn, client *Client) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				if logger.IsDebugEnabled(level.TEST) {
+					logger.WarningfLog(ctx, "WS", "error: %v", err)
+				}
 			}
 			break
 		}
@@ -95,7 +100,7 @@ func (s *handler) readPump(conn *ws.Conn, client *Client) {
 	}
 }
 
-func (s *handler) writePump(conn *ws.Conn, client *Client) {
+func (s *handler) writePump(ctx context.Context, conn *ws.Conn, client *Client) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
