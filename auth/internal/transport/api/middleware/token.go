@@ -42,14 +42,15 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 	}
 
 	claims, err := tokenverify.GetClaimFromToken(tokensString, tokenverify.Secret(j.secret))
-	if err != nil {
+	if claims != nil {
+		ctx = mcontext.WithOpUserIDContext(ctx, claims.UserID)
+		ctx = mcontext.WithOpDeviceIDContext(ctx, claims.DeviceID)
+		c.Request = c.Request.WithContext(ctx)
+	}
+	if claims == nil || err != nil {
 		http.Response(c, apperr.ErrUnauthenticated.WithError(err))
 		return
 	}
-
-	ctx = mcontext.WithOpUserIDContext(ctx, claims.UserID)
-	ctx = mcontext.WithOpDeviceIDContext(ctx, claims.DeviceID)
-	c.Request = c.Request.WithContext(ctx)
 
 	m, err := j.tokenCache.GetTokensWithoutError(ctx, claims.UserID, claims.DeviceID)
 	if err != nil {

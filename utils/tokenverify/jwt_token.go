@@ -42,20 +42,24 @@ func BuildClaims(userID int, DeviceID int, ttl time.Duration) Claims {
 }
 
 func GetClaimFromToken(tokensString string, secretFunc jwt.Keyfunc) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokensString, &Claims{}, secretFunc)
+	var claims Claims
+	token, err := jwt.ParseWithClaims(tokensString, &claims, secretFunc)
 	if err == nil {
-		if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-			return claims, nil
+		if claims, ok := token.Claims.(*Claims); ok {
+			if token.Valid {
+				return claims, nil
+			}
+			return claims, ErrTokenUnknown
 		}
-		return nil, ErrTokenUnknown
+		return &claims, ErrTokenUnknown
 	}
 
 	var ve *jwt.ValidationError
 	if errors.As(err, &ve) {
-		return nil, mapValidationError(ve)
+		return &claims, mapValidationError(ve)
 	}
 
-	return nil, ErrTokenUnknown
+	return &claims, ErrTokenUnknown
 }
 
 func mapValidationError(ve *jwt.ValidationError) error {
