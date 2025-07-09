@@ -46,6 +46,13 @@ type AnalyticsTransformer struct {
 }
 
 func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
+	if m.User != nil {
+		m.Login = &m.User.Login
+		m.FirstName = m.User.FirstName
+		m.SecondName = m.User.SecondName
+		m.LastName = m.User.LastName
+	}
+
 	return AnalyticsTransformer{
 		ID:           m.ID,
 		OperationID:  m.OperationID,

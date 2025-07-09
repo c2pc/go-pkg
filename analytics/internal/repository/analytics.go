@@ -19,6 +19,8 @@ var analyticSearchable = clause.FieldSearchable{
 	"second_name":  {Column: `auth_analytics."second_name"`, Type: clause.String},
 	"last_name":    {Column: `auth_analytics."last_name"`, Type: clause.String},
 	"created_at":   {Column: `auth_analytics."created_at"`, Type: clause.DateTime},
+	"login":        {Column: `auth_analytics."login"`, Type: clause.String},
+	"error":        {Column: `auth_analytics."error"`, Type: clause.String},
 }
 
 var analyticOrderBy = clause.FieldOrderBy{
@@ -33,6 +35,8 @@ var analyticOrderBy = clause.FieldOrderBy{
 	"second_name":  {Column: `auth_analytics."second_name"`},
 	"last_name":    {Column: `auth_analytics."last_name"`},
 	"created_at":   {Column: `auth_analytics."created_at"`},
+	"login":        {Column: `auth_analytics."login"`},
+	"error":        {Column: `auth_analytics."error"`},
 }
 
 type AnalyticsRepository struct {

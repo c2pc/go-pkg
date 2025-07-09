@@ -25,6 +25,9 @@ func New(id string, annotators ...Annotator) Error {
 	for _, annotator := range annotators {
 		annotator(&err)
 	}
+
+	ErrMapManager.Set(id, err)
+
 	return err
 }
 

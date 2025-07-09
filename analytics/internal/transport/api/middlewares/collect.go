@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"gorm.io/gorm"
 	"io"
 	"log"
 	"mime"
@@ -15,10 +19,10 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
+	"github.com/c2pc/go-pkg/v2/ffm"
 	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type LoggerConfig struct {
@@ -203,9 +207,19 @@ func (l *logger) middleware(c *gin.Context) {
 			compressedRequest = nil
 		}
 
+		errResponse := &ffm.ErrorResponse{}
+
 		var compressedResponse []byte
 		if w != nil {
 			if w.flag && w.body != nil && w.body.Len() > 0 {
+
+				if w.Status() >= 300 {
+					err := json.Unmarshal(w.body.Bytes(), errResponse)
+					if err != nil {
+						errResponse = nil
+					}
+				}
+
 				data := compressData(jsonutil.JsonHideImportantData(w.body.Bytes(), l.HiddenKeys...))
 				compressedResponse = data
 			} else {
@@ -213,6 +227,14 @@ func (l *logger) middleware(c *gin.Context) {
 			}
 		} else {
 			compressedResponse = nil
+		}
+
+		var errDetailRU *string
+		if errResponse != nil {
+			errFromMap, err := apperr.ErrMapManager.Get(errResponse.ID)
+			if err == nil {
+				*errDetailRU = apperr.Translate(errFromMap, string(translator.RU))
+			}
 		}
 
 		entry := models.Analytics{
@@ -225,6 +247,7 @@ func (l *logger) middleware(c *gin.Context) {
 			RequestBody:  compressedRequest,
 			ResponseBody: compressedResponse,
 			Duration:     duration,
+			Error:        errDetailRU,
 			CreatedAt:    time.Now().UTC(),
 		}
 
@@ -331,6 +354,7 @@ func (l *logger) analyticWithUserData() error {
 	for i := range l.entries {
 		if l.entries[i].UserID != nil {
 			if user, exists := userMap[*l.entries[i].UserID]; exists {
+				l.entries[i].Login = &user.Login
 				l.entries[i].FirstName = user.FirstName
 				l.entries[i].SecondName = user.SecondName
 				l.entries[i].LastName = user.LastName

@@ -1,8 +1,40 @@
 package apperr
 
 import (
+	"errors"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
+	"sync"
+)
+
+type ErrMap struct {
+	mu     sync.RWMutex
+	errMap map[string]Error
+}
+
+func (e *ErrMap) Get(id string) (Error, error) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	if errFromMap, ok := e.errMap[id]; ok {
+		return errFromMap, nil
+	}
+
+	return Error{}, errors.New("error not found")
+}
+
+func (e *ErrMap) Set(id string, err Error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.errMap[id] = err
+}
+
+var (
+	ErrMapManager = ErrMap{
+		errMap: make(map[string]Error),
+		mu:     sync.RWMutex{},
+	}
 )
 
 // Объявление стандартных ошибок приложения
