@@ -47,6 +47,10 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 		return
 	}
 
+	ctx = mcontext.WithOpUserIDContext(ctx, claims.UserID)
+	ctx = mcontext.WithOpDeviceIDContext(ctx, claims.DeviceID)
+	c.Request = c.Request.WithContext(ctx)
+
 	m, err := j.tokenCache.GetTokensWithoutError(ctx, claims.UserID, claims.DeviceID)
 	if err != nil {
 		http.Response(c, apperr.ErrInternal.WithError(err))
@@ -60,10 +64,6 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 	if v, ok := m[tokensString]; ok {
 		switch v {
 		case constant.NormalToken:
-			ctx = mcontext.WithOpUserIDContext(ctx, claims.UserID)
-			ctx = mcontext.WithOpDeviceIDContext(ctx, claims.DeviceID)
-
-			c.Request = c.Request.WithContext(ctx)
 			c.Next()
 			return
 		case constant.KickedToken:
