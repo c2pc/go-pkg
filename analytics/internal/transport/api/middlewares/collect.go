@@ -5,9 +5,6 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
-	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/translator"
-	"gorm.io/gorm"
 	"io"
 	"log"
 	"mime"
@@ -17,6 +14,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"gorm.io/gorm"
 
 	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
 	"github.com/c2pc/go-pkg/v2/ffm"
@@ -233,7 +234,8 @@ func (l *logger) middleware(c *gin.Context) {
 		if errResponse != nil {
 			errFromMap, err := apperr.ErrMapManager.Get(errResponse.ID)
 			if err == nil {
-				*errDetailRU = apperr.Translate(errFromMap, string(translator.RU))
+				tr := apperr.Translate(errFromMap, string(translator.RU))
+				errDetailRU = &tr
 			}
 		}
 
