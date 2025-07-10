@@ -194,7 +194,7 @@ func (l *logger) middleware(c *gin.Context) {
 
 		var userID *int
 		id, ok := mcontext.GetOpUserID(ctx)
-		if ok {
+		if ok && id != 0 {
 			userID = &id
 		}
 
