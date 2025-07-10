@@ -43,6 +43,7 @@ type AnalyticsTransformer struct {
 	FirstName    string    `json:"first_name"`
 	SecondName   string    `json:"second_name"`
 	LastName     string    `json:"last_name"`
+	Error        *string   `json:"error"`
 }
 
 func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
@@ -67,6 +68,7 @@ func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
 		FirstName:    m.FirstName,
 		SecondName:   m.SecondName,
 		LastName:     m.LastName,
+		Error:        m.Error,
 	}
 }
 
@@ -82,6 +84,7 @@ type AnalyticsSummaryTransformer struct {
 	FirstName   string    `json:"first_name"`
 	SecondName  string    `json:"second_name"`
 	LastName    string    `json:"last_name"`
+	Error       *string   `json:"error"`
 }
 
 func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
@@ -97,6 +100,7 @@ func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
 		FirstName:   m.FirstName,
 		SecondName:  m.SecondName,
 		LastName:    m.LastName,
+		Error:       m.Error,
 	}
 }
 
