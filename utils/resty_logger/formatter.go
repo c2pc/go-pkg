@@ -8,19 +8,27 @@ import (
 	"resty.dev/v3"
 )
 
+func limitString(s string, limit int) string {
+	if len(s) > limit {
+		return s[:limit]
+	}
+	return s
+}
+
 func DebugLogFormatterFunc(dl *resty.DebugLog) string {
 	debugLog := "\n"
 
 	req := dl.Request
 	debugLog += "~~~ REQUEST ~~~\n" +
-		fmt.Sprintf("HOST  : %s  %s%s\n", req.Method, req.Host, req.URI) +
-		fmt.Sprintf("BODY  : %s\n", string(JsonHideImportantData([]byte(req.Body), "pass", "token", "pwd", "code")))
+		fmt.Sprintf("HOST          : %s  %s%s\n", req.Method, req.Host, req.URI) +
+		fmt.Sprintf("OPERATION-ID  : %s\n", req.Header.Get("X-Operation-Id")) +
+		fmt.Sprintf("BODY          : %s\n", limitString(string(JsonHideImportantData([]byte(req.Body), "pass", "token", "pwd", "code")), 1000))
 
 	res := dl.Response
 	debugLog += "~~~ RESPONSE ~~~\n" +
 		fmt.Sprintf("STATUS    : %s\n", res.Status) +
 		fmt.Sprintf("DURATION  : %v\n", res.Duration) +
-		fmt.Sprintf("BODY      : %v\n", string(JsonHideImportantData([]byte(res.Body), "pass", "token", "pwd", "code")))
+		fmt.Sprintf("BODY      : %v\n", limitString(string(JsonHideImportantData([]byte(res.Body), "pass", "token", "pwd", "code")), 1000))
 
 	return debugLog
 }
