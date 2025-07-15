@@ -1,6 +1,6 @@
 module github.com/c2pc/go-pkg/v2
 
-go 1.23.7
+go 1.24.5
 
 require (
 	github.com/c2pc/config-migrate v1.0.5
