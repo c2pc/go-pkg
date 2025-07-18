@@ -113,7 +113,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 		return nil, user.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
-	var provider, refreshToken string
+	/*var provider, refreshToken string
 	if input.IsDomain && s.ldapAuth != nil && s.ldapAuth.IsEnabled() {
 		err = s.ldapAuth.CheckAuth(input.Login, input.Password)
 		if err != nil {
@@ -127,14 +127,16 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 		}
 		refreshToken = xid.New().String()
-	}
+	}*/
 
 	data, err := s.createSession(ctx, createSessionInput{
-		IsLogin:      true,
-		UserID:       user.ID,
-		DeviceID:     input.DeviceID,
-		Provider:     provider,
-		RefreshToken: refreshToken,
+		IsLogin:  true,
+		UserID:   user.ID,
+		DeviceID: input.DeviceID,
+		//Provider:     provider,
+		Provider: "",
+		//RefreshToken: refreshToken,
+		RefreshToken: xid.New().String(),
 	})
 
 	return data, user.ID, err

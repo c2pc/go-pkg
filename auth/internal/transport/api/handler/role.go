@@ -8,10 +8,12 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/dto"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
+
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	transformer2 "github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,6 +37,7 @@ func (h *RoleHandler) Init(api *gin.RouterGroup) {
 	{
 		role.GET("", h.List)
 		role.GET("/:id", h.GetById)
+		role.GET("/:id/users", h.UserList)
 		role.POST("", h.tr.DBTransaction, h.Create)
 		role.PATCH("/:id", h.tr.DBTransaction, h.Update)
 		role.DELETE("/:id", h.tr.DBTransaction, h.Delete)
@@ -58,6 +61,36 @@ func (h *RoleHandler) List(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, transformer.RoleListTransform(c, m.Pagination))
+}
+
+func (h *RoleHandler) UserList(c *gin.Context) {
+	id, err := request2.Id(c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	cred, err := request2.Meta(c)
+	if err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	m := model2.NewMeta(
+		model2.NewPagination[model.UserRole](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		model2.NewFilter(cred.OrderBy, cred.Where),
+	)
+	if err := h.roleService.UserList(c.Request.Context(), id, &m); err != nil {
+		response.Response(c, err)
+		return
+	}
+
+	userList := []model.User{}
+	for _, row := range m.Pagination.Rows {
+		userList = append(userList, *row.User)
+	}
+
+	c.JSON(http.StatusOK, transformer2.Array(userList, transformer.UserSimpleTransform))
 }
 
 func (h *RoleHandler) GetById(c *gin.Context) {
