@@ -32,5 +32,6 @@ func (s VersionService) Get(ctx context.Context) *model.Version {
 	if m != nil {
 		version.DB = "0.0." + m.Version
 	}
-	return nil
+
+	return version
 }
