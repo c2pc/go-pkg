@@ -210,7 +210,7 @@ func (f *FFM) GenDownloadPath(info FileInfo) string {
 }
 
 func (f *FFM) GenCompressDownloadPath(info FileInfo) string {
-	return f.addr + "api/v1/" + f.service + "/compress-download?path=" + info.Path
+	return f.addr + "api/v1/" + f.service + "/compress-download?path=" + info.Path + "&type=zip"
 }
 
 func (f *FFM) Remove(ctx context.Context, request RemoveRequest) error {
