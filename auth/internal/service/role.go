@@ -25,6 +25,7 @@ var (
 type IRoleService interface {
 	Trx(db *gorm.DB) IRoleService
 	List(ctx context.Context, m *model2.Meta[model.Role]) error
+	UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error
 	GetById(ctx context.Context, id int) (*model.Role, error)
 	Create(ctx context.Context, input RoleCreateInput) (*model.Role, error)
 	Update(ctx context.Context, id int, input RoleUpdateInput) error
@@ -66,6 +67,10 @@ func (s RoleService) Trx(db *gorm.DB) IRoleService {
 
 func (s RoleService) List(ctx context.Context, m *model2.Meta[model.Role]) error {
 	return s.roleRepository.With("role_permissions").Paginate(ctx, m, ``)
+}
+
+func (s RoleService) UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error {
+	return s.userRoleRepository.With("user").Paginate(ctx, m, `role_id = ?`, id)
 }
 
 func (s RoleService) GetById(ctx context.Context, id int) (*model.Role, error) {
