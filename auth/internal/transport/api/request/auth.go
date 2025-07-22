@@ -2,7 +2,7 @@ package request
 
 type AuthLoginRequest struct {
 	Login      string `json:"login" binding:"required,max=255,dot_underscore_hyphen"`
-	Password   string `json:"password" binding:"required,max=255,spec_chars"`
+	Password   string `json:"password" binding:"required,max=60,spec_chars"`
 	DeviceID   int    `json:"device_id" binding:"required,device_id"`
 	DomainAuth bool   `json:"domain_auth" binding:"omitempty"`
 }
@@ -21,7 +21,7 @@ type AuthUpdateAccountDataRequest struct {
 	FirstName  *string `json:"first_name" binding:"omitempty,max=255,min=2,dot_underscore_hyphen_space"`
 	SecondName *string `json:"second_name" binding:"omitempty,len=0|min=2,max=255,dot_underscore_hyphen_space"`
 	LastName   *string `json:"last_name" binding:"omitempty,len=0|min=2,max=255,dot_underscore_hyphen_space"`
-	Password   *string `json:"password" binding:"omitempty,max=255,min=8,spec_chars"`
+	Password   *string `json:"password" binding:"omitempty,max=60,min=8,spec_chars"`
 	Email      *string `json:"email" binding:"omitempty,len=0|email,max=255"`
 	Phone      *string `json:"phone" binding:"omitempty,len=0|min=1,max=255"`
 }
