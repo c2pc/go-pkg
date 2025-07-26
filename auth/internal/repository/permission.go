@@ -28,18 +28,3 @@ func (r PermissionRepository) Trx(db *gorm.DB) IPermissionRepository {
 	r.Repo = r.Repo.Trx(db)
 	return r
 }
-
-func (r PermissionRepository) With(models ...string) IPermissionRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r PermissionRepository) Joins(models ...string) IPermissionRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r PermissionRepository) Omit(columns ...string) IPermissionRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}

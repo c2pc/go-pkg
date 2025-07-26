@@ -35,18 +35,3 @@ func (r NewsRepository) Trx(db *gorm.DB) INewsRepository {
 	r.Repo = r.Repo.Trx(db)
 	return r
 }
-
-func (r NewsRepository) With(models ...string) INewsRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r NewsRepository) Joins(models ...string) INewsRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r NewsRepository) Omit(columns ...string) INewsRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}

@@ -29,18 +29,3 @@ func (r MigrationRepository) Trx(db *gorm.DB) IMigrationRepository {
 	r.Repo = r.Repo.Trx(db)
 	return r
 }
-
-func (r MigrationRepository) With(models ...string) IMigrationRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r MigrationRepository) Joins(models ...string) IMigrationRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r MigrationRepository) Omit(columns ...string) IMigrationRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}

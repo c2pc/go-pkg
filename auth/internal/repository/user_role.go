@@ -32,21 +32,6 @@ func (r UserRoleRepository) Trx(db *gorm.DB) IUserRoleRepository {
 	return r
 }
 
-func (r UserRoleRepository) With(models ...string) IUserRoleRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r UserRoleRepository) Joins(models ...string) IUserRoleRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r UserRoleRepository) Omit(columns ...string) IUserRoleRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}
-
 func (r UserRoleRepository) GetUsersByRole(ctx context.Context, roleID int) ([]int, error) {
 	var result []int
 	row := r.Model()

@@ -19,9 +19,11 @@ import (
 
 type Repository[T any, C model.Model] interface {
 	Trx(db *gorm.DB) T
-	With(models ...string) T
-	Joins(models ...string) T
-	Omit(columns ...string) T
+	With(models ...string) Repo[C]
+	WithOne(model string, args ...any) Repo[C]
+	Joins(models ...string) Repo[C]
+	JoinOne(model string, args ...any) Repo[C]
+	Omit(columns ...string) Repo[C]
 	Find(ctx context.Context, query string, args ...any) (*C, error)
 	FindById(ctx context.Context, id int) (*C, error)
 	Delete(ctx context.Context, query string, args ...any) error
@@ -147,6 +149,14 @@ func (r Repo[C]) With(models ...string) Repo[C] {
 	return r
 }
 
+func (r Repo[C]) WithOne(model string, args ...any) Repo[C] {
+	m := r.reformatModel(model)
+	r.with = append(r.with, m)
+	r.db = r.db.Preload(m, args...)
+
+	return r
+}
+
 func (r Repo[C]) Omit(columns ...string) Repo[C] {
 	if len(columns) > 0 {
 		r.db = r.db.Omit(columns...)
@@ -183,6 +193,33 @@ func (r Repo[C]) Joins(models ...string) Repo[C] {
 	return r
 }
 
+func (r Repo[C]) JoinOne(model string, args ...any) Repo[C] {
+	m := r.reformatModel(model)
+
+	if isJoin := func() bool {
+		if strings.Index(m, ".") != -1 || m[len(m)-1:] == "s" {
+			return false
+		}
+
+		for _, j := range r.with {
+			if j == m {
+				return true
+			}
+		}
+
+		for _, j := range r.db.Statement.Joins {
+			if j.Name == m {
+				return true
+			}
+		}
+		return false
+	}(); !isJoin {
+		r.db = r.db.Joins(m, args...)
+	}
+
+	return r
+}
+
 func (r Repo[C]) reformatModels(models ...string) []string {
 	if len(models) == 0 {
 		return []string{}
@@ -204,6 +241,11 @@ func (r Repo[C]) reformatModels(models ...string) []string {
 	}
 
 	return newModels
+}
+
+func (r Repo[C]) reformatModel(model string) string {
+	newModels := r.reformatModels(model)
+	return newModels[0]
 }
 
 func (r Repo[C]) QuoteTo(str string) string {

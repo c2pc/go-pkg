@@ -57,18 +57,3 @@ func (r TaskRepository) Trx(db *gorm.DB) ITaskRepository {
 	r.Repo = r.Repo.Trx(db)
 	return r
 }
-
-func (r TaskRepository) With(models ...string) ITaskRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r TaskRepository) Joins(models ...string) ITaskRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r TaskRepository) Omit(columns ...string) ITaskRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}

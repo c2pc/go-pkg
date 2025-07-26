@@ -51,21 +51,6 @@ func (r UserRepository) Trx(db *gorm.DB) IUserRepository {
 	return r
 }
 
-func (r UserRepository) With(models ...string) IUserRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r UserRepository) Joins(models ...string) IUserRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r UserRepository) Omit(columns ...string) IUserRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}
-
 func (r UserRepository) GetUserWithPermissions(ctx context.Context, query string, args ...any) (*model.User, error) {
 	return r.Repo.
 		With("roles", "roles.role_permissions", "roles.role_permissions.permission").

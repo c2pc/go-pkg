@@ -51,18 +51,3 @@ func (r TokenRepository) Trx(db *gorm.DB) ITokenRepository {
 	r.Repo = r.Repo.Trx(db)
 	return r
 }
-
-func (r TokenRepository) With(models ...string) ITokenRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r TokenRepository) Joins(models ...string) ITokenRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r TokenRepository) Omit(columns ...string) ITokenRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}

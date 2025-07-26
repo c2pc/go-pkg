@@ -34,18 +34,3 @@ func (r RoleRepository) Trx(db *gorm.DB) IRoleRepository {
 	r.Repo = r.Repo.Trx(db)
 	return r
 }
-
-func (r RoleRepository) With(models ...string) IRoleRepository {
-	r.Repo = r.Repo.With(models...)
-	return r
-}
-
-func (r RoleRepository) Joins(models ...string) IRoleRepository {
-	r.Repo = r.Repo.Joins(models...)
-	return r
-}
-
-func (r RoleRepository) Omit(columns ...string) IRoleRepository {
-	r.Repo = r.Repo.Omit(columns...)
-	return r
-}
