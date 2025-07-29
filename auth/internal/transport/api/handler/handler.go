@@ -100,11 +100,11 @@ func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engi
 			settingHandler.Init(auth)
 			filterHandler.Init(auth)
 			versionHandler.Init(auth)
+			permissionHandler.Init(auth)
 
 			//Can
 			perm := auth.Group("", h.permissionMiddleware.Can).Group("", handlers...)
 			{
-				permissionHandler.Init(perm)
 				roleHandler.Init(perm)
 				userHandler.Init(perm)
 				sessionHandler.Init(perm)
