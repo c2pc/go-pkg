@@ -23,6 +23,7 @@ type Repository[T any, C model.Model] interface {
 	WithOne(model string, args ...any) Repo[C]
 	Joins(models ...string) Repo[C]
 	JoinOne(model string, args ...any) Repo[C]
+	Scopes(funcs ...func(*gorm.DB) *gorm.DB) Repo[C]
 	Omit(columns ...string) Repo[C]
 	Find(ctx context.Context, query string, args ...any) (*C, error)
 	FindById(ctx context.Context, id int) (*C, error)
@@ -217,6 +218,13 @@ func (r Repo[C]) JoinOne(model string, args ...any) Repo[C] {
 		r.db = r.db.Joins(m, args...)
 	}
 
+	return r
+}
+
+func (r Repo[C]) Scopes(funcs ...func(*gorm.DB) *gorm.DB) Repo[C] {
+	if len(funcs) > 0 {
+		r.db = r.db.Scopes(funcs...)
+	}
 	return r
 }
 
