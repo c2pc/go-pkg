@@ -15,7 +15,7 @@ import (
 )
 
 type IHandler interface {
-	Init(engine *gin.Engine, api *gin.RouterGroup)
+	Init(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc)
 }
 
 type Handler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
@@ -81,7 +81,7 @@ func NewHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileIn
 	}
 }
 
-func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engine *gin.Engine, api *gin.RouterGroup) {
+func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
 	authHandler := NewAuthHandlers(h.authService, h.tr, h.tokenMiddleware, h.profileTransformer, h.profileRequest, h.oidcAuth, h.samlAuth)
 	permissionHandler := NewPermissionHandlers(h.permissionService)
 	roleHandler := NewRoleHandlers(h.roleService, h.tr)
@@ -102,7 +102,7 @@ func (h *Handler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engi
 			versionHandler.Init(auth)
 
 			//Can
-			perm := auth.Group("", h.permissionMiddleware.Can)
+			perm := auth.Group("", h.permissionMiddleware.Can).Group("", handlers...)
 			{
 				permissionHandler.Init(perm)
 				roleHandler.Init(perm)

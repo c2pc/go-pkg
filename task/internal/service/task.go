@@ -104,7 +104,20 @@ func (s TaskService) Trx(db *gorm.DB) ITaskService {
 }
 
 func (s TaskService) List(ctx context.Context, m *model2.Meta[model.Task]) error {
-	return s.taskRepository.Omit("input", "output").With("user").Paginate(ctx, m, ``)
+	var query string
+	var args []interface{}
+
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		query = `auth_tasks."user_id" = ?`
+		args = append(args, userID)
+	}
+
+	return s.taskRepository.Omit("input", "output").With("user").Paginate(ctx, m, query, args...)
 }
 
 func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...string) ([]model.Task, error) {
@@ -121,13 +134,23 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 		args = append(args, statuses)
 	}
 
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		query = append(query, `auth_tasks."user_id" = ?`)
+		args = append(args, userID)
+	}
+
 	return s.taskRepository.Omit("input", "output").List(ctx, &model2.Filter{
 		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 }
 
 func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
-	task, err := s.taskRepository.Omit("input").With("user").Find(ctx, `auth_tasks.id = ?`, id)
+	tsk, err := s.taskRepository.Omit("input").With("user").Find(ctx, `auth_tasks.id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrTaskNotFound
@@ -135,30 +158,41 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
-	task.Output, err = s.decompressData(task.Output)
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		if tsk.UserID != userID {
+			return nil, apperr.ErrForbidden
+		}
+	}
+
+	tsk.Output, err = s.decompressData(tsk.Output)
 	if err != nil {
 		return nil, apperr.ErrBadRequest.WithError(err)
 	}
 
-	msg, err := s.unmarshalOutput(task.Output)
+	msg, err := s.unmarshalOutput(tsk.Output)
 	if err != nil {
 		return nil, apperr.ErrBadRequest.WithError(err)
 	}
 
-	if task.Type == model3.Export && msg != nil {
-		fi, err := os.Stat(task.FilePath(msg.FileName))
+	if tsk.Type == model3.Export && msg != nil {
+		fi, err := os.Stat(tsk.FilePath(msg.FileName))
 		if err == nil {
 			size := fi.Size()
-			task.FileSize = &size
+			tsk.FileSize = &size
 		}
 
 	}
 
-	return task, nil
+	return tsk, nil
 }
 
 func (s TaskService) Delete(ctx context.Context, id int) error {
-	task, err := s.taskRepository.Omit("input").Find(ctx, `auth_tasks.id = ?`, id)
+	tsk, err := s.taskRepository.Omit("input").Find(ctx, `auth_tasks.id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrTaskNotFound
@@ -166,16 +200,27 @@ func (s TaskService) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	if datautil.Contain(task.Status, model.StatusPending, model.StatusRunning) {
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		if tsk.UserID != userID {
+			return apperr.ErrForbidden
+		}
+	}
+
+	if datautil.Contain(tsk.Status, model.StatusPending, model.StatusRunning) {
 		return ErrTaskUnableRemove
 	}
 
-	task.Output, err = s.decompressData(task.Output)
+	tsk.Output, err = s.decompressData(tsk.Output)
 	if err != nil {
 		return apperr.ErrBadRequest.WithError(err)
 	}
 
-	msg, err := s.unmarshalOutput(task.Output)
+	msg, err := s.unmarshalOutput(tsk.Output)
 	if err != nil {
 		return apperr.ErrBadRequest.WithError(err)
 	}
@@ -185,15 +230,15 @@ func (s TaskService) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	if task.Type == model3.Export && msg != nil {
-		_ = os.Remove(task.FilePath(msg.FileName))
+	if tsk.Type == model3.Export && msg != nil {
+		_ = os.Remove(tsk.FilePath(msg.FileName))
 	}
 
 	return nil
 }
 
 func (s TaskService) Download(ctx context.Context, id int) (string, error) {
-	task, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
+	tsk, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return "", ErrTaskNotFound
@@ -201,30 +246,41 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 		return "", err
 	}
 
-	if task.Type != model3.Export {
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return "", apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		if tsk.UserID != userID {
+			return "", apperr.ErrForbidden
+		}
+	}
+
+	if tsk.Type != model3.Export {
 		return "", ErrTaskFileNotFound
 	}
 
-	if datautil.Contain(task.Status, model.StatusPending) {
+	if datautil.Contain(tsk.Status, model.StatusPending) {
 		return "", ErrTaskFileStillOngoing
 	}
 
-	if !datautil.Contain(task.Status, model.StatusSuccess) {
+	if !datautil.Contain(tsk.Status, model.StatusSuccess) {
 		return "", ErrTaskFileNotFound
 	}
 
-	task.Output, err = s.decompressData(task.Output)
+	tsk.Output, err = s.decompressData(tsk.Output)
 	if err != nil {
 		return "", apperr.ErrBadRequest.WithError(err)
 	}
 
-	msg, err := s.unmarshalOutput(task.Output)
+	msg, err := s.unmarshalOutput(tsk.Output)
 	if err != nil {
 		return "", apperr.ErrBadRequest.WithError(err)
 	}
 
 	if msg != nil {
-		filePath := task.FilePath(msg.FileName)
+		filePath := tsk.FilePath(msg.FileName)
 		if _, err := os.Stat(filePath); err != nil {
 			return "", ErrTaskFileNotFound.WithError(err)
 		}
@@ -236,7 +292,7 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 }
 
 func (s TaskService) Stop(ctx context.Context, id int) error {
-	task, err := s.taskRepository.Omit("input", "output").Find(ctx, `id = ?`, id)
+	tsk, err := s.taskRepository.Omit("input", "output").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrTaskNotFound
@@ -244,19 +300,30 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 		return err
 	}
 
-	if !datautil.Contain(task.Status, model.StatusPending, model.StatusRunning) {
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		if tsk.UserID != userID {
+			return apperr.ErrForbidden
+		}
+	}
+
+	if !datautil.Contain(tsk.Status, model.StatusPending, model.StatusRunning) {
 		return ErrTaskCannotStop
 	}
 
-	task.Status = model.StatusStopped
+	tsk.Status = model.StatusStopped
 
-	if err = s.taskRepository.Update(ctx, task, []interface{}{"status"}, `id = ?`, task.ID); err != nil {
+	if err = s.taskRepository.Update(ctx, tsk, []interface{}{"status"}, `id = ?`, tsk.ID); err != nil {
 		return err
 	}
 
-	s.queue.Stop(task.ID)
+	s.queue.Stop(tsk.ID)
 
-	_ = s.sendStatusChangedMessage(ctx, task)
+	_ = s.sendStatusChangedMessage(ctx, tsk)
 
 	return nil
 }
@@ -267,7 +334,7 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
 	}
 
-	task, err := s.taskRepository.Omit("output").Find(ctx, `id = ?`, id)
+	tsk, err := s.taskRepository.Omit("output").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrTaskNotFound
@@ -275,32 +342,38 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
-	if datautil.Contain(task.Status, model.StatusPending, model.StatusRunning) {
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		if tsk.UserID != userID {
+			return nil, apperr.ErrForbidden
+		}
+	}
+
+	if datautil.Contain(tsk.Status, model.StatusPending, model.StatusRunning) {
 		return nil, ErrTaskUnableRerun
 	}
 
-	task = &model.Task{
-		Name:   task.Name,
-		Type:   task.Type,
+	tsk = &model.Task{
+		Name:   tsk.Name,
+		Type:   tsk.Type,
 		UserID: userID,
 		Status: model.StatusPending,
 		Output: nil,
-		Input:  task.Input,
+		Input:  tsk.Input,
 	}
 
-	task, err = s.taskRepository.Create(ctx, task)
+	tsk, err = s.taskRepository.Create(ctx, tsk)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.RunTasks(ctx, []string{model.StatusPending}, task.ID)
+	err = s.RunTasks(ctx, []string{model.StatusPending}, tsk.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	_ = s.sendStatusChangedMessage(ctx, task)
+	_ = s.sendStatusChangedMessage(ctx, tsk)
 
-	return task, nil
+	return tsk, nil
 }
 
 type TaskUpdateInput struct {
@@ -309,7 +382,7 @@ type TaskUpdateInput struct {
 }
 
 func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) error {
-	task, err := s.taskRepository.Omit("output").Find(ctx, `id = ?`, id)
+	tsk, err := s.taskRepository.Omit("output").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrTaskNotFound
@@ -317,10 +390,21 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		return err
 	}
 
-	prevStatus := task.Status
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		if tsk.UserID != userID {
+			return apperr.ErrForbidden
+		}
+	}
+
+	prevStatus := tsk.Status
 	var selects []interface{}
 	if input.Status != nil && *input.Status != "" {
-		task.Status = *input.Status
+		tsk.Status = *input.Status
 		selects = append(selects, "status")
 	}
 	if input.Output != nil {
@@ -329,7 +413,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 			return err
 		}
 
-		task.Output, err = s.compressData(d)
+		tsk.Output, err = s.compressData(d)
 		if err != nil {
 			return err
 		}
@@ -338,14 +422,14 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 	}
 
 	if len(selects) > 0 {
-		if err = s.taskRepository.Update(ctx, task, selects, `id = ?`, task.ID); err != nil {
+		if err = s.taskRepository.Update(ctx, tsk, selects, `id = ?`, tsk.ID); err != nil {
 			return err
 		}
 	}
 
 	if input.Status != nil && *input.Status != "" {
 		if *input.Status != prevStatus {
-			_ = s.sendStatusChangedMessage(ctx, task)
+			_ = s.sendStatusChangedMessage(ctx, tsk)
 		}
 	}
 
@@ -360,9 +444,23 @@ func (s TaskService) UpdateStatus(ctx context.Context, status string, ids ...int
 	if len(tasks) == 0 {
 		return ErrTaskNotFound
 	}
+
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		for _, tsk := range tasks {
+			if tsk.UserID != userID {
+				return apperr.ErrForbidden
+			}
+		}
+	}
+
 	var ids2 []int
-	for _, task := range tasks {
-		ids2 = append(ids2, task.ID)
+	for _, tsk := range tasks {
+		ids2 = append(ids2, tsk.ID)
 	}
 
 	if err := s.taskRepository.Update(ctx, &model.Task{Status: status}, []interface{}{"status"}, `id IN (?)`, ids2); err != nil {
@@ -394,22 +492,33 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 	}
 
 	var runnerData []runner.Data
-	for _, task := range tasks {
-		data, err := s.decompressData(task.Input)
+	for _, tsk := range tasks {
+		if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+			userID, ok := mcontext.GetOpUserID(ctx)
+			if !ok {
+				return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+			}
+
+			if tsk.UserID != userID {
+				return apperr.ErrForbidden
+			}
+		}
+
+		data, err := s.decompressData(tsk.Input)
 		if err != nil {
 			return apperr.ErrBadRequest.WithError(err)
 		}
 
-		runFunc, err := s.getRunFunc(task.Type, task.Name)
+		runFunc, err := s.getRunFunc(tsk.Type, tsk.Name)
 		if err != nil {
 			return err
 		}
 
 		runnerData = append(runnerData, runner.Data{
-			ID:       task.ID,
-			ClientID: task.UserID,
-			Name:     task.Name,
-			Type:     task.Type,
+			ID:       tsk.ID,
+			ClientID: tsk.UserID,
+			Name:     tsk.Name,
+			Type:     tsk.Type,
 			Data:     data,
 			RunFunc:  runFunc,
 		})
@@ -447,7 +556,7 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		data = d
 	}
 
-	task, err := s.taskRepository.Create(ctx, &model.Task{
+	tsk, err := s.taskRepository.Create(ctx, &model.Task{
 		Name:   input.Name,
 		Type:   input.Type,
 		UserID: userID,
@@ -458,9 +567,9 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		return nil, err
 	}
 
-	_ = s.sendStatusChangedMessage(ctx, task)
+	_ = s.sendStatusChangedMessage(ctx, tsk)
 
-	return task, nil
+	return tsk, nil
 }
 
 func (s TaskService) compressData(data []byte) ([]byte, error) {
@@ -517,7 +626,7 @@ func (s TaskService) getRunFunc(tp string, name string) (runner.RunFunc, error) 
 }
 
 func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string, error) {
-	task, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
+	tsk, err := s.taskRepository.Omit("input").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return "", ErrTaskNotFound
@@ -525,26 +634,37 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 		return "", err
 	}
 
-	if task.Type != model3.Export {
+	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		userID, ok := mcontext.GetOpUserID(ctx)
+		if !ok {
+			return "", apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+		}
+
+		if tsk.UserID != userID {
+			return "", apperr.ErrForbidden
+		}
+	}
+
+	if tsk.Type != model3.Export {
 		return "", ErrTaskTypeInvalid
 	}
 
-	if datautil.Contain(task.Status, model.StatusPending) {
+	if datautil.Contain(tsk.Status, model.StatusPending) {
 		return "", ErrTaskStatusInvalid
 	}
 
-	task.Output, err = s.decompressData(task.Output)
+	tsk.Output, err = s.decompressData(tsk.Output)
 	if err != nil {
 		return "", apperr.ErrBadRequest.WithError(err)
 	}
 
-	msg, err := s.unmarshalOutput(task.Output)
+	msg, err := s.unmarshalOutput(tsk.Output)
 	if err != nil {
 		return "", apperr.ErrBadRequest.WithError(err)
 	}
 
 	if msg != nil {
-		filePath := task.FilePath(msg.FileName)
+		filePath := tsk.FilePath(msg.FileName)
 		if _, err := os.Stat(filePath); err != nil {
 			return "", ErrTaskFileNotFound.WithError(err)
 		}

@@ -22,8 +22,8 @@ func NewAnalyticsHandler(analyticsService service.AnalyticService) *AnalyticsHan
 	}
 }
 
-func (h *AnalyticsHandler) Init(api *gin.RouterGroup) {
-	analytics := api.Group("/query-history")
+func (h *AnalyticsHandler) Init(api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
+	analytics := api.Group("/query-history", handlers...)
 	{
 		analytics.GET("", h.GetList)
 		analytics.GET("/:id", h.GetById)

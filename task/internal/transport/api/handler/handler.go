@@ -7,7 +7,7 @@ import (
 )
 
 type IHandler interface {
-	Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup)
+	Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
 }
 
 type Handler struct {
@@ -25,6 +25,9 @@ func NewHandlers(
 	}
 }
 
-func (h *Handler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
-	NewTaskHandlers(h.taskService, h.tr).Init(secured, unsecured)
+func (h *Handler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc) {
+	s := secured.Group("", handlers...)
+	{
+		NewTaskHandlers(h.taskService, h.tr).Init(s, unsecured)
+	}
 }

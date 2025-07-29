@@ -1,5 +1,7 @@
 package model
 
+const ONLY_USERS_TASKS = "ONLY_USERS_TASKS"
+
 const (
 	Export     = "export"
 	Import     = "import"

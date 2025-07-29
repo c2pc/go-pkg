@@ -40,7 +40,7 @@ type Queue interface {
 }
 
 type Tasker interface {
-	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup)
+	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
 	ExportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	ImportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
@@ -159,8 +159,8 @@ func (e *Task) reset(ctx context.Context) error {
 	return nil
 }
 
-func (e *Task) InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
-	e.handler.Init(secured, unsecured)
+func (e *Task) InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc) {
+	e.handler.Init(secured, unsecured, handlers...)
 }
 
 func (e *Task) NewTask(c *gin.Context, tp string, name string, data []byte) (*model.Task, error) {

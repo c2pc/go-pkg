@@ -10,7 +10,7 @@ import (
 )
 
 type Analytics interface {
-	InitHandler(api *gin.RouterGroup)
+	InitHandler(api *gin.RouterGroup, handlers ...gin.HandlerFunc)
 	CollectAnalytic(c *gin.Context)
 	ShutDown()
 }
@@ -65,8 +65,8 @@ func New(config Config) Analytics {
 	}
 }
 
-func (a *analyticsImpl) InitHandler(api *gin.RouterGroup) {
-	a.handler.Init(api)
+func (a *analyticsImpl) InitHandler(api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
+	a.handler.Init(api, handlers...)
 }
 
 func (a *analyticsImpl) CollectAnalytic(c *gin.Context) {

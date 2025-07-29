@@ -33,7 +33,7 @@ import (
 )
 
 type IAuth interface {
-	InitHandler(engine *gin.Engine, api *gin.RouterGroup)
+	InitHandler(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc)
 	Authenticate(c *gin.Context)
 	CanPermission(c *gin.Context)
 	GetAdminID() int
@@ -199,8 +199,8 @@ type Auth struct {
 	adminID              int
 }
 
-func (a Auth) InitHandler(engine *gin.Engine, api *gin.RouterGroup) {
-	a.handler.Init(engine, api)
+func (a Auth) InitHandler(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
+	a.handler.Init(engine, api, handlers...)
 }
 
 func (a Auth) Authenticate(c *gin.Context) {
