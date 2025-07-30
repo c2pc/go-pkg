@@ -124,7 +124,7 @@ func (r *Runner) run(data Data) {
 		}
 	}()
 
-	ctx := mcontext.SetOpUserID(r.ctx, data.ID)
+	ctx := mcontext.SetOpUserID(r.ctx, data.ClientID)
 	ctx, cancel := context.WithCancel(mcontext.WithOperationIDContext(ctx, fmt.Sprintf("runner-task-%d", data.ID)))
 	defer cancel()
 
