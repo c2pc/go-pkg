@@ -13,7 +13,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
-	transformer2 "github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
 
@@ -90,7 +89,7 @@ func (h *RoleHandler) UserList(c *gin.Context) {
 		userList = append(userList, *row.User)
 	}
 
-	c.JSON(http.StatusOK, transformer2.Array(userList, transformer.UserSimpleTransform))
+	c.JSON(http.StatusOK, transformer.UserRoleListTransform(c, m.Pagination))
 }
 
 func (h *RoleHandler) GetById(c *gin.Context) {
