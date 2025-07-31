@@ -70,7 +70,7 @@ func (s RoleService) List(ctx context.Context, m *model2.Meta[model.Role]) error
 }
 
 func (s RoleService) UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error {
-	return s.userRoleRepository.With("user").Paginate(ctx, m, `role_id = ?`, id)
+	return s.userRoleRepository.With("user", "user.roles").Paginate(ctx, m, `auth_user_roles.role_id = ?`, id)
 }
 
 func (s RoleService) GetById(ctx context.Context, id int) (*model.Role, error) {

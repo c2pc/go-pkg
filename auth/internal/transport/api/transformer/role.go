@@ -80,6 +80,32 @@ func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) []RoleL
 	return r
 }
 
+func UserRoleListTransform(c *gin.Context, p *model2.Pagination[model.UserRole]) []UserListTransformer {
+	transformer.PaginationTransform(c, p)
+
+	r := make([]UserListTransformer, 0)
+
+	for _, m := range p.Rows {
+		if m.User != nil {
+			user := UserListTransformer{
+				ID:         m.User.ID,
+				Login:      m.User.Login,
+				FirstName:  m.User.FirstName,
+				SecondName: m.User.SecondName,
+				LastName:   m.User.LastName,
+				Email:      m.User.Email,
+				Phone:      m.User.Phone,
+				Blocked:    m.User.Blocked,
+				Roles:      transformer.Array(m.User.Roles, SimpleRoleTransform),
+			}
+
+			r = append(r, user)
+		}
+	}
+
+	return r
+}
+
 func getRolePermissions(m *model.Role, getIDs bool) ([]interface{}, []interface{}, []interface{}) {
 	write, read, exec := make([]interface{}, 0), make([]interface{}, 0), make([]interface{}, 0)
 
