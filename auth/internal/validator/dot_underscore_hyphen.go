@@ -16,7 +16,7 @@ var DotUnderscoreHyphen validator.Func = func(fl validator.FieldLevel) bool {
 	if kind == reflect.String {
 		s := field.String()
 
-		isValid := regexp.MustCompile(`^[a-zA-Z0-9а-яА-ЯёЁ_.-]*$`).MatchString
+		isValid := regexp.MustCompile(`^[a-zA-Z0-9а-яА-ЯёЁ_.!@-]*$`).MatchString
 
 		return isValid(s)
 	} else {
