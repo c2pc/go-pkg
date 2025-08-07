@@ -106,7 +106,7 @@ func generateWhereClause(quoteTo func(string) string, exprs []ExpressionWhere, f
 		if expr.Column != "" {
 			// Форматируем выражение для столбца
 			if search, ok := fieldSearchable[expr.Column]; ok {
-				query, args, join, err := formatWhereString(quoteTo, expr, search)
+				query, args, join, splitArgs, err := formatWhereString(quoteTo, expr, search)
 				if err != nil {
 					return "", nil, nil, err
 				}
@@ -117,10 +117,18 @@ func generateWhereClause(quoteTo func(string) string, exprs []ExpressionWhere, f
 						if t, is := args.([]interface{}); is {
 							values = append(values, t...)
 						} else {
-							values = append(values, args)
+							if a, ok := args.([]interface{}); ok && splitArgs {
+								values = append(values, a...)
+							} else {
+								values = append(values, args)
+							}
 						}
 					} else {
-						values = append(values, args)
+						if a, ok := args.([]interface{}); ok && splitArgs {
+							values = append(values, a...)
+						} else {
+							values = append(values, args)
+						}
 					}
 				}
 				if join != "" {
@@ -155,11 +163,11 @@ func generateWhereClause(quoteTo func(string) string, exprs []ExpressionWhere, f
 }
 
 // formatWhereString форматирует строку для SQL-запроса в зависимости от типа данных
-func formatWhereString(quoteTo func(string) string, expr ExpressionWhere, search Search) (string, interface{}, string, error) {
+func formatWhereString(quoteTo func(string) string, expr ExpressionWhere, search Search) (string, interface{}, string, bool, error) {
 	column := upperModels(quoteTo(search.Column))
 	join := quoteTo(search.Join)
 
-	query, args, err := func() (string, interface{}, error) {
+	query, args, splitArgs, err := func() (string, interface{}, bool, error) {
 		if search.SQL != "" {
 			return formatSQLWhere(expr, search.SQL)
 		}
@@ -175,22 +183,22 @@ func formatWhereString(quoteTo func(string) string, expr ExpressionWhere, search
 		case Time:
 			return formatTimeWhere(expr, column)
 		default:
-			return "", nil, fmt.Errorf("unknown type %s for %s", search.Type, expr.Column)
+			return "", nil, false, fmt.Errorf("unknown type %s for %s", search.Type, expr.Column)
 		}
 	}()
 	if err != nil {
-		return "", nil, "", err
+		return "", nil, "", false, err
 	}
 
-	return query, args, join, nil
+	return query, args, join, splitArgs, nil
 }
 
 // formatStringWhere форматирует условие для строковых столбцов
-func formatStringWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+func formatStringWhere(expr ExpressionWhere, column string) (string, interface{}, bool, error) {
 	var values []string
 	if expr.Operation != OpIn && expr.Operation != OpNin && expr.Operation != OpPt && expr.Operation != OpNp {
 		if len(expr.Value) < 3 || expr.Value[0] != '`' || expr.Value[len(expr.Value)-1] != '`' {
-			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("string len(expr.Value) < 3")
+			return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("string len(expr.Value) < 3")
 		}
 		val := strings.ReplaceAll(expr.Value, "`", "")
 		values = []string{val}
@@ -202,39 +210,39 @@ func formatStringWhere(expr ExpressionWhere, column string) (string, interface{}
 			values = append(values, val)
 		}
 		if len(values) == 0 {
-			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("string len(values) == 0")
+			return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("string len(values) == 0")
 		}
 	}
 
 	switch expr.Operation {
 	case OpEq:
-		return fmt.Sprintf("%s = ?", column), values[0], nil
+		return fmt.Sprintf("%s = ?", column), values[0], false, nil
 	case OpCo:
-		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), "%" + values[0] + "%", nil
+		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), "%" + values[0] + "%", false, nil
 	case OpSw:
-		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), values[0] + "%", nil
+		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), values[0] + "%", false, nil
 	case OpEw:
-		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), "%" + values[0], nil
+		return fmt.Sprintf("LOWER(%s) LIKE LOWER(?)", column), "%" + values[0], false, nil
 	case OpPt:
-		return fmt.Sprintf("(%s IS NULL OR %s = '')", column, column), nil, nil
+		return fmt.Sprintf("(%s IS NULL OR %s = '')", column, column), nil, false, nil
 	case OpNp:
-		return fmt.Sprintf("(%s IS NOT NULL AND %s <> '')", column, column), nil, nil
+		return fmt.Sprintf("(%s IS NOT NULL AND %s <> '')", column, column), nil, false, nil
 	case OpIn:
-		return fmt.Sprintf("%s IN ?", column), values, nil
+		return fmt.Sprintf("%s IN ?", column), values, false, nil
 	case OpNin:
-		return fmt.Sprintf("%s NOT IN ?", column), values, nil
+		return fmt.Sprintf("%s NOT IN ?", column), values, false, nil
 	default:
-		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
 }
 
 // formatIntWhere форматирует условие для целочисленных столбцов
-func formatIntWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+func formatIntWhere(expr ExpressionWhere, column string) (string, interface{}, bool, error) {
 	var values []int
 	if expr.Operation != OpIn && expr.Operation != OpNin && expr.Operation != OpPt && expr.Operation != OpNp {
 		val, err := strconv.Atoi(expr.Value)
 		if err != nil {
-			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
+			return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
 		}
 		values = []int{val}
 	} else if expr.Operation == OpIn || expr.Operation == OpNin {
@@ -243,43 +251,43 @@ func formatIntWhere(expr ExpressionWhere, column string) (string, interface{}, e
 		for _, val := range vals {
 			v, err := strconv.Atoi(val)
 			if err != nil {
-				return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
+				return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
 			}
 			values = append(values, v)
 		}
 		if len(values) == 0 {
-			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("int len(values) == 0")
+			return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("int len(values) == 0")
 		}
 	}
 
 	switch expr.Operation {
 	case OpGt:
-		return fmt.Sprintf("%s > ?", column), values[0], nil
+		return fmt.Sprintf("%s > ?", column), values[0], false, nil
 	case OpLt:
-		return fmt.Sprintf("%s < ?", column), values[0], nil
+		return fmt.Sprintf("%s < ?", column), values[0], false, nil
 	case OpGte:
-		return fmt.Sprintf("%s >= ?", column), values[0], nil
+		return fmt.Sprintf("%s >= ?", column), values[0], false, nil
 	case OpLte:
-		return fmt.Sprintf("%s <= ?", column), values[0], nil
+		return fmt.Sprintf("%s <= ?", column), values[0], false, nil
 	case OpEq, OpNe:
-		return fmt.Sprintf("%s = ?", column), values[0], nil
+		return fmt.Sprintf("%s = ?", column), values[0], false, nil
 	case OpNne:
-		return fmt.Sprintf("%s <> ?", column), values[0], nil
+		return fmt.Sprintf("%s <> ?", column), values[0], false, nil
 	case OpPt:
-		return fmt.Sprintf("(%s IS NULL OR %s = 0)", column, column), nil, nil
+		return fmt.Sprintf("(%s IS NULL OR %s = 0)", column, column), nil, false, nil
 	case OpNp:
-		return fmt.Sprintf("(%s IS NOT NULL AND %s <> 0)", column, column), nil, nil
+		return fmt.Sprintf("(%s IS NOT NULL AND %s <> 0)", column, column), nil, false, nil
 	case OpIn:
-		return fmt.Sprintf("%s IN ?", column), values, nil
+		return fmt.Sprintf("%s IN ?", column), values, false, nil
 	case OpNin:
-		return fmt.Sprintf("%s NOT IN ?", column), values, nil
+		return fmt.Sprintf("%s NOT IN ?", column), values, false, nil
 	default:
-		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
 }
 
 // formatBoolWhere форматирует условие для логических столбцов
-func formatBoolWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+func formatBoolWhere(expr ExpressionWhere, column string) (string, interface{}, bool, error) {
 	var values []bool
 	if expr.Operation != OpIn && expr.Operation != OpNin {
 		if expr.Value == "true" {
@@ -287,7 +295,7 @@ func formatBoolWhere(expr ExpressionWhere, column string) (string, interface{}, 
 		} else if expr.Value == "false" {
 			values = []bool{false}
 		} else {
-			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
+			return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
 		}
 	} else {
 		values = []bool{}
@@ -298,91 +306,91 @@ func formatBoolWhere(expr ExpressionWhere, column string) (string, interface{}, 
 			} else if val == "false" {
 				values = append(values, false)
 			} else {
-				return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
+				return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("bool not true or false")
 			}
 		}
 		if len(values) == 0 {
-			return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("int len(values) == 0")
+			return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("int len(values) == 0")
 		}
 	}
 
 	switch expr.Operation {
 	case OpNe:
-		return fmt.Sprintf("%s = ?", column), values[0], nil
+		return fmt.Sprintf("%s = ?", column), values[0], false, nil
 	case OpIn:
-		return fmt.Sprintf("%s IN ?", column), values, nil
+		return fmt.Sprintf("%s IN ?", column), values, false, nil
 	case OpNin:
-		return fmt.Sprintf("%s NOT IN ?", column), values, nil
+		return fmt.Sprintf("%s NOT IN ?", column), values, false, nil
 	default:
-		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
 }
 
 // formatDateTimeWhere форматирует условие для столбцов с типом даты и времени
-func formatDateTimeWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+func formatDateTimeWhere(expr ExpressionWhere, column string) (string, interface{}, bool, error) {
 	if len(expr.Value) < 3 || expr.Value[0] != '`' || expr.Value[len(expr.Value)-1] != '`' {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("datetime len(expr.Value) < 3")
+		return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("datetime len(expr.Value) < 3")
 	}
 	tm, err := time.Parse(TypeDateTime, strings.ReplaceAll(expr.Value, "`", ""))
 	if err != nil {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
+		return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
 	}
 
 	value := tm.Format(TypeDateTime)
 
 	switch expr.Operation {
 	case OpGt:
-		return fmt.Sprintf("%s > ?", column), value, nil
+		return fmt.Sprintf("%s > ?", column), value, false, nil
 	case OpLt:
-		return fmt.Sprintf("%s < ?", column), value, nil
+		return fmt.Sprintf("%s < ?", column), value, false, nil
 	case OpGte:
-		return fmt.Sprintf("%s >= ?", column), value, nil
+		return fmt.Sprintf("%s >= ?", column), value, false, nil
 	case OpLte:
-		return fmt.Sprintf("%s <= ?", column), value, nil
+		return fmt.Sprintf("%s <= ?", column), value, false, nil
 	case OpNe:
-		return fmt.Sprintf("%s = ?", column), value, nil
+		return fmt.Sprintf("%s >= ? AND %s <= ?", column, column), []interface{}{value, value}, true, nil
 	default:
-		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
 }
 
 // formatTimeWhere форматирует условие для столбцов с типом времени
-func formatTimeWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+func formatTimeWhere(expr ExpressionWhere, column string) (string, interface{}, bool, error) {
 	if len(expr.Value) < 3 || expr.Value[0] != '`' || expr.Value[len(expr.Value)-1] != '`' {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("time len(expr.Value) < 3")
+		return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("time len(expr.Value) < 3")
 	}
 	tm, err := time.Parse(TypeTime, strings.ReplaceAll(expr.Value, "`", ""))
 	if err != nil {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
+		return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithError(err)
 	}
 
 	value := tm.Format(TypeTime)
 
 	switch expr.Operation {
 	case OpGt:
-		return fmt.Sprintf("%s > ?", column), value, nil
+		return fmt.Sprintf("%s > ?", column), value, false, nil
 	case OpLt:
-		return fmt.Sprintf("%s < ?", column), value, nil
+		return fmt.Sprintf("%s < ?", column), value, false, nil
 	case OpGte:
-		return fmt.Sprintf("%s >= ?", column), value, nil
+		return fmt.Sprintf("%s >= ?", column), value, false, nil
 	case OpLte:
-		return fmt.Sprintf("%s <= ?", column), value, nil
+		return fmt.Sprintf("%s <= ?", column), value, false, nil
 	case OpNe:
-		return fmt.Sprintf("%s = ?", column), value, nil
+		return fmt.Sprintf("%s >= ? AND %s <= ?", column, column), []interface{}{value, value}, true, nil
 	default:
-		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
 }
 
 // formatDateTimeWhere форматирует условие для столбцов с типом даты и времени
-func formatSQLWhere(expr ExpressionWhere, column string) (string, interface{}, error) {
+func formatSQLWhere(expr ExpressionWhere, column string) (string, interface{}, bool, error) {
 	if expr.Operation != OpIn {
-		return "", nil, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
+		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
 
-	_, arg, err := formatIntWhere(expr, "")
+	_, arg, _, err := formatIntWhere(expr, "")
 	if err != nil {
-		return "", nil, err
+		return "", nil, false, err
 	}
 
 	var args []interface{}
@@ -391,13 +399,13 @@ func formatSQLWhere(expr ExpressionWhere, column string) (string, interface{}, e
 			args = append(args, s)
 		}
 	} else {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("sql not interface []int")
+		return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("sql not interface []int")
 	}
 
 	qCount := strings.Count(column, "?")
 	if qCount != len(args) {
-		return "", nil, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("sql qCount != len(args)")
+		return "", nil, false, ErrFilterInvalidValue.WithTextArgs(expr.Value, expr.Column).WithErrorText("sql qCount != len(args)")
 	}
 
-	return column, args, nil
+	return column, args, false, nil
 }
