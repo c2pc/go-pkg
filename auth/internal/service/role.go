@@ -186,9 +186,6 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 			if err := s.userCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
 				return apperr.ErrInternal.WithError(err)
 			}
-			if err := s.tokenCache.DeleteAllUserTokens(ctx, userIDs...); err != nil {
-				return apperr.ErrInternal.WithError(err)
-			}
 		}
 	}
 

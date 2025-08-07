@@ -348,7 +348,8 @@ func formatDateTimeWhere(expr ExpressionWhere, column string) (string, interface
 	case OpLte:
 		return fmt.Sprintf("%s <= ?", column), value, false, nil
 	case OpNe:
-		return fmt.Sprintf("%s >= ? AND %s <= ?", column, column), []interface{}{value, value}, true, nil
+		value2 := tm.Add(1 * time.Second).Format(TypeDateTime)
+		return fmt.Sprintf("%s >= ? AND %s < ?", column, column), []interface{}{value, value2}, true, nil
 	default:
 		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
@@ -376,7 +377,7 @@ func formatTimeWhere(expr ExpressionWhere, column string) (string, interface{}, 
 	case OpLte:
 		return fmt.Sprintf("%s <= ?", column), value, false, nil
 	case OpNe:
-		return fmt.Sprintf("%s >= ? AND %s <= ?", column, column), []interface{}{value, value}, true, nil
+		return fmt.Sprintf("%s = ?", column), value, false, nil
 	default:
 		return "", nil, false, ErrFilterUnknownOperator.WithTextArgs(expr.Operation, expr.Column)
 	}
