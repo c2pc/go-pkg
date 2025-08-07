@@ -113,7 +113,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 		return nil, user.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
-	/*var provider, refreshToken string
+	var provider, refreshToken string
 	if input.IsDomain && s.ldapAuth != nil && s.ldapAuth.IsEnabled() {
 		err = s.ldapAuth.CheckAuth(input.Login, input.Password)
 		if err != nil {
@@ -127,16 +127,14 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(
 			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
 		}
 		refreshToken = xid.New().String()
-	}*/
+	}
 
 	data, err := s.createSession(ctx, createSessionInput{
-		IsLogin:  true,
-		UserID:   user.ID,
-		DeviceID: input.DeviceID,
-		//Provider:     provider,
-		Provider: "",
-		//RefreshToken: refreshToken,
-		RefreshToken: xid.New().String(),
+		IsLogin:      true,
+		UserID:       user.ID,
+		DeviceID:     input.DeviceID,
+		Provider:     provider,
+		RefreshToken: refreshToken,
 	})
 
 	return data, user.ID, err
@@ -451,7 +449,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	if s.profileService != nil {
 		prof, err = s.profileService.GetById(ctx, input.UserID)
 		if err != nil {
-			if !apperr.Is(err, profile.ErrNotFound) {
+			if !(apperr.Is(err, profile.ErrNotFound) || apperr.Is(err, apperr.ErrDBRecordNotFound)) {
 				return nil, apperr.ErrUnauthenticated.WithError(err)
 			}
 		}
