@@ -18,9 +18,16 @@ type websocket struct {
 	websocketManager *manager
 }
 
-func New(lenChan int) WebSocket {
+func New(lenChan int, clientMaxCount ...int) WebSocket {
+	var maxCount int
+	if len(clientMaxCount) > 0 {
+		maxCount = clientMaxCount[0]
+	} else {
+		maxCount = 10
+	}
+
 	websocketManager := newWebSocketManager(lenChan)
-	websocketHandler := newWebSocket(websocketManager)
+	websocketHandler := newWebSocket(websocketManager, maxCount)
 
 	return &websocket{
 		websocketHandler: websocketHandler,

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	NewClientListenerType   = "new-Client"
-	CloseClientListenerType = "close-Client"
+	NewClientListenerType   = "new-client"
+	CloseClientListenerType = "close-client"
 	NewMessageListenerType  = "new-message"
 )
 
@@ -18,13 +18,15 @@ type Listener struct {
 }
 
 type Client struct {
-	ID   int
-	send chan broadcast
+	ID        int
+	ch        chan broadcast
+	cancel    context.CancelFunc
+	sessionID string
 }
 
 type manager struct {
 	mu         sync.RWMutex
-	clients    map[int]chan broadcast
+	clients    map[int]map[string]*Client
 	broadcast  chan broadcast
 	register   chan *Client
 	unregister chan *Client
@@ -35,7 +37,7 @@ type manager struct {
 
 func newWebSocketManager(lenChan int) *manager {
 	mgr := &manager{
-		clients:    make(map[int]chan broadcast),
+		clients:    make(map[int]map[string]*Client),
 		broadcast:  make(chan broadcast, lenChan),
 		register:   make(chan *Client, lenChan),
 		unregister: make(chan *Client, lenChan),
@@ -56,35 +58,56 @@ func (mgr *manager) run() {
 			return
 
 		case client := <-mgr.register:
-			mgr.mu.Lock()
-			mgr.clients[client.ID] = client.send
-			go mgr.notifyNewClient(client)
-			mgr.mu.Unlock()
-
+			func(cl *Client) {
+				mgr.mu.Lock()
+				defer mgr.mu.Unlock()
+				_, ok := mgr.clients[cl.ID]
+				if !ok {
+					mgr.clients[cl.ID] = make(map[string]*Client)
+					mgr.clients[cl.ID][cl.sessionID] = cl
+					go mgr.notifyNewClient(cl)
+				} else {
+					mgr.clients[cl.ID][cl.sessionID] = cl
+				}
+			}(client)
 		case client := <-mgr.unregister:
-			mgr.mu.Lock()
-			_, ok := mgr.clients[client.ID]
-			if ok {
-				delete(mgr.clients, client.ID)
-				close(client.send)
-				go mgr.notifyCloseClient(client)
-			}
-			mgr.mu.Unlock()
+			func(cl *Client) {
+				mgr.mu.Lock()
+				defer mgr.mu.Unlock()
 
-		case msg := <-mgr.broadcast:
-			mgr.mu.RLock()
-			if msg.To != nil && len(msg.To) > 0 {
-				for _, to := range msg.To {
-					if ch, ok := mgr.clients[to]; ok {
-						ch <- msg
+				clientSessions, ok := mgr.clients[cl.ID]
+				if ok {
+					if session, ok := clientSessions[cl.sessionID]; ok {
+						close(session.ch)
+						delete(clientSessions, cl.sessionID)
+					}
+					if len(clientSessions) == 0 {
+						delete(mgr.clients, cl.ID)
+						go mgr.notifyCloseClient(cl)
 					}
 				}
-			} else {
-				for _, ch := range mgr.clients {
-					ch <- msg
+			}(client)
+		case msg := <-mgr.broadcast:
+			func(msg broadcast) {
+				mgr.mu.RLock()
+				defer mgr.mu.RUnlock()
+
+				if msg.To != nil && len(msg.To) > 0 {
+					for _, to := range msg.To {
+						if clientSessions, ok := mgr.clients[to]; ok {
+							for _, session := range clientSessions {
+								session.ch <- msg
+							}
+						}
+					}
+				} else {
+					for _, clientSessions := range mgr.clients {
+						for _, session := range clientSessions {
+							session.ch <- msg
+						}
+					}
 				}
-			}
-			mgr.mu.RUnlock()
+			}(msg)
 		}
 	}
 }
@@ -98,6 +121,11 @@ func (mgr *manager) unregisterClient(c *Client) {
 }
 
 func (mgr *manager) shutdown() {
+	for _, clientSessions := range mgr.clients {
+		for _, session := range clientSessions {
+			close(session.ch)
+		}
+	}
 	close(mgr.done)
 }
 

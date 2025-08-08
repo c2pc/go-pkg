@@ -5,17 +5,27 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	http2 "net/http"
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	ws "github.com/gorilla/websocket"
+)
+
+var (
+	ErrMaxCountSessions = apperr.New("max_count_sessions",
+		apperr.WithTextTranslate(translator.Translate{translator.RU: "Превышено максимальное количество сессий", translator.EN: "Maximum number of sessions exceeded"}),
+		apperr.WithCode(code.Unauthenticated))
 )
 
 const (
@@ -39,11 +49,12 @@ var upgrader = ws.Upgrader{
 }
 
 type handler struct {
-	manager *manager
+	manager  *manager
+	maxCount int
 }
 
-func newWebSocket(manager *manager) *handler {
-	return &handler{manager: manager}
+func newWebSocket(manager *manager, maxCount int) *handler {
+	return &handler{manager: manager, maxCount: maxCount}
 }
 
 func (s *handler) Init(api *gin.RouterGroup) {
@@ -57,9 +68,30 @@ func (s *handler) Stream(c *gin.Context) {
 		return
 	}
 
+	sessionID := uuid.New().String()
+
+	err := func() error {
+		s.manager.mu.RLock()
+		defer s.manager.mu.RUnlock()
+		clientSessions, ok := s.manager.clients[userID]
+		if ok {
+			if len(clientSessions) >= s.maxCount {
+				return ErrMaxCountSessions.WithErrorText(fmt.Sprintf("maximum number of clients reached: %d - %d", len(clientSessions), s.maxCount))
+			}
+		}
+		return nil
+	}()
+	if err != nil {
+		http.Response(c, err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(c.Request.Context())
 	cl := Client{
-		ID:   userID,
-		send: make(chan broadcast, s.manager.lenChan),
+		ID:        userID,
+		ch:        make(chan broadcast, s.manager.lenChan),
+		cancel:    cancel,
+		sessionID: sessionID,
 	}
 
 	upgrader.CheckOrigin = func(r *http2.Request) bool { return true }
@@ -72,8 +104,8 @@ func (s *handler) Stream(c *gin.Context) {
 
 	s.manager.registerClient(&cl)
 
-	go s.writePump(c.Request.Context(), conn, &cl)
-	go s.readPump(c.Request.Context(), conn, &cl)
+	go s.writePump(ctx, conn, &cl)
+	go s.readPump(ctx, conn, &cl)
 }
 
 func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
@@ -86,17 +118,22 @@ func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
 	conn.SetPongHandler(func(string) error { _ = conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	for {
-		_, message, err := conn.ReadMessage()
-		if err != nil {
-			if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
-				if logger.IsDebugEnabled(level.TEST) {
-					logger.WarningfLog(ctx, "WS", "error: %v", err)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
+					if logger.IsDebugEnabled(level.TEST) {
+						logger.WarningfLog(ctx, "WS", "error: %v", err)
+					}
 				}
+				break
 			}
-			break
+			message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+			s.manager.notifyNewMessage(client, message)
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		s.manager.notifyNewMessage(client, message)
 	}
 }
 
@@ -108,7 +145,9 @@ func (s *handler) writePump(ctx context.Context, conn *ws.Conn, client *Client) 
 	}()
 	for {
 		select {
-		case message, ok := <-client.send:
+		case <-ctx.Done():
+			return
+		case message, ok := <-client.ch:
 			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				_ = conn.WriteMessage(ws.CloseMessage, []byte{})
@@ -127,10 +166,10 @@ func (s *handler) writePump(ctx context.Context, conn *ws.Conn, client *Client) 
 
 			_, _ = w.Write(m)
 
-			n := len(client.send)
+			n := len(client.ch)
 			for i := 0; i < n; i++ {
 				_, _ = w.Write(newline)
-				m, tp, err = getContent(<-client.send)
+				m, tp, err = getContent(<-client.ch)
 				if err != nil {
 					continue
 				}
