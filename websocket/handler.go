@@ -116,20 +116,17 @@ func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
 	conn.SetPongHandler(func(string) error { _ = conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	for {
-		select {
-		default:
-			_, message, err := conn.ReadMessage()
-			if err != nil {
-				if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
-					if logger.IsDebugEnabled(level.TEST) {
-						logger.WarningfLog(ctx, "WS", "error: %v", err)
-					}
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
+				if logger.IsDebugEnabled(level.TEST) {
+					logger.WarningfLog(ctx, "WS", "error: %v", err)
 				}
-				break
 			}
-			message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-			s.manager.notifyNewMessage(client, message)
+			break
 		}
+		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		s.manager.notifyNewMessage(client, message)
 	}
 }
 
