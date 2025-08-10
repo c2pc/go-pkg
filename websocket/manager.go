@@ -20,7 +20,6 @@ type Listener struct {
 type Client struct {
 	ID        int
 	ch        chan broadcast
-	cancel    context.CancelFunc
 	sessionID string
 }
 

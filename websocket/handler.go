@@ -86,11 +86,9 @@ func (s *handler) Stream(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(c.Request.Context())
 	cl := Client{
 		ID:        userID,
 		ch:        make(chan broadcast, s.manager.lenChan),
-		cancel:    cancel,
 		sessionID: sessionID,
 	}
 
@@ -104,8 +102,8 @@ func (s *handler) Stream(c *gin.Context) {
 
 	s.manager.registerClient(&cl)
 
-	go s.writePump(ctx, conn, &cl)
-	go s.readPump(ctx, conn, &cl)
+	go s.writePump(c.Request.Context(), conn, &cl)
+	go s.readPump(c.Request.Context(), conn, &cl)
 }
 
 func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
@@ -119,8 +117,6 @@ func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
 
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		default:
 			_, message, err := conn.ReadMessage()
 			if err != nil {
@@ -145,8 +141,6 @@ func (s *handler) writePump(ctx context.Context, conn *ws.Conn, client *Client) 
 	}()
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		case message, ok := <-client.ch:
 			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
