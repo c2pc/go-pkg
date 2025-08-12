@@ -120,7 +120,9 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetByI
 	if s.profileService != nil {
 		prof, err = s.profileService.GetById(ctx, user.ID)
 		if err != nil {
-			return nil, err
+			if !(apperr.Is(err, profile.ErrNotFound) || apperr.Is(err, apperr.ErrDBRecordNotFound)) {
+				return nil, apperr.ErrUnauthenticated.WithError(err)
+			}
 		}
 	}
 
@@ -170,7 +172,7 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create
 
 	var prof *Model
 	if s.profileService != nil && profileInput != nil {
-		prof, err = s.profileService.Create(ctx, user.ID, *profileInput)
+		prof, err = s.profileService.Trx(s.db).Create(ctx, user.ID, *profileInput)
 		if err != nil {
 			return nil, err
 		}
