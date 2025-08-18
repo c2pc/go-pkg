@@ -10,6 +10,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
@@ -22,6 +23,7 @@ var (
 	ErrUserRolesCannotBeChanged = apperr.New("user_roles_cannot_be_changed", apperr.WithTextTranslate(i18n.ErrUserRolesCannotBeChanged), apperr.WithCode(code.PermissionDenied))
 	ErrUserCannotBeBlocked      = apperr.New("user_cannot_be_blocked", apperr.WithTextTranslate(i18n.ErrUserCannotBeBlocked), apperr.WithCode(code.PermissionDenied))
 	ErrUserCannotBeDeleted      = apperr.New("user_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrUserCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
+	ErrSelfCannotBeDeleted      = apperr.New("self_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrSelfCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 )
 
 type IUserService[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] interface {
@@ -351,12 +353,21 @@ func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update
 }
 
 func (s UserService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Delete(ctx context.Context, id int) error {
+	userID, ok := mcontext.GetOpUserID(ctx)
+	if !ok {
+		return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
+	}
+
 	user, err := s.userRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrUserNotFound
 		}
 		return err
+	}
+
+	if user.ID == userID {
+		return ErrSelfCannotBeDeleted
 	}
 
 	superAdminRole := func() *model.Role {

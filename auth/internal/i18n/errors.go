@@ -8,6 +8,7 @@ var (
 	ErrUserRolesCannotBeChanged = translator.Translate{translator.RU: "Нельзя назначать пользователю другие роли", translator.EN: "User roles cannot be changed"}
 	ErrUserCannotBeBlocked      = translator.Translate{translator.RU: "Пользователь не может быть заблокирован", translator.EN: "User cannot be blocked"}
 	ErrUserCannotBeDeleted      = translator.Translate{translator.RU: "Пользователя нельзя удалять", translator.EN: "User cannot be deleted"}
+	ErrSelfCannotBeDeleted      = translator.Translate{translator.RU: "Вы не можете удалить себя", translator.EN: "You can't delete yourself"}
 )
 
 var (
