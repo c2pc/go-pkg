@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/crewjam/saml"
@@ -111,6 +112,7 @@ func (m *Middleware) ServeACS(c *gin.Context) {
 // to start the SAML auth flow.
 func (m *Middleware) RequireAccount(c *gin.Context) {
 	session, err := m.Session.GetSession(c.Request)
+	fmt.Println(session, err)
 	if session != nil {
 		c.Request = c.Request.WithContext(samlsp.ContextWithSession(c.Request.Context(), session))
 		c.Next()
@@ -118,7 +120,8 @@ func (m *Middleware) RequireAccount(c *gin.Context) {
 	}
 
 	if errors.Is(err, samlsp.ErrNoSession) {
-		m.HandleStartAuthFlow(c.Writer, c.Request)
+		m.HandleStartAuthFlow(c)
+		c.Abort()
 		return
 	}
 
@@ -126,12 +129,12 @@ func (m *Middleware) RequireAccount(c *gin.Context) {
 }
 
 // HandleStartAuthFlow is called to start the SAML authentication process.
-func (m *Middleware) HandleStartAuthFlow(w http.ResponseWriter, r *http.Request) {
+func (m *Middleware) HandleStartAuthFlow(c *gin.Context) {
 	// If we try to redirect when the original request is the ACS URL we'll
 	// end up in a loop. This is a programming error, so we panic here. In
 	// general this means a 500 to the user, which is preferable to a
 	// redirect loop.
-	if r.URL.Path == m.ServiceProvider.AcsURL.Path {
+	if c.Request.URL.Path == m.ServiceProvider.AcsURL.Path {
 		panic("don't wrap Middleware with RequireAccount")
 	}
 
@@ -150,7 +153,8 @@ func (m *Middleware) HandleStartAuthFlow(w http.ResponseWriter, r *http.Request)
 
 	authReq, err := m.ServiceProvider.MakeAuthenticationRequest(bindingLocation, binding, m.ResponseBinding)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+		c.Abort()
 		return
 	}
 
@@ -158,34 +162,38 @@ func (m *Middleware) HandleStartAuthFlow(w http.ResponseWriter, r *http.Request)
 	// this means that we cannot use a JWT because it is way to long. Instead
 	// we set a signed cookie that encodes the original URL which we'll check
 	// against the SAML response when we get it.
-	relayState, err := m.RequestTracker.TrackRequest(w, r, authReq.ID)
+	relayState, err := m.RequestTracker.TrackRequest(c.Writer, c.Request, authReq.ID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+		c.Abort()
 		return
 	}
 
 	if binding == saml.HTTPRedirectBinding {
 		redirectURL, err := authReq.Redirect(relayState, &m.ServiceProvider)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+			c.Abort()
 			return
 		}
-		w.Header().Add("Location", redirectURL.String())
-		w.WriteHeader(http.StatusFound)
+		c.Writer.Header().Add("Location", redirectURL.String())
+
+		c.Redirect(http.StatusFound, redirectURL.String())
 		return
 	}
 	if binding == saml.HTTPPostBinding {
-		w.Header().Add("Content-Security-Policy", ""+
+		c.Writer.Header().Add("Content-Security-Policy", ""+
 			"default-src; "+
 			"script-src 'sha256-AjPdJSbZmeWHnEc5ykvJFay8FTWeTeRbs9dutfZ0HqE='; "+
 			"reflected-xss block; referrer no-referrer;")
-		w.Header().Add("Content-type", "text/html")
+		c.Writer.Header().Add("Content-type", "text/html")
 		var buf bytes.Buffer
 		buf.WriteString(`<!DOCTYPE html><html><body>`)
 		buf.Write(authReq.Post(relayState))
 		buf.WriteString(`</body></html>`)
-		if _, err := w.Write(buf.Bytes()); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		if _, err := c.Writer.Write(buf.Bytes()); err != nil {
+			http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+			c.Abort()
 			return
 		}
 		return

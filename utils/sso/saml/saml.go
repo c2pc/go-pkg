@@ -156,6 +156,5 @@ func (auth *Auth) SamlSP() *Middleware {
 }
 
 func (auth *Auth) GetLoginFromContext(ctx context.Context) string {
-	fmt.Printf("%+v\n", samlsp.SessionFromContext(ctx))
 	return samlsp.AttributeFromContext(ctx, auth.loginAttr)
 }
