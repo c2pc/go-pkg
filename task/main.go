@@ -109,7 +109,7 @@ func (e *Task) listen(ctx context.Context) {
 			if result.Status != nil {
 				status = e.getStatus(*result.Status)
 				if status == model.StatusSuccess && result.Message != nil {
-					if result.Message.Errors != nil && len(result.Message.Errors) > 0 {
+					if len(result.Message.Errors) > 0 {
 						status = model.StatusWarning
 					}
 				}
@@ -214,7 +214,7 @@ func (e *Task) ExportHandler(name string, bind func(c *gin.Context) ([]byte, err
 			return
 		}
 
-		if cred == nil && err == nil {
+		if cred == nil {
 			return
 		}
 
@@ -236,7 +236,7 @@ func (e *Task) ImportHandler(name string, bind func(c *gin.Context) ([]byte, err
 			return
 		}
 
-		if cred == nil && err == nil {
+		if cred == nil {
 			return
 		}
 
@@ -258,7 +258,7 @@ func (e *Task) MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte,
 			return
 		}
 
-		if cred == nil && err == nil {
+		if cred == nil {
 			return
 		}
 
@@ -280,7 +280,7 @@ func (e *Task) MassDeleteHandler(name string, bind func(c *gin.Context) ([]byte,
 			return
 		}
 
-		if cred == nil && err == nil {
+		if cred == nil {
 			return
 		}
 

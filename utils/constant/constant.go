@@ -1,11 +1,15 @@
 package constant
 
+// Типы для ключей контекста
+type contextKey string
+
 // Константы для заголовков
 const (
-	OperationID = "X-Operation-Id" // Заголовок HTTP для отслеживания операций
-	TxValue     = "dbTx"           // Ключ контекста для базы данных
-	OpUserID    = "opUserID"       // Ключ контекста для идентификатора пользователя операции
-	OpDeviceID  = "opDeviceID"     // Ключ контекста для идентификатора устройства операции
+	OperationIDHeader = "X-Operation-Id"             // Заголовок HTTP для отслеживания операций
+	OperationID       = contextKey("X-Operation-Id") // Ключ контекста для отслеживания операций
+	TxValue           = contextKey("dbTx")           // Ключ контекста для базы данных
+	OpUserID          = contextKey("opUserID")       // Ключ контекста для идентификатора пользователя операции
+	OpDeviceID        = contextKey("opDeviceID")     // Ключ контекста для идентификатора устройства операции
 )
 
 // Константы для идентификаторов

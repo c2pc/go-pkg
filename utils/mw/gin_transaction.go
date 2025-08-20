@@ -50,7 +50,7 @@ func (tr *Transaction) DBTransaction(c *gin.Context) {
 		}
 	}()
 
-	c.Set(constant.TxValue, txHandle)
+	c.Set(string(constant.TxValue), txHandle)
 	c.Next()
 
 	if statusInList(c.Writer.Status(), []int{http.StatusOK, http.StatusCreated, http.StatusNoContent, http.StatusFound}) {

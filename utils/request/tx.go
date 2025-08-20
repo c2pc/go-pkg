@@ -7,7 +7,7 @@ import (
 )
 
 func TxHandle(c *gin.Context) *gorm.DB {
-	txHandle, exists := c.Get(constant.TxValue)
+	txHandle, exists := c.Get(string(constant.TxValue))
 	if !exists {
 		return nil
 	}

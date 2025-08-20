@@ -10,14 +10,13 @@ import (
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/level"
 )
 
 func TestNewRunner(t *testing.T) {
 	fmt.Println("TestNewRunner")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := runner.NewRunner(ctx, level.PRODUCTION)
+	r := runner.NewRunner(ctx)
 
 	if r.TaskResults() == nil {
 		t.Error("TaskResults channel is not initialized")
@@ -28,7 +27,7 @@ func TestRun(t *testing.T) {
 	fmt.Println("TestRun")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := runner.NewRunner(ctx, level.PRODUCTION)
+	r := runner.NewRunner(ctx)
 
 	data := runner.Data{
 		ID:       1,
@@ -67,7 +66,7 @@ func TestStop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r := runner.NewRunner(ctx, level.PRODUCTION)
+	r := runner.NewRunner(ctx)
 
 	data := runner.Data{
 		ID:       1,
@@ -126,7 +125,7 @@ func TestExit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	r := runner.NewRunner(ctx, level.PRODUCTION)
+	r := runner.NewRunner(ctx)
 
 	data := runner.Data{
 		ID:       1,
@@ -176,7 +175,7 @@ func TestRunFuncError(t *testing.T) {
 	fmt.Println("TestRunFuncError")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := runner.NewRunner(ctx, level.PRODUCTION)
+	r := runner.NewRunner(ctx)
 
 	expectedErr := errors.New("task failed")
 
@@ -232,11 +231,11 @@ func TestConcurrentRun(t *testing.T) {
 
 	var errTask = errors.New("task failed")
 
-	r := runner.NewRunner(ctx, level.PRODUCTION)
+	r := runner.NewRunner(ctx)
 
 	numTasks := 1000
 
-	for i := 0; i < numTasks; i++ {
+	for i := range numTasks {
 		go func(id int) {
 			data := runner.Data{
 				ID:       i,
