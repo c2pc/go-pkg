@@ -83,7 +83,7 @@ func (f *FFM) request(ctx context.Context, method, url string, operationID strin
 	}
 
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("X-Operation-Id", operationID)
+	req.Header.Set(constant.OperationIDHeader, operationID)
 
 	client := http.Client{
 		Timeout: 10 * time.Second,

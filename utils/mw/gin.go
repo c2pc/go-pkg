@@ -92,7 +92,7 @@ func GinParseOperationID() gin.HandlerFunc {
 			return
 		}
 
-		operationID := c.Request.Header.Get(constant.OperationID)
+		operationID := c.Request.Header.Get(constant.OperationIDHeader)
 		if operationID == "" {
 			operationID = strconv.FormatInt(time.Now().UnixMilli(), 10)
 		}

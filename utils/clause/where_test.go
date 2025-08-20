@@ -236,7 +236,7 @@ func TestFormatWhereString(t *testing.T) {
 	// Test for invalid operator
 	t.Run("invalid operator", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: "invalid_op", Value: "`John`"}
-		_, _, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		_, _, _, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		if !apperr.Is(err, ErrFilterUnknownOperator) {
 			t.Errorf("expected %s, actual %s", ErrFilterUnknownOperator, err)
 		}
@@ -244,7 +244,7 @@ func TestFormatWhereString(t *testing.T) {
 
 	t.Run(OpEq, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpEq, Value: "`John`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "user_name = ?", query)
 		assert.Equal(t, "John", args)
@@ -252,7 +252,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpCo, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpCo, Value: "`John`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "LOWER(user_name) LIKE LOWER(?)", query)
 		assert.Equal(t, "%John%", args)
@@ -260,7 +260,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpSw, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpSw, Value: "`John`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "LOWER(user_name) LIKE LOWER(?)", query)
 		assert.Equal(t, "John%", args)
@@ -268,7 +268,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpEw, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpEw, Value: "`John`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "LOWER(user_name) LIKE LOWER(?)", query)
 		assert.Equal(t, "%John", args)
@@ -276,7 +276,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpPt, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpPt, Value: "`John`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "(user_name IS NULL OR user_name = '')", query)
 		assert.Empty(t, args)
@@ -284,7 +284,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpNp, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpNp, Value: "`John`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "(user_name IS NOT NULL AND user_name <> '')", query)
 		assert.Empty(t, args)
@@ -292,7 +292,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpIn, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "name", Operation: OpIn, Value: "`John`,`John2`"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["name"])
 		assert.NoError(t, err)
 		assert.Equal(t, "user_name IN ?", query)
 		assert.Equal(t, []string{"John", "John2"}, args)
@@ -300,7 +300,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpIn, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "status", Operation: OpIn, Value: "true,false"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
 		assert.NoError(t, err)
 		assert.Equal(t, "status IN ?", query)
 		assert.Equal(t, []bool{true, false}, args)
@@ -308,7 +308,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpNin, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "status", Operation: OpNin, Value: "true"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
 		assert.NoError(t, err)
 		assert.Equal(t, "status NOT IN ?", query)
 		assert.Equal(t, []bool{true}, args)
@@ -316,7 +316,7 @@ func TestFormatWhereString(t *testing.T) {
 	})
 	t.Run(OpEq, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "status", Operation: OpNe, Value: "true"}
-		query, args, joins, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
+		query, args, joins, _, err := formatWhereString(quoteTo, expr, fieldSearchable["status"])
 		assert.NoError(t, err)
 		assert.Equal(t, "status = ?", query)
 		assert.Equal(t, true, args)
@@ -327,7 +327,7 @@ func TestFormatWhereString(t *testing.T) {
 func TestFormatIntWhere(t *testing.T) {
 	t.Run("valid int filter", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpEq, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age = ?", query)
 		assert.Equal(t, 30, arg)
@@ -335,7 +335,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run("invalid int value", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpEq, Value: "invalid"}
-		_, _, err := formatIntWhere(expr, "`user_age`")
+		_, _, _, err := formatIntWhere(expr, "`user_age`")
 		if !apperr.Is(err, ErrFilterInvalidValue) {
 			t.Errorf("expected %s, actual %s", ErrFilterInvalidValue, err)
 		}
@@ -343,7 +343,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpGt, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpGt, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age > ?", query)
 		assert.Equal(t, 30, arg)
@@ -351,7 +351,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpLt, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpLt, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age < ?", query)
 		assert.Equal(t, 30, arg)
@@ -359,7 +359,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpGte, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpGte, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age >= ?", query)
 		assert.Equal(t, 30, arg)
@@ -367,7 +367,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpLte, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpLte, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age <= ?", query)
 		assert.Equal(t, 30, arg)
@@ -375,7 +375,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpEq, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpEq, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age = ?", query)
 		assert.Equal(t, 30, arg)
@@ -383,7 +383,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpPt, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpPt, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "(user_age IS NULL OR user_age = 0)", query)
 		assert.Empty(t, arg)
@@ -391,7 +391,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpNp, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpNp, Value: "30"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "(user_age IS NOT NULL AND user_age <> 0)", query)
 		assert.Empty(t, arg)
@@ -399,7 +399,7 @@ func TestFormatIntWhere(t *testing.T) {
 
 	t.Run(OpIn, func(t *testing.T) {
 		expr := ExpressionWhere{Column: "age", Operation: OpIn, Value: "30,40"}
-		query, arg, err := formatIntWhere(expr, "user_age")
+		query, arg, _, err := formatIntWhere(expr, "user_age")
 		assert.NoError(t, err)
 		assert.Equal(t, "user_age IN ?", query)
 		assert.Equal(t, []int{30, 40}, arg)
@@ -409,7 +409,7 @@ func TestFormatIntWhere(t *testing.T) {
 func TestFormatBoolWhere(t *testing.T) {
 	t.Run("valid bool filter", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "active", Operation: OpNe, Value: "true"}
-		query, arg, err := formatBoolWhere(expr, "is_active")
+		query, arg, _, err := formatBoolWhere(expr, "is_active")
 		assert.NoError(t, err)
 		assert.Equal(t, "is_active = ?", query)
 		assert.Equal(t, true, arg)
@@ -417,7 +417,7 @@ func TestFormatBoolWhere(t *testing.T) {
 
 	t.Run("invalid bool value", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "active", Operation: OpNe, Value: "invalid"}
-		_, _, err := formatBoolWhere(expr, "is_active")
+		_, _, _, err := formatBoolWhere(expr, "is_active")
 		if !apperr.Is(err, ErrFilterInvalidValue) {
 			t.Errorf("expected %s, actual %s", ErrFilterInvalidValue, err)
 		}
@@ -427,7 +427,7 @@ func TestFormatBoolWhere(t *testing.T) {
 func TestFormatDateTimeWhere(t *testing.T) {
 	t.Run("valid datetime filter", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpGt, Value: "`2022-01-01 00:00:00`"}
-		query, arg, err := formatDateTimeWhere(expr, "created_at")
+		query, arg, _, err := formatDateTimeWhere(expr, "created_at")
 		assert.NoError(t, err)
 		assert.Equal(t, "created_at > ?", query)
 		assert.Equal(t, "2022-01-01 00:00:00", arg)
@@ -435,7 +435,7 @@ func TestFormatDateTimeWhere(t *testing.T) {
 
 	t.Run("invalid datetime format", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpGt, Value: "`invalid_date`"}
-		_, _, err := formatDateTimeWhere(expr, "created_at")
+		_, _, _, err := formatDateTimeWhere(expr, "created_at")
 		if !apperr.Is(err, ErrFilterInvalidValue) {
 			t.Errorf("expected %s, actual %s", ErrFilterInvalidValue, err)
 		}
@@ -445,7 +445,7 @@ func TestFormatDateTimeWhere(t *testing.T) {
 func TestFormatSQLWhere(t *testing.T) {
 	t.Run("valid sql filter", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpIn, Value: "1,2"}
-		query, arg, err := formatSQLWhere(expr, "a = ? AND b = ?")
+		query, arg, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
 		assert.NoError(t, err)
 		assert.Equal(t, "a = ? AND b = ?", query)
 		assert.Equal(t, []interface{}{1, 2}, arg)
@@ -453,7 +453,7 @@ func TestFormatSQLWhere(t *testing.T) {
 
 	t.Run("invalid sql operation", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpPt, Value: "1"}
-		_, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
+		_, _, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
 		if !apperr.Is(err, ErrFilterUnknownOperator) {
 			t.Errorf("expected %s, actual %s", ErrFilterUnknownOperator, err)
 		}
@@ -461,7 +461,7 @@ func TestFormatSQLWhere(t *testing.T) {
 
 	t.Run("invalid sql count <", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpIn, Value: "1"}
-		_, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
+		_, _, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
 		if !apperr.Is(err, ErrFilterInvalidValue) {
 			t.Errorf("expected %s, actual %s", ErrFilterInvalidValue, err)
 		}
@@ -469,7 +469,7 @@ func TestFormatSQLWhere(t *testing.T) {
 
 	t.Run("invalid sql count >", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpIn, Value: "1,2,3"}
-		_, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
+		_, _, _, err := formatSQLWhere(expr, "a = ? AND b = ?")
 		if !apperr.Is(err, ErrFilterInvalidValue) {
 			t.Errorf("expected %s, actual %s", ErrFilterInvalidValue, err)
 		}
@@ -477,7 +477,7 @@ func TestFormatSQLWhere(t *testing.T) {
 
 	t.Run("invalid sql format", func(t *testing.T) {
 		expr := ExpressionWhere{Column: "date", Operation: OpIn, Value: "invalid"}
-		_, _, err := formatSQLWhere(expr, "a = ?")
+		_, _, _, err := formatSQLWhere(expr, "a = ?")
 		if !apperr.Is(err, ErrFilterInvalidValue) {
 			t.Errorf("expected %s, actual %s", ErrFilterInvalidValue, err)
 		}
