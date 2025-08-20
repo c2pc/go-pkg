@@ -125,6 +125,8 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 			return nil, fmt.Errorf("SAML: failed to create SAML SP: %s", err)
 		}
 
+		samlSP.ServiceProvider.AuthnNameIDFormat = saml.PersistentNameIDFormat
+
 		auth.samlSP = samlSP
 	}
 
