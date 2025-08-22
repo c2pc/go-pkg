@@ -69,9 +69,11 @@ func LogHandler(moduleID string) gin.LoggerConfig {
 			}
 
 			operationID, _ := mcontext.GetOperationID(param.Request.Context())
+			userID, _ := mcontext.GetOpUserID(param.Request.Context())
 
-			return fmt.Sprintf(" | %s | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
+			return fmt.Sprintf(" | %s | %s | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
 				operationID,
+				userID,
 				statusColor, param.StatusCode, resetColor,
 				param.Latency,
 				param.ClientIP,

@@ -275,7 +275,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Accoun
 	if s.profileService != nil {
 		prof, err = s.profileService.GetById(ctx, userID)
 		if err != nil {
-			if !apperr.Is(err, profile.ErrNotFound) {
+			if !(apperr.Is(err, profile.ErrNotFound) || apperr.Is(err, apperr.ErrDBRecordNotFound)) {
 				return nil, apperr.ErrUnauthenticated.WithError(err)
 			}
 		}
