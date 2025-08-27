@@ -129,21 +129,13 @@ func GinBodyLogMiddleware(module string) gin.HandlerFunc {
 			c.Request.Body = io.NopCloser(&buf)
 
 			if c.Request.Header.Get("Content-Type") == "application/json" {
-				if len(string(body)) < 1000 {
-					logger.InfofLog(c.Request.Context(), module, "Request: %s", string(body))
-				} else {
-					logger.InfofLog(c.Request.Context(), module, "Request: %s...", string(body)[:1000])
-				}
+				logger.InfofLog(c.Request.Context(), module, "Request: %s", string(body))
 			}
 
 			c.Next()
 
 			if c.Writer.Header().Get("Content-Type") == "application/json" {
-				if len(blw.body.String()) < 1000 {
-					logger.InfofLog(c.Request.Context(), module, "Response: %s", blw.body.String())
-				} else {
-					logger.InfofLog(c.Request.Context(), module, "Response: %s...", blw.body.String()[:1000])
-				}
+				logger.InfofLog(c.Request.Context(), module, "Response: %s", blw.body.String())
 			}
 		}
 	}
