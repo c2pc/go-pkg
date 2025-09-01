@@ -14,6 +14,9 @@ import (
 	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
 	profile2 "github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/auth_config"
+	"github.com/c2pc/go-pkg/v2/auth_config/transformer"
+	"github.com/c2pc/go-pkg/v2/example/internal/auth_config_model"
 	"github.com/c2pc/go-pkg/v2/example/internal/config"
 	database3 "github.com/c2pc/go-pkg/v2/example/internal/database"
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
@@ -197,7 +200,16 @@ func main() {
 		return
 	}
 
-	restHandlers := restHandler.NewHandlers(authService, services, trx, taskService, analyticService, ws)
+	cleanConfig := auth_config_model.NewCleanConfig()
+	authConfigService, err := auth_config.NewAuthConfig(ctx, db, transformer.AuthConfigTransformers{
+		"test": &cleanConfig,
+	}, trx)
+	if err != nil {
+		logger.Fatalf("[AUTH_CONFIG] %s", err.Error())
+		return
+	}
+
+	restHandlers := restHandler.NewHandlers(authService, authConfigService, services, trx, taskService, analyticService, ws)
 	restServer := api.NewServer(api.Input{
 		Host: configs.HTTP.Host,
 		Port: configs.HTTP.Port,
