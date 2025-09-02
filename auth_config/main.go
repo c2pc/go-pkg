@@ -14,6 +14,10 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 )
 
+type IAuthConfigService interface {
+	service.IAuthConfigService
+}
+
 type IAuthConfigHandler interface {
 	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
 	GetService() service.IAuthConfigService
