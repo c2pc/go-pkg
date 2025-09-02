@@ -6,6 +6,7 @@ type Message struct {
 	Message     interface{} `json:"message"`
 	From        *int        `json:"from,omitempty"`
 	To          []int       `json:"to,omitempty"`
+	ToSessionID *string     `json:"to_session_id,omitempty"`
 	ContentType int         `json:"-"`
 }
 
@@ -15,5 +16,6 @@ type broadcast struct {
 	MessageAction string      `json:"message_action"`
 	From          *int        `json:"-"`
 	To            []int       `json:"-"`
+	ToSessionID   *string     `json:"-"`
 	ContentType   int         `json:"-"`
 }

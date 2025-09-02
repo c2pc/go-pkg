@@ -6,15 +6,18 @@ import (
 )
 
 const (
-	NewClientListenerType   = "new-client"
-	CloseClientListenerType = "close-client"
-	NewMessageListenerType  = "new-message"
+	NewClientListenerType          = "new-client"
+	NewClientSessionListenerType   = "new-client-session"
+	CloseClientListenerType        = "close-client"
+	CloseClientSessionListenerType = "close-client-session"
+	NewMessageListenerType         = "new-message"
 )
 
 type Listener struct {
-	Event    string
-	Message  []byte
-	ClientID int
+	Event     string
+	Message   []byte
+	ClientID  int
+	SessionID string
 }
 
 type Client struct {
@@ -67,6 +70,7 @@ func (mgr *manager) run() {
 					go mgr.notifyNewClient(cl)
 				} else {
 					mgr.clients[cl.ID][cl.sessionID] = cl
+					go mgr.notifyNewClientSession(cl)
 				}
 			}(client)
 		case client := <-mgr.unregister:
@@ -83,6 +87,8 @@ func (mgr *manager) run() {
 					if len(clientSessions) == 0 {
 						delete(mgr.clients, cl.ID)
 						go mgr.notifyCloseClient(cl)
+					} else {
+						go mgr.notifyCloseClientSession(cl)
 					}
 				}
 			}(client)
@@ -92,10 +98,18 @@ func (mgr *manager) run() {
 				defer mgr.mu.RUnlock()
 
 				if msg.To != nil && len(msg.To) > 0 {
-					for _, to := range msg.To {
-						if clientSessions, ok := mgr.clients[to]; ok {
-							for _, session := range clientSessions {
+					if msg.ToSessionID != nil {
+						if clientSessions, ok := mgr.clients[msg.To[0]]; ok {
+							if session, ok2 := clientSessions[*msg.ToSessionID]; ok2 {
 								session.ch <- msg
+							}
+						}
+					} else {
+						for _, to := range msg.To {
+							if clientSessions, ok := mgr.clients[to]; ok {
+								for _, session := range clientSessions {
+									session.ch <- msg
+								}
 							}
 						}
 					}
@@ -135,6 +149,7 @@ func (mgr *manager) sendMessage(ctx context.Context, m Message) error {
 		MessageAction: m.Action,
 		From:          m.From,
 		To:            m.To,
+		ToSessionID:   m.ToSessionID,
 		ContentType:   m.ContentType,
 	}
 
@@ -148,19 +163,31 @@ func (mgr *manager) sendMessage(ctx context.Context, m Message) error {
 
 func (mgr *manager) notifyNewClient(client *Client) {
 	for _, ch := range mgr.listeners {
-		ch <- Listener{Event: NewClientListenerType, ClientID: client.ID}
+		ch <- Listener{Event: NewClientListenerType, ClientID: client.ID, SessionID: client.sessionID}
 	}
 }
 
 func (mgr *manager) notifyCloseClient(client *Client) {
 	for _, ch := range mgr.listeners {
-		ch <- Listener{Event: CloseClientListenerType, ClientID: client.ID}
+		ch <- Listener{Event: CloseClientListenerType, ClientID: client.ID, SessionID: client.sessionID}
+	}
+}
+
+func (mgr *manager) notifyNewClientSession(client *Client) {
+	for _, ch := range mgr.listeners {
+		ch <- Listener{Event: NewClientSessionListenerType, ClientID: client.ID, SessionID: client.sessionID}
+	}
+}
+
+func (mgr *manager) notifyCloseClientSession(client *Client) {
+	for _, ch := range mgr.listeners {
+		ch <- Listener{Event: CloseClientSessionListenerType, ClientID: client.ID, SessionID: client.sessionID}
 	}
 }
 
 func (mgr *manager) notifyNewMessage(client *Client, msg []byte) {
 	for _, ch := range mgr.listeners {
-		ch <- Listener{Event: NewMessageListenerType, ClientID: client.ID, Message: msg}
+		ch <- Listener{Event: NewMessageListenerType, ClientID: client.ID, Message: msg, SessionID: client.sessionID}
 	}
 }
 

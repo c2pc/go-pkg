@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
 	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
@@ -68,11 +69,9 @@ func LogHandler(moduleID string) gin.LoggerConfig {
 				param.Latency = param.Latency.Truncate(time.Second)
 			}
 
-			operationID, _ := mcontext.GetOperationID(param.Request.Context())
 			userID, _ := mcontext.GetOpUserID(param.Request.Context())
 
-			return fmt.Sprintf(" | %s | %s | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
-				operationID,
+			return fmt.Sprintf(" | %d | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
 				userID,
 				statusColor, param.StatusCode, resetColor,
 				param.Latency,
@@ -117,9 +116,11 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func GinBodyLogMiddleware(module string) gin.HandlerFunc {
+func GinBodyLogMiddleware(module string, hiddenKeys ...string) gin.HandlerFunc {
 	if logger.IsDebugEnabled(level.TEST) {
 		return func(c *gin.Context) {
+			hiddenKeys = append(hiddenKeys, "pass", "token", "pwd", "code")
+
 			var buf bytes.Buffer
 			blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
 			c.Writer = blw
@@ -129,21 +130,13 @@ func GinBodyLogMiddleware(module string) gin.HandlerFunc {
 			c.Request.Body = io.NopCloser(&buf)
 
 			if c.Request.Header.Get("Content-Type") == "application/json" {
-				if len(string(body)) < 1000 {
-					logger.InfofLog(c.Request.Context(), module, "Request: %s", string(body))
-				} else {
-					logger.InfofLog(c.Request.Context(), module, "Request: %s...", string(body)[:1000])
-				}
+				logger.InfofLog(c.Request.Context(), module, "Request: %s", jsonutil.JsonHideImportantData(body, hiddenKeys...))
 			}
 
 			c.Next()
 
 			if c.Writer.Header().Get("Content-Type") == "application/json" {
-				if len(blw.body.String()) < 1000 {
-					logger.InfofLog(c.Request.Context(), module, "Response: %s", blw.body.String())
-				} else {
-					logger.InfofLog(c.Request.Context(), module, "Response: %s...", blw.body.String()[:1000])
-				}
+				logger.InfofLog(c.Request.Context(), module, "Response: %s", jsonutil.JsonHideImportantData(blw.body.Bytes(), hiddenKeys...))
 			}
 		}
 	}
