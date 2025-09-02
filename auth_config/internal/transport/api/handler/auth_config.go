@@ -46,6 +46,10 @@ func NewAuthConfigHandlers(
 	}
 }
 
+func (h *AuthConfigHandler) GetService() service.IAuthConfigService {
+	return h.authConfigService
+}
+
 func (h *AuthConfigHandler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
 	authConfig := secured.Group("auth-configs")
 	{

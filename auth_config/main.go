@@ -16,6 +16,7 @@ import (
 
 type IAuthConfigHandler interface {
 	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
+	GetService() service.IAuthConfigService
 }
 
 type AuthConfigHandler struct {
@@ -44,4 +45,8 @@ func NewAuthConfig(ctx context.Context, db *gorm.DB, transformers transformer.Au
 
 func (e *AuthConfigHandler) InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc) {
 	e.handler.Init(secured, unsecured)
+}
+
+func (e *AuthConfigHandler) GetService() service.IAuthConfigService {
+	return e.handler.GetService()
 }
