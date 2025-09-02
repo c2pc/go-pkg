@@ -1,13 +1,14 @@
 package websocket
 
 type Message struct {
-	Type        string      `json:"type"`
-	Action      string      `json:"action"`
-	Message     interface{} `json:"message"`
-	From        *int        `json:"from,omitempty"`
-	To          []int       `json:"to,omitempty"`
-	ToSessionID *string     `json:"to_session_id,omitempty"`
-	ContentType int         `json:"-"`
+	Type          string      `json:"type"`
+	Action        string      `json:"action"`
+	Message       interface{} `json:"message"`
+	From          *int        `json:"from,omitempty"`
+	To            []int       `json:"to,omitempty"`
+	ToSession     *string     `json:"to_session,omitempty"`
+	ExceptSession *string     `json:"except_session,omitempty"`
+	ContentType   int         `json:"-"`
 }
 
 type broadcast struct {
@@ -16,6 +17,7 @@ type broadcast struct {
 	MessageAction string      `json:"message_action"`
 	From          *int        `json:"-"`
 	To            []int       `json:"-"`
-	ToSessionID   *string     `json:"-"`
+	ToSession     *string     `json:"-"`
+	ExceptSession *string     `json:"-"`
 	ContentType   int         `json:"-"`
 }

@@ -98,10 +98,18 @@ func (mgr *manager) run() {
 				defer mgr.mu.RUnlock()
 
 				if msg.To != nil && len(msg.To) > 0 {
-					if msg.ToSessionID != nil {
+					if msg.ToSession != nil {
 						if clientSessions, ok := mgr.clients[msg.To[0]]; ok {
-							if session, ok2 := clientSessions[*msg.ToSessionID]; ok2 {
+							if session, ok2 := clientSessions[*msg.ToSession]; ok2 {
 								session.ch <- msg
+							}
+						}
+					} else if msg.ExceptSession != nil {
+						if clientSessions, ok := mgr.clients[msg.To[0]]; ok {
+							for id, session := range clientSessions {
+								if id != *msg.ExceptSession {
+									session.ch <- msg
+								}
 							}
 						}
 					} else {
@@ -149,7 +157,8 @@ func (mgr *manager) sendMessage(ctx context.Context, m Message) error {
 		MessageAction: m.Action,
 		From:          m.From,
 		To:            m.To,
-		ToSessionID:   m.ToSessionID,
+		ToSession:     m.ToSession,
+		ExceptSession: m.ExceptSession,
 		ContentType:   m.ContentType,
 	}
 
