@@ -54,8 +54,8 @@ func (h *AuthConfigHandler) Init(secured *gin.RouterGroup, unsecured *gin.Router
 	authConfig := secured.Group("auth-configs")
 	{
 		authConfig.GET("", h.List)
-		authConfig.PUT("/:id", h.Update)
-		authConfig.GET("/:id", h.GetByKey)
+		authConfig.PUT("/:key", h.Update)
+		authConfig.GET("/:key", h.GetByKey)
 	}
 }
 
