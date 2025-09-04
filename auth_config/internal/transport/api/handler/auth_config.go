@@ -148,5 +148,5 @@ func (h *AuthConfigHandler) Update(c *gin.Context) {
 		return
 	}
 
-	response.Response(c, nil)
+	c.JSON(http.StatusOK, nil)
 }

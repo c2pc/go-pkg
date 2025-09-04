@@ -111,12 +111,12 @@ func (s AuthConfigService) Update(ctx context.Context, key string, input json.Ra
 		return err
 	}
 
-	authConfig, err := s.GetByKey(ctx, key)
+	_, err = s.GetByKey(ctx, key)
 	if err != nil {
 		return err
 	}
 
-	err = s.authConfigRepo.Update(ctx, authConfig, []any{"value"}, `key = ?`, key)
+	err = s.authConfigRepo.Update(ctx, &model.AuthConfig{Key: key, Value: input}, []any{"value"}, `key = ?`, key)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrAuthConfigNotFound
