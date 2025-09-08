@@ -51,7 +51,7 @@ func (h *AuthConfigHandler) GetService() service.IAuthConfigService {
 }
 
 func (h *AuthConfigHandler) Init(secured *gin.RouterGroup, unsecured *gin.RouterGroup) {
-	authConfig := secured.Group("auth-configs")
+	authConfig := secured.Group("configs")
 	{
 		authConfig.GET("", h.List)
 		authConfig.PATCH("/:key", h.Update)

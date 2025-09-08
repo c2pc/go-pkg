@@ -10,13 +10,11 @@ import (
 )
 
 var AuthConfigSearchable = clause.FieldSearchable{
-	"key":   {Column: `auth_configs."key"`, Type: clause.String},
-	"value": {Column: `auth_configs."value"`, Type: clause.String},
+	"key": {Column: `auth_configs."key"`, Type: clause.String},
 }
 
 var AuthConfigOrderBy = clause.FieldOrderBy{
-	"key":   {Column: `auth_configs."key"`},
-	"value": {Column: `auth_configs."value"`},
+	"key": {Column: `auth_configs."key"`},
 }
 
 type AuthConfigRepository interface {

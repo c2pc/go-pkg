@@ -10,8 +10,3 @@ type AuthConfig struct {
 func (s AuthConfig) TableName() string {
 	return "auth_configs"
 }
-
-type CleanerConfig struct {
-	HistoryAccDays int `json:"history_acc_days"`
-	MaxRows        int `json:"max_rows"`
-}

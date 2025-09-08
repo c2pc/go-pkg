@@ -35,7 +35,10 @@ func NewAuthConfig(ctx context.Context, db *gorm.DB, transformers transformer.Au
 
 	repositories := repository.NewRepositories(db)
 
-	authConfigService := service.NewAuthConfigService(repositories.AuthConfigRepository, transformers)
+	authConfigService, err := service.NewAuthConfigService(repositories.AuthConfigRepository, transformers)
+	if err != nil {
+		return nil, err
+	}
 
 	authConfigHandler := handler.NewAuthConfigHandlers(authConfigService, tr, transformers)
 

@@ -45,11 +45,43 @@ type AuthConfigService struct {
 	authConfigTransformers transformer.AuthConfigTransformers
 }
 
-func NewAuthConfigService(repo repository.AuthConfigRepository, tmpls transformer.AuthConfigTransformers) IAuthConfigService {
-	return AuthConfigService{
+func NewAuthConfigService(repo repository.AuthConfigRepository, tmpls transformer.AuthConfigTransformers) (IAuthConfigService, error) {
+	service := AuthConfigService{
 		authConfigRepo:         repo,
 		authConfigTransformers: tmpls,
 	}
+
+	err := service.Init()
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
+func (s *AuthConfigService) Init() error {
+	configsFromDB, err := s.authConfigRepo.List(context.Background(), &model2.Filter{}, ``)
+	if err != nil {
+		return err
+	}
+
+	for _, config := range configsFromDB {
+		if _, ok := s.authConfigTransformers[config.Key]; !ok {
+			err := s.Delete(context.Background(), config.Key)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for key := range s.authConfigTransformers {
+		_, err := s.GetByKey(context.Background(), key)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s AuthConfigService) Trx(db *gorm.DB) IAuthConfigService {
@@ -131,4 +163,8 @@ func (s AuthConfigService) Update(ctx context.Context, key string, input json.Ra
 	}
 
 	return nil
+}
+
+func (s *AuthConfigService) Delete(ctx context.Context, key string) error {
+	return s.authConfigRepo.Delete(ctx, `key = ?`, key)
 }
