@@ -78,7 +78,7 @@ func LogHandler(moduleID string) gin.LoggerConfig {
 			}
 
 			if userLogin != "" {
-				if userInfo != "" {
+				if userInfo != "unknown" {
 					userInfo = userInfo + " - " + userLogin
 				} else {
 					userInfo = userLogin
