@@ -9,6 +9,7 @@ const (
 	OperationID       = contextKey("X-Operation-Id") // Ключ контекста для отслеживания операций
 	TxValue           = contextKey("dbTx")           // Ключ контекста для базы данных
 	OpUserID          = contextKey("opUserID")       // Ключ контекста для идентификатора пользователя операции
+	OpUserLogin       = contextKey("opUserLogin")    // Ключ контекста для логина пользователя операции
 	OpDeviceID        = contextKey("opDeviceID")     // Ключ контекста для идентификатора устройства операции
 )
 

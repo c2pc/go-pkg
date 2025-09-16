@@ -69,10 +69,24 @@ func LogHandler(moduleID string) gin.LoggerConfig {
 				param.Latency = param.Latency.Truncate(time.Second)
 			}
 
+			var userInfo = "unknown"
 			userID, _ := mcontext.GetOpUserID(param.Request.Context())
+			userLogin, _ := mcontext.GetOpUserLogin(param.Request.Context())
 
-			return fmt.Sprintf(" | %d | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
-				userID,
+			if userID != 0 {
+				userInfo = strconv.Itoa(userID)
+			}
+
+			if userLogin != "" {
+				if userInfo != "" {
+					userInfo = userInfo + " - " + userLogin
+				} else {
+					userInfo = userLogin
+				}
+			}
+
+			return fmt.Sprintf(" | %s %s %s | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
+				statusColor, userInfo, resetColor,
 				statusColor, param.StatusCode, resetColor,
 				param.Latency,
 				param.ClientIP,
@@ -119,7 +133,7 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 func GinBodyLogMiddleware(module string, hiddenKeys ...string) gin.HandlerFunc {
 	if logger.IsDebugEnabled(level.TEST) {
 		return func(c *gin.Context) {
-			hiddenKeys = append(hiddenKeys, "pass", "token", "pwd", "code")
+			hiddenKeys = append(hiddenKeys, "pass", "token", "pwd", "code", "secret")
 
 			var buf bytes.Buffer
 			blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
