@@ -10,7 +10,7 @@ func WithOpUserIDContext(ctx context.Context, opUserID int) context.Context {
 	return context.WithValue(ctx, constant.OpUserID, opUserID)
 }
 
-func WithOpUserLoginContext(ctx context.Context, opUserLogin int) context.Context {
+func WithOpUserLoginContext(ctx context.Context, opUserLogin string) context.Context {
 	return context.WithValue(ctx, constant.OpUserLogin, opUserLogin)
 }
 
@@ -30,7 +30,7 @@ func SetOpUserID(ctx context.Context, opUserID int) context.Context {
 	return context.WithValue(ctx, constant.OpUserID, opUserID)
 }
 
-func SetOpUserLogin(ctx context.Context, opUserLogin int) context.Context {
+func SetOpUserLogin(ctx context.Context, opUserLogin string) context.Context {
 	return context.WithValue(ctx, constant.OpUserLogin, opUserLogin)
 }
 
