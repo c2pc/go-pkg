@@ -63,8 +63,6 @@ func Response(c *gin.Context, err apperr.Error) {
 	var invalidUnmarshalError *json.InvalidUnmarshalError
 	var validationError validator.ValidationErrors
 
-	_ = c.Error(err).SetType(gin.ErrorTypePrivate)
-
 	var childError apperr.Error
 	lastError := err.LastError()
 	if !errors.As(lastError, &childError) {
@@ -89,6 +87,8 @@ func Response(c *gin.Context, err apperr.Error) {
 				errs = append(errs, ValidateError{Column: column, Error: columnError})
 			}
 
+			_ = c.Error(errors.New(title + ": " + text)).SetType(gin.ErrorTypePrivate)
+
 			c.AbortWithStatusJSON(codeToHttp(appErr.Code), gin.H{
 				"id":                  appErr.ID,
 				"title":               title,
@@ -105,6 +105,8 @@ func Response(c *gin.Context, err apperr.Error) {
 	appErr := apperr.Unwrap(err)
 	title, text := apperr.Translate(appErr, GetTranslate(c))
 
+	_ = c.Error(errors.New(title + ": " + text)).SetType(gin.ErrorTypePrivate)
+	
 	c.AbortWithStatusJSON(codeToHttp(appErr.Code), gin.H{
 		"id":                  appErr.ID,
 		"title":               title,
@@ -112,4 +114,5 @@ func Response(c *gin.Context, err apperr.Error) {
 		"context":             appErr.Context,
 		"show_message_banner": appErr.ShowMessage,
 	})
+
 }
