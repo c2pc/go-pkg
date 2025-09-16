@@ -10,6 +10,10 @@ func WithOpUserIDContext(ctx context.Context, opUserID int) context.Context {
 	return context.WithValue(ctx, constant.OpUserID, opUserID)
 }
 
+func WithOpUserLoginContext(ctx context.Context, opUserLogin int) context.Context {
+	return context.WithValue(ctx, constant.OpUserLogin, opUserLogin)
+}
+
 func WithOpDeviceIDContext(ctx context.Context, device int) context.Context {
 	return context.WithValue(ctx, constant.OpDeviceID, device)
 }
@@ -24,6 +28,10 @@ func SetOperationID(ctx context.Context, operationID int) context.Context {
 
 func SetOpUserID(ctx context.Context, opUserID int) context.Context {
 	return context.WithValue(ctx, constant.OpUserID, opUserID)
+}
+
+func SetOpUserLogin(ctx context.Context, opUserLogin int) context.Context {
+	return context.WithValue(ctx, constant.OpUserLogin, opUserLogin)
 }
 
 func SetOpDeviceID(ctx context.Context, opDeviceID int) context.Context {
@@ -48,6 +56,16 @@ func GetOpUserID(ctx context.Context) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+func GetOpUserLogin(ctx context.Context) (string, bool) {
+	if ctx.Value(constant.OpUserLogin) != nil {
+		s, ok := ctx.Value(constant.OpUserLogin).(string)
+		if ok {
+			return s, true
+		}
+	}
+	return "", false
 }
 
 func GetOpDeviceID(ctx context.Context) (int, bool) {
