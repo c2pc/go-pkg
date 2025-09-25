@@ -17,7 +17,7 @@ var DotUnderscoreHyphenSpace validator.Func = func(fl validator.FieldLevel) bool
 	if kind == reflect.String {
 		s := field.String()
 
-		isValid := regexp.MustCompile(`^[\sa-zA-Z0-9а-яА-ЯёЁ_.-]*$`).MatchString
+		isValid := regexp.MustCompile(`^[\sa-zA-Z0-9а-яА-ЯёЁ_.,!@-]*$`).MatchString
 		noSpaces := !strings.HasPrefix(s, " ") && !strings.HasSuffix(s, " ")
 
 		return isValid(s) && noSpaces
@@ -28,6 +28,6 @@ var DotUnderscoreHyphenSpace validator.Func = func(fl validator.FieldLevel) bool
 
 func DotUnderscoreHyphenSpaceValidation(v *validator.Validate) {
 	_ = v.RegisterValidation("dot_underscore_hyphen_space", DotUnderscoreHyphenSpace, false)
-	_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.RU, "dot_underscore_hyphen_space", "{0} должен содержать только символы \\sa-zA-Z0-9а-яА-ЯёЁ_.- и не должен начинаться или заканчиваться пробелом", true))
-	_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.EN, "dot_underscore_hyphen_space", "{0} must contain only characters \\sa-zA-Z0-9а-яА-ЯёЁ_.- and must not begin or end with a space", true))
+	_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.RU, "dot_underscore_hyphen_space", "{0} должен содержать только символы \\sa-zA-Z0-9а-яА-ЯёЁ_.,!@- и не должен начинаться или заканчиваться пробелом", true))
+	_ = v.RegisterTranslation(translator.RegisterValidatorTranslation(translator.EN, "dot_underscore_hyphen_space", "{0} must contain only characters \\sa-zA-Z0-9а-яА-ЯёЁ_.,!@- and must not begin or end with a space", true))
 }
