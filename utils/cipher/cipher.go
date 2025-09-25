@@ -83,3 +83,15 @@ func byteToHex(src []byte) []byte {
 	hex.Encode(dst, src)
 	return dst
 }
+
+func Decrypt(ciphertext []byte) ([]byte, error) {
+	aes, err := AESCipher.Decrypt(ciphertext)
+	if err != nil {
+		rc4, err := RC4Cipher.Decrypt(ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		return rc4, nil
+	}
+	return aes, nil
+}
