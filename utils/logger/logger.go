@@ -2,65 +2,124 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// Info logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Info(msg string) {
-	logInfo(loggersMap.getLogger(ModuleID), false, msg)
+var (
+	AppName string
+)
+
+var (
+	log     zerolog.Logger
+	closers []io.Closer
+)
+
+var DefaultLoggerConfig = Config{
+	Level: zerolog.ErrorLevel,
 }
 
-// Infof logs INFO messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Infof(msg string, args ...interface{}) {
-	Info(fmt.Sprintf(msg, args...))
+type FileConfig struct {
+	Enabled    bool
+	Path       string
+	MaxSizeMB  int
+	MaxBackups int
+	MaxAgeDays int
+	Compress   bool
 }
 
-// Error logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Error(msg string) {
-	logError(loggersMap.getLogger(ModuleID), false, msg)
+type Config struct {
+	Level zerolog.Level
+	File  *FileConfig
 }
 
-// Errorf logs ERROR messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Errorf(msg string, args ...interface{}) {
-	Error(fmt.Sprintf(msg, args...))
+func Init(cfg Config) {
+	reload(cfg)
 }
 
-// Warning logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Warning(msg string) {
-	logWarning(loggersMap.getLogger(ModuleID), false, msg)
+func Reload(cfg Config) {
+	reload(cfg)
 }
 
-// Warningf logs WARNING messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Warningf(msg string, args ...interface{}) {
-	Warning(fmt.Sprintf(msg, args...))
-}
-
-// Fatal logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
-func Fatal(msg string) {
-	logCritical(loggersMap.getLogger(ModuleID), msg)
-	addFatalError(ModuleID, msg)
-	write(false, getFatalErrorMsg(), os.Stdout)
-	os.Exit(1)
-}
-
-// Fatalf logs CRITICAL messages and exits. stdout flag indicates if message is to be written to stdout in addition to log.
-func Fatalf(msg string, args ...interface{}) {
-	Fatal(fmt.Sprintf(msg, args...))
-}
-
-// Debug logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Debug(msg string) {
-	logDebug(loggersMap.getLogger(ModuleID), false, msg)
-}
-
-// Debugf logs DEBUG messages. stdout flag indicates if message is to be written to stdout in addition to log.
-func Debugf(msg string, args ...interface{}) {
-	Debug(fmt.Sprintf(msg, args...))
-}
-
-// HandleWarningMessages logs multiple messages in WARNING mode
-func HandleWarningMessages(warnings []string) {
-	for _, warning := range warnings {
-		Warning(warning)
+func Close() {
+	for _, closer := range closers {
+		_ = closer.Close()
 	}
 }
+
+func reload(cfg Config) {
+	var writers []io.Writer
+	var clrs []io.Closer
+
+	if cfg.File != nil && cfg.File.Enabled {
+		dirPath := filepath.Join(cfg.File.Path, AppName)
+		_ = os.MkdirAll(dirPath, 0740)
+
+		fileWriter := &lumberjack.Logger{
+			Filename:   filepath.Join(dirPath, "app.log"),
+			MaxSize:    cfg.File.MaxSizeMB,
+			MaxBackups: cfg.File.MaxBackups,
+			MaxAge:     cfg.File.MaxAgeDays,
+			Compress:   cfg.File.Compress,
+		}
+
+		writers = append(writers, zerolog.ConsoleWriter{
+			Out:        fileWriter,
+			NoColor:    true,
+			TimeFormat: time.RFC3339,
+			FormatLevel: func(i interface{}) string {
+				return strings.ToUpper(fmt.Sprintf("| %-6s|", i))
+			},
+			FormatMessage: func(i interface{}) string {
+				if i == nil {
+					return ""
+				}
+				return fmt.Sprintf("| %s |", i)
+			},
+			FormatFieldValue: func(i interface{}) string {
+				if i == nil {
+					return ""
+				}
+				return fmt.Sprintf("%s", i)
+			},
+			PartsOrder: []string{
+				zerolog.TimestampFieldName,
+				zerolog.LevelFieldName,
+				string(constant.OperationID),
+				string(constant.OpAction),
+				zerolog.CallerFieldName,
+				zerolog.MessageFieldName,
+			},
+			FieldsExclude: []string{string(constant.OperationID), string(constant.OpAction)},
+		})
+
+		clrs = append(clrs, fileWriter)
+	}
+
+	if len(writers) == 0 {
+		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stdout})
+	}
+
+	multi := zerolog.MultiLevelWriter(writers...)
+
+	log = zerolog.New(multi).Level(cfg.Level).With().
+		Timestamp().
+		Logger()
+	closers = clrs
+}
+
+func Debug() *zerolog.Event                        { return log.Debug() }
+func Info() *zerolog.Event                         { return log.Info() }
+func Warn() *zerolog.Event                         { return log.Warn() }
+func Error() *zerolog.Event                        { return log.Error() }
+func Fatal() *zerolog.Event                        { return log.Fatal() }
+func Panic() *zerolog.Event                        { return log.Panic() }
+func WithLevel(level zerolog.Level) *zerolog.Event { return log.WithLevel(level) }
+func GetLevel() zerolog.Level                      { return log.GetLevel() }

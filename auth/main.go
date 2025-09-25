@@ -2,33 +2,29 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"strings"
-
-	"strconv"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
+	authConf "github.com/c2pc/go-pkg/v2/auth/internal/configurator"
 	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/auth_config"
+	"github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/mw"
 	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
 	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
 	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
+	"github.com/redis/go-redis/v9"
 
-	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	"github.com/c2pc/go-pkg/v2/auth/internal/database"
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/handler"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
-	"github.com/c2pc/go-pkg/v2/utils/cache"
-	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	"github.com/c2pc/go-pkg/v2/utils/model"
-	"github.com/c2pc/go-pkg/v2/utils/mw"
-	"github.com/c2pc/go-pkg/v2/utils/secret"
-	"github.com/dtm-labs/rockscache"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -40,127 +36,111 @@ type IAuth interface {
 	LimiterMiddleware(c *gin.Context)
 }
 
-type SSO struct {
-	LDAP ldap.Config
-	OIDC oidc.Config
-	SAML saml.Config
+type Auth struct {
+	handler              handler.IHandler
+	adminID              int
+	permissionMiddleware *middleware.PermissionMiddleware
+	cfg                  authConf.Cfg
+	rdb                  redis.UniversalClient
+	tokenMW              *middleware.TokenMiddleware
+	limiterMW            *middleware.AuthMiddleware
+
+	cacheHolder   *fx.CacheHolder
+	ldapHolder    *fx.LDAPHolder
+	oidcHolder    *fx.OIDCHolder
+	samlHolder    *fx.SAMLHolder
+	limiterHolder *fx.LimiterHolder
+	authHolder    *fx.AuthHolder
 }
 
-type Config struct {
-	DB            *gorm.DB
-	Rdb           redis.UniversalClient
-	Transaction   mw.ITransaction
-	Hasher        secret.Hasher
-	AccessExpire  time.Duration
-	RefreshExpire time.Duration
-	AccessSecret  string
-	Permissions   []model.Permission
-	TTL           time.Duration
-	MaxAttempts   int
-	SSO           SSO
+type Input struct {
+	DB           *gorm.DB
+	Rdb          redis.UniversalClient
+	Transaction  mw.ITransaction
+	Permissions  []model.Permission
+	Configurator auth_config.Config
 }
 
-func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
+func New(
 	ctx context.Context,
 	serviceName string,
 	version string,
-	cfg Config,
-	prof *profile.Profile[Model, CreateInput, UpdateInput, UpdateProfileInput],
+	input Input,
+	prof *profile.Profile,
 ) (IAuth, error) {
 	if serviceName == "" {
 		return nil, errors.New("service name is required")
 	}
-
 	cachekey.SetServiceName(serviceName)
 
-	model2.SetPermissions(cfg.Permissions)
-	ctx = mcontext.WithOperationIDContext(ctx, strconv.Itoa(int(time.Now().UTC().Unix())))
+	authConfig := authConf.NewConfigurator()
 
-	repositories := repository.NewRepositories(cfg.DB)
-	admin, err := database.SeedersRun(ctx, cfg.DB, repositories, cfg.Hasher, model2.GetPermissionsKeys())
+	err := input.Configurator.SetConfig(ctx, "auth", authConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	rcClient := rockscache.NewClient(cfg.Rdb, cache.GetRocksCacheOptions())
-	batchHandler := cache.NewBatchDeleterRedis(cfg.Rdb, cache.GetRocksCacheOptions())
+	cfgByte, err := input.Configurator.GetService().GetWithoutTransform(ctx, "auth")
+	if err != nil {
+		return nil, err
+	}
 
-	tokenCache := cache2.NewTokenCache(cfg.Rdb, cfg.AccessExpire)
-	userCache := cache2.NewUserCache(cfg.Rdb, rcClient, batchHandler, cfg.AccessExpire)
-	permissionCache := cache2.NewPermissionCache(cfg.Rdb, rcClient, batchHandler)
-	limiterCache := cache2.NewLimiterCache(cfg.Rdb)
+	cfgW, err := authConfig.Unmarshal(cfgByte.Value)
+	if err != nil {
+		return nil, err
+	}
 
-	var profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+	cfg := cfgW.(authConf.Cfg)
+
+	model2.SetPermissions(input.Permissions)
+
+	repositories := repository.NewRepositories(input.DB)
+	admin, err := database.SeedersRun(ctx, input.DB, repositories, model2.GetPermissionsKeys())
+	if err != nil {
+		return nil, err
+	}
+
+	var profileService profile.IProfileService
+	var profileTransformer profile.ITransformer
+	var profileRequest profile.IRequest
 	if prof != nil {
 		profileService = prof.Service
-	} else {
-		profileService = nil
-	}
-
-	var profileTransformer profile.ITransformer[Model]
-	if prof != nil {
 		profileTransformer = prof.Transformer
-	} else {
-		profileTransformer = nil
-	}
-
-	var profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
-	if prof != nil {
 		profileRequest = prof.Request
-	} else {
-		profileRequest = nil
 	}
 
-	if profileService == nil || profileTransformer == nil || profileRequest == nil {
-		profileService = nil
-		profileTransformer = nil
-		profileRequest = nil
-	}
+	accessTokenTTL := time.Duration(cfg.AccessTokenTTL) * time.Minute
+	refreshExpire := time.Duration(cfg.AccessTokenTTL) * time.Minute
+	accessSecret := cfg.Key
 
-	ldapAuthService, err := ldap.NewAuthService(cfg.SSO.LDAP)
+	cacheHolder := fx.NewCacheHolder(input.Rdb, accessTokenTTL)
+	ldapHolder := fx.NewLDAPHolder(len(cfg.LDAP) != 0, getLdapConfig(cfg.LDAP))
+	oidcHolder, err := fx.NewOIDCHolder(ctx, getOIDCConfig(cfg.SSO.Enabled == "oidc", cfg.SSO.OIDC))
+	if err != nil {
+		return nil, err
+	}
+	samlHolder, err := fx.NewSAMLHolder(ctx, getSAMLConfig(cfg.SSO.Enabled == "saml", cfg.SSO.SAML))
 	if err != nil {
 		return nil, err
 	}
 
-	if cfg.SSO.OIDC.Enabled {
-		cfg.SSO.SAML.Enabled = false
-	} else if cfg.SSO.SAML.Enabled {
-		//TODO
-	}
+	limiterHolder := fx.NewLimiterHolder(getLimiterConfig(cfg.Limiter))
+	authHolder := fx.NewAuthHolder(accessTokenTTL, refreshExpire, string(accessSecret))
+	tokenMW := middleware.NewTokenMiddleware(cacheHolder, repositories, authHolder)
+	limiterMW := middleware.NewAuthLimiterMiddleware(cacheHolder, limiterHolder)
 
-	cfg.SSO.OIDC.RootURL = strings.TrimRight(cfg.SSO.OIDC.RootURL, "/") + "/api/v1/auth/sso/callback"
-	oidcAuthService, err := oidc.NewAuthService(ctx, cfg.SSO.OIDC)
-	if err != nil {
-		return nil, err
-	}
+	authService := service.NewAuthService(profileService, repositories, cacheHolder, authHolder, ldapHolder, oidcHolder, samlHolder)
+	permissionService := service.NewPermissionService(repositories, cacheHolder)
+	roleService := service.NewRoleService(repositories, cacheHolder)
+	userService := service.NewUserService(profileService, repositories, cacheHolder)
+	settingService := service.NewSettingService(repositories)
+	sessionService := service.NewSessionService(repositories, cacheHolder)
+	filterService := service.NewFilterService(repositories)
+	versionService := service.NewVersionService(version, repositories)
 
-	cfg.SSO.SAML.RootURL = strings.TrimRight(cfg.SSO.SAML.RootURL, "/") + "/api/v1/auth/sso/login"
-	samlAuthService, err := saml.NewAuthService(ctx, cfg.SSO.SAML)
-	if err != nil {
-		return nil, err
-	}
+	permissionMiddleware := middleware.NewPermissionMiddleware(cacheHolder.Get(), repositories)
 
-	authService := service.NewAuthService(profileService, repositories.UserRepository, repositories.TokenRepository,
-		tokenCache, userCache, cfg.Hasher, cfg.AccessExpire, cfg.RefreshExpire, cfg.AccessSecret, ldapAuthService, oidcAuthService, samlAuthService)
-	permissionService := service.NewPermissionService(repositories.PermissionRepository, permissionCache)
-	roleService := service.NewRoleService(repositories.RoleRepository, repositories.PermissionRepository,
-		repositories.RolePermissionRepository, repositories.UserRoleRepository, userCache, tokenCache)
-	userService := service.NewUserService(profileService, repositories.UserRepository, repositories.RoleRepository,
-		repositories.UserRoleRepository, userCache, tokenCache, cfg.Hasher)
-	settingService := service.NewSettingService(repositories.SettingRepository)
-	sessionService := service.NewSessionService(repositories.TokenRepository, tokenCache, userCache, cfg.RefreshExpire)
-	filterService := service.NewFilterService(repositories.FilterRepository)
-	versionService := service.NewVersionService(version, repositories.MigrationRepository)
-
-	tokenMiddleware := middleware.NewTokenMiddleware(tokenCache, cfg.AccessSecret)
-	permissionMiddleware := middleware.NewPermissionMiddleware(userCache, permissionCache, repositories.UserRepository,
-		repositories.PermissionRepository)
-	authLimiterMiddleware := middleware.NewAuthLimiterMiddleware(middleware.ConfigLimiter{
-		MaxAttempts: cfg.MaxAttempts,
-		TTL:         cfg.TTL,
-	}, limiterCache)
-
-	handlers := handler.NewHandlers[Model, CreateInput, UpdateInput, UpdateProfileInput](
+	handlers := handler.NewHandlers(
 		authService,
 		permissionService,
 		roleService,
@@ -168,61 +148,50 @@ func New[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any]
 		settingService,
 		filterService,
 		sessionService,
-		cfg.Transaction,
-		tokenMiddleware,
+		input.Transaction,
+		tokenMW,
 		permissionMiddleware,
 		profileTransformer,
 		profileRequest,
-		oidcAuthService,
-		samlAuthService,
+		oidcHolder,
+		samlHolder,
 		versionService,
 	)
 
-	auth := Auth{
+	auth := &Auth{
 		handler:              handlers,
-		tokenMiddleware:      tokenMiddleware,
-		permissionMiddleware: permissionMiddleware,
 		adminID:              admin.ID,
-		limiterMiddleware:    authLimiterMiddleware,
+		cacheHolder:          cacheHolder,
+		ldapHolder:           ldapHolder,
+		oidcHolder:           oidcHolder,
+		samlHolder:           samlHolder,
+		limiterMW:            limiterMW,
+		tokenMW:              tokenMW,
+		authHolder:           authHolder,
+		limiterHolder:        limiterHolder,
+		permissionMiddleware: permissionMiddleware,
+		cfg:                  cfg,
+		rdb:                  input.Rdb,
 	}
 
-	go auth.startSessionCleaner(ctx, cfg.DB)
+	go auth.startSessionCleaner(ctx, input.DB)
+	go auth.configWatcher(ctx, authConfig)
 
 	return auth, nil
 }
 
-type Auth struct {
-	handler              handler.IHandler
-	tokenMiddleware      middleware.ITokenMiddleware
-	permissionMiddleware middleware.IPermissionMiddleware
-	limiterMiddleware    middleware.AuthMiddleware
-	adminID              int
-}
-
-func (a Auth) InitHandler(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
+func (a *Auth) InitHandler(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
 	a.handler.Init(engine, api, handlers...)
 }
-
-func (a Auth) Authenticate(c *gin.Context) {
-	a.tokenMiddleware.Authenticate(c)
+func (a *Auth) Authenticate(c *gin.Context)  { a.tokenMW.Authenticate(c) }
+func (a *Auth) CanPermission(c *gin.Context) { a.permissionMiddleware.Can(c) }
+func (a *Auth) GetAdminID() int              { return a.adminID }
+func (a *Auth) LimiterMiddleware(c *gin.Context) {
+	a.limiterMW.LimiterMiddleware(c)
 }
-
-func (a Auth) CanPermission(c *gin.Context) {
-	a.permissionMiddleware.Can(c)
-}
-
-func (a Auth) GetAdminID() int {
-	return a.adminID
-}
-
-func (a Auth) LimiterMiddleware(c *gin.Context) {
-	a.limiterMiddleware.LimiterMiddleware(c)
-}
-
-func (a Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
+func (a *Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
 	tm := time.NewTicker(10 * time.Minute)
 	defer tm.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -231,4 +200,107 @@ func (a Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
 			db.WithContext(ctx).Where("expires_at < ?", time.Now().UTC()).Delete(&model2.RefreshToken{})
 		}
 	}
+}
+
+func getLdapConfig(c []authConf.CfgLDAP) map[string]ldap.Config {
+	cfg := make(map[string]ldap.Config)
+	for _, conf := range c {
+		addrs := make([]string, len(conf.Addrs))
+		for i, addr := range conf.Addrs {
+			scheme := "ldap://"
+			if addr.Secured {
+				scheme = "ldaps://"
+			}
+			addrs[i] = scheme + addr.Addr
+		}
+		cfg[conf.Domain] = ldap.Config{
+			Addrs:  addrs,
+			Domain: conf.Domain,
+		}
+	}
+	return cfg
+}
+
+func getOIDCConfig(enabled bool, cfg *authConf.CfgOIDC) oidc.Config {
+	if cfg == nil {
+		return oidc.Config{
+			Enabled: false,
+		}
+	}
+
+	return oidc.Config{
+		Enabled:           enabled,
+		ConfigURL:         cfg.ConfigURL,
+		ClientID:          cfg.ClientID,
+		ClientSecret:      string(cfg.ClientSecret),
+		RootURL:           cfg.RootURL,
+		LoginAttr:         cfg.LoginAttr,
+		ValidRedirectURLs: cfg.ValidRedirectURLs,
+	}
+}
+
+func getSAMLConfig(enabled bool, cfg *authConf.CfgSAML) saml.Config {
+	if cfg == nil {
+		return saml.Config{
+			Enabled: false,
+		}
+	}
+
+	return saml.Config{
+		Enabled:           enabled,
+		MetaDataURL:       cfg.MetaDataFile,
+		CertFile:          cfg.CertFile,
+		KeyFile:           cfg.KeyFile,
+		RootURL:           cfg.RootURL,
+		LoginAttr:         cfg.LoginAttr,
+		ValidRedirectURLs: cfg.ValidRedirectURLs,
+	}
+}
+
+func getLimiterConfig(cfg authConf.CfgLimiter) fx.ConfigLimiter {
+	return fx.ConfigLimiter{
+		MaxAttempts: cfg.MaxAttempts,
+		TTL:         time.Duration(cfg.TTL) * time.Second,
+	}
+}
+
+func (a *Auth) configWatcher(ctx context.Context, authConfig *authConf.Configurator) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case newCfg := <-authConfig.Watch():
+			oldCfg := a.cfg
+
+			accessTokenTTL := time.Duration(newCfg.AccessTokenTTL) * time.Minute
+			refreshExpire := time.Duration(newCfg.AccessTokenTTL) * time.Minute
+			accessSecret := newCfg.Key
+
+			if newCfg.AccessTokenTTL != oldCfg.AccessTokenTTL || newCfg.RefreshTokenTTL != oldCfg.RefreshTokenTTL || string(newCfg.Key) != string(oldCfg.Key) {
+				a.cacheHolder.Reload(a.rdb, accessTokenTTL)
+				a.authHolder.Reload(accessTokenTTL, refreshExpire, string(accessSecret))
+			}
+
+			if newCfg.Limiter.MaxAttempts != oldCfg.Limiter.MaxAttempts || newCfg.Limiter.TTL != oldCfg.Limiter.TTL {
+				a.limiterHolder.Reload(getLimiterConfig(newCfg.Limiter))
+			}
+
+			m1, _ := json.Marshal(newCfg.LDAP)
+			m2, _ := json.Marshal(oldCfg.LDAP)
+
+			if string(m1) != string(m2) || len(newCfg.LDAP) != len(oldCfg.LDAP) {
+				a.ldapHolder.Reload(len(newCfg.LDAP) != 0, getLdapConfig(newCfg.LDAP))
+			}
+
+			m3, _ := json.Marshal(newCfg.SSO)
+			m4, _ := json.Marshal(oldCfg.SSO)
+			if string(m3) != string(m4) {
+				_ = a.oidcHolder.Reload(ctx, getOIDCConfig(newCfg.SSO.Enabled == "oidc", newCfg.SSO.OIDC))
+				_ = a.samlHolder.Reload(ctx, getSAMLConfig(newCfg.SSO.Enabled == "saml", newCfg.SSO.SAML))
+			}
+
+			a.cfg = newCfg
+		}
+	}
+
 }

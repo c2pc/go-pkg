@@ -3,17 +3,21 @@ package ffm
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
+	"github.com/c2pc/go-pkg/v2/utils/resty_logger"
+	tls2 "github.com/c2pc/go-pkg/v2/utils/tls"
+	"resty.dev/v3"
 )
 
 type FileManager interface {
@@ -34,7 +38,7 @@ type FileManager interface {
 
 func (f *FFM) Unpack(ctx context.Context, request FileUnpackRequest) (*FileInfo, error) {
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodPost, "unpack", request, &response)
+	err := f.request(ctx, http.MethodPost, "unpack", request, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +46,8 @@ func (f *FFM) Unpack(ctx context.Context, request FileUnpackRequest) (*FileInfo,
 }
 
 type FFM struct {
-	addr    string
 	service string
+	client  *resty.Client
 }
 
 type Config struct {
@@ -56,12 +60,21 @@ func New(cfg Config) (FileManager, error) {
 		return nil, errors.New("empty file manager service")
 	}
 
-	if len(cfg.Addr) > 0 && cfg.Addr[len(cfg.Addr)-1:] != "/" {
-		cfg.Addr += "/"
+	tlsConfig := &tls.Config{
+		CipherSuites:       tls2.GetCipherSuiteIDs(),
+		InsecureSkipVerify: true,
 	}
 
+	client := resty.New().
+		SetBaseURL(strings.TrimSuffix(cfg.Addr, "/") + "/api/v1/").
+		SetTLSClientConfig(tlsConfig).
+		SetTimeout(10 * time.Second).
+		SetDebug(true).
+		SetDebugLogFormatter(resty_logger.DebugLogFormatterFunc()).
+		SetLogger(&resty_logger.RestyLogger{LoggerID: "FFM"})
+
 	ffm := &FFM{
-		addr:    cfg.Addr,
+		client:  client,
 		service: cfg.Service,
 	}
 
@@ -70,7 +83,7 @@ func New(cfg Config) (FileManager, error) {
 
 func (f *FFM) CP(ctx context.Context, input FileCopyRequest) (*FileInfo, error) {
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodPost, "cp", input, &response)
+	err := f.request(ctx, http.MethodPost, "cp", input, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +92,7 @@ func (f *FFM) CP(ctx context.Context, input FileCopyRequest) (*FileInfo, error) 
 
 func (f *FFM) MV(ctx context.Context, input FileMoveRequest) (*FileInfo, error) {
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodPost, "mv", input, &response)
+	err := f.request(ctx, http.MethodPost, "mv", input, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -87,17 +100,13 @@ func (f *FFM) MV(ctx context.Context, input FileMoveRequest) (*FileInfo, error) 
 }
 
 func (f *FFM) SetAddr(addr string) FileManager {
-	if len(addr) > 0 && addr[len(addr)-1:] != "/" {
-		addr += "/"
-	}
-
-	f.addr = addr
+	f.client.SetBaseURL(strings.TrimSuffix(addr, "/") + "/api/v1/")
 	return f
 }
 
 func (f *FFM) LS(ctx context.Context, request LSRequest) ([]FileInfo, error) {
 	var response []FileInfo
-	err := f.jsonRequest(ctx, http.MethodGet, "ls", request, &response)
+	err := f.request(ctx, http.MethodGet, "ls", request, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +120,7 @@ func (f *FFM) Info(ctx context.Context, path string) (*FileInfo, error) {
 	}
 
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodGet, "info", request, &response)
+	err := f.request(ctx, http.MethodGet, "info", request, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +130,7 @@ func (f *FFM) Info(ctx context.Context, path string) (*FileInfo, error) {
 
 func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error) {
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodPost, "mkdir", request, &response)
+	err := f.request(ctx, http.MethodPost, "mkdir", request, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +140,7 @@ func (f *FFM) MkDir(ctx context.Context, request MkDirRequest) (*FileInfo, error
 
 func (f *FFM) DecodeAudio(ctx context.Context, request DecodeAudioRequest) (*FileInfo, error) {
 	var response FileInfo
-	err := f.jsonRequest(ctx, http.MethodPost, "decode-audio", request, &response)
+	err := f.request(ctx, http.MethodPost, "decode-audio", request, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -142,12 +151,6 @@ func (f *FFM) DecodeAudio(ctx context.Context, request DecodeAudioRequest) (*Fil
 func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfo, error) {
 	method := http.MethodPost
 	url := "upload"
-
-	operationID := strconv.Itoa(int(time.Now().UnixMilli()))
-	op := ctx.Value(constant.OperationID)
-	if op2, ok := op.(string); ok {
-		operationID = op2
-	}
 
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
@@ -175,46 +178,57 @@ func (f *FFM) Upload(ctx context.Context, request UploadRequest) ([]FileInfo, er
 		return nil, err
 	}
 
-	if logger.IsDebugEnabled(level.TEST) {
-		r := map[string]interface{}{"path": request.Path, "files": len(request.Files), "append": request.Append}
-		logger.Infof("REQUEST - %s - %s - %s - files -> %v", operationID, method, url, r)
+	opID := strconv.Itoa(int(time.Now().UnixMicro()))
+	if op, ok := mcontext.GetOperationID(ctx); ok {
+		parts := strings.Split(op, "-")
+		if len(parts) > 0 {
+			opID = parts[len(parts)-1]
+		}
 	}
-
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	resp, err := f.request(ctx2, method, url, operationID, w.FormDataContentType(), &buf)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var output []FileInfo
-	if status, err := parseResult(resp, &output); err != nil {
-		if logger.IsDebugEnabled(level.TEST) {
-			logger.Infof("RESPONSE - %s - %s - %s - %+v - %d", operationID, method, url, err, status)
+	req := f.client.R().
+		SetContext(ctx).
+		SetContentType("application/json").
+		SetHeader("X-Operation-Id", opID).
+		SetResult(output)
+
+	resp, err := req.Execute(method, url)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "connection refused") {
+			return output, apperr.ErrServerIsNotAvailable.WithError(err)
 		}
-
-		return nil, err
+		return output, err
 	}
 
-	if logger.IsDebugEnabled(level.TEST) {
-		logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, output)
+	if resp.IsSuccess() {
+		return output, nil
 	}
 
-	return output, nil
+	switch resp.StatusCode() {
+	case 400:
+		return output, apperr.ErrValidation
+	case 401:
+		return output, apperr.ErrUnauthenticated
+	case 403:
+		return output, apperr.ErrForbidden
+	case 404:
+		return output, apperr.ErrNotFound
+	default:
+		return output, apperr.ErrInternal
+	}
 }
 
 func (f *FFM) GenDownloadPath(info FileInfo) string {
-	return f.addr + "api/v1/" + f.service + "/download?path=" + info.Path
+	return f.client.BaseURL() + f.service + "/download?path=" + info.Path
 }
 
 func (f *FFM) GenCompressDownloadPath(info FileInfo) string {
-	return f.addr + "api/v1/" + f.service + "/compress-download?path=" + info.Path + "&type=zip"
+	return f.client.BaseURL() + f.service + "/compress-download?path=" + info.Path + "&type=zip"
 }
 
 func (f *FFM) Remove(ctx context.Context, request RemoveRequest) error {
-	err := f.jsonRequest(ctx, http.MethodPost, "remove", request, nil)
+	err := f.request(ctx, http.MethodPost, "remove", request, nil)
 	if err != nil {
 		return err
 	}

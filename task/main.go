@@ -7,12 +7,10 @@ import (
 	"net/http"
 
 	model3 "github.com/c2pc/go-pkg/v2/task/model"
-	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/c2pc/go-pkg/v2/task/internal/logger"
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
@@ -21,7 +19,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/task/internal/transport/api/transformer"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/level"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
@@ -128,12 +125,7 @@ func (e *Task) listen(ctx context.Context) {
 				input.Output = result.Message
 			}
 
-			err := e.taskService.Update(ctx2, result.ID, input)
-
-			if logger2.IsDebugEnabled(level.TEST) {
-				logger.LogInfo(ctx2, "TYPE - %s | ID - %d | STATUS - %s | NAME - %s | CLIENT_ID - %d | TASK_ERROR - %v | UPDATE_ERROR - %v",
-					result.Type, result.ID, status, result.Name, result.ClientID, appError, err)
-			}
+			_ = e.taskService.Update(ctx2, result.ID, input)
 		}
 	}
 }

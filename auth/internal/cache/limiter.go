@@ -21,7 +21,7 @@ type LimiterCache struct {
 	rdb redis.UniversalClient
 }
 
-func NewLimiterCache(rdb redis.UniversalClient) ILimiterCache {
+func NewLimiterCache(rdb redis.UniversalClient) *LimiterCache {
 	return &LimiterCache{
 		rdb: rdb,
 	}

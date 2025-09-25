@@ -9,14 +9,14 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 )
 
-func UserSeeder(ctx context.Context, userRepository repository2.IUserRepository, userRoleRepository repository2.IUserRoleRepository, hasher secret.Hasher, roleID int) (*model.User, error) {
+func UserSeeder(ctx context.Context, userRepository repository2.IUserRepository, userRoleRepository repository2.IUserRoleRepository, roleID int) (*model.User, error) {
 	role, err := userRoleRepository.Find(ctx, `role_id = ?`, roleID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			login := "admin"
 			name := "Admin"
 			password := "admin"
-			pass, err := hasher.HashString(password)
+			pass, err := secret.HasherSecret.HashString(password)
 			if err != nil {
 				return nil, err
 			}
@@ -24,7 +24,8 @@ func UserSeeder(ctx context.Context, userRepository repository2.IUserRepository,
 			admin, err := userRepository.FirstOrCreate(ctx, &model.User{
 				Login:     login,
 				FirstName: name,
-				Password:  pass,
+				Password:  &pass,
+				IsDomain:  false,
 			}, "id", `login = ?`, login)
 			if err != nil {
 				return nil, err

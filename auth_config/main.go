@@ -2,58 +2,64 @@ package auth_config
 
 import (
 	"context"
-	"errors"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"github.com/c2pc/go-pkg/v2/auth_config/configurator"
 	"github.com/c2pc/go-pkg/v2/auth_config/internal/repository"
 	"github.com/c2pc/go-pkg/v2/auth_config/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth_config/internal/transport/api/handler"
-	"github.com/c2pc/go-pkg/v2/auth_config/transformer"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 )
 
-type IAuthConfigService interface {
+type Configurator interface {
 	service.IAuthConfigService
 }
 
-type IAuthConfigHandler interface {
-	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
+type Config interface {
+	InitHandler(secured *gin.RouterGroup)
 	GetService() service.IAuthConfigService
+	SetConfig(ctx context.Context, key string, value configurator.Configurator) error
+	Init(ctx context.Context) error
 }
 
-type AuthConfigHandler struct {
-	db      *gorm.DB
+type AuthConfig struct {
 	handler *handler.AuthConfigHandler
+	service service.AuthConfigService
+	db      *gorm.DB
 }
 
-func NewAuthConfig(ctx context.Context, db *gorm.DB, transformers transformer.AuthConfigTransformers, tr mw.ITransaction) (IAuthConfigHandler, error) {
-	if transformers == nil {
-		return nil, errors.New("transformers is empty")
-	}
+func NewAuthConfig(db *gorm.DB, tr mw.ITransaction) Config {
+	authConfigRepository := repository.NewAuthConfigRepository(db)
+	authConfigService := service.NewAuthConfigService(authConfigRepository)
+	authConfigHandler := handler.NewAuthConfigHandlers(authConfigService, tr)
 
-	repositories := repository.NewRepositories(db)
-
-	authConfigService, err := service.NewAuthConfigService(repositories.AuthConfigRepository, transformers)
-	if err != nil {
-		return nil, err
-	}
-
-	authConfigHandler := handler.NewAuthConfigHandlers(authConfigService, tr, transformers)
-
-	exporter := &AuthConfigHandler{
+	authConfig := &AuthConfig{
 		handler: authConfigHandler,
+		service: authConfigService,
 		db:      db,
 	}
 
-	return exporter, nil
+	return authConfig
 }
 
-func (e *AuthConfigHandler) InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc) {
-	e.handler.Init(secured, unsecured)
+func (e *AuthConfig) InitHandler(secured *gin.RouterGroup) {
+	e.handler.Init(secured)
 }
 
-func (e *AuthConfigHandler) GetService() service.IAuthConfigService {
-	return e.handler.GetService()
+func (e *AuthConfig) GetService() service.IAuthConfigService {
+	return e.service
+}
+
+func (e *AuthConfig) SetConfig(ctx context.Context, key string, value configurator.Configurator) error {
+	return e.db.Transaction(func(tx *gorm.DB) error {
+		return e.service.Trx(e.db).SetConfig(ctx, key, value)
+	})
+}
+
+func (e *AuthConfig) Init(ctx context.Context) error {
+	return e.db.Transaction(func(tx *gorm.DB) error {
+		return e.service.Trx(tx).Init(ctx)
+	})
 }

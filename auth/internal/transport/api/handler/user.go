@@ -3,7 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/dto"
 	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
@@ -16,20 +18,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type UserHandler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
-	userService        service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+type UserHandler struct {
+	userService        service.IUserService
 	tr                 mw.ITransaction
-	profileTransformer profile.ITransformer[Model]
-	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
+	profileTransformer profile.ITransformer
+	profileRequest     profile.IRequest
 }
 
-func NewUserHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
-	userService service.IUserService[Model, CreateInput, UpdateInput, UpdateProfileInput],
+func NewUserHandlers(
+	userService service.IUserService,
 	tr mw.ITransaction,
-	profileTransformer profile.ITransformer[Model],
-	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
-) *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	return &UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
+	profileTransformer profile.ITransformer,
+	profileRequest profile.IRequest,
+) *UserHandler {
+	return &UserHandler{
 		userService,
 		tr,
 		profileTransformer,
@@ -37,7 +39,7 @@ func NewUserHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfi
 	}
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(api *gin.RouterGroup) {
+func (h *UserHandler) Init(api *gin.RouterGroup) {
 	user := api.Group("users")
 	{
 		user.GET("", h.List)
@@ -48,7 +50,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(
 	}
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(c *gin.Context) {
+func (h *UserHandler) List(c *gin.Context) {
 	cred, err := request2.Meta(c)
 	if err != nil {
 		response.Response(c, err)
@@ -67,7 +69,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) List(
 	c.JSON(http.StatusOK, transformer.UserListTransform(c, m.Pagination, h.profileTransformer))
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetById(c *gin.Context) {
+func (h *UserHandler) GetById(c *gin.Context) {
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
@@ -83,14 +85,18 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetBy
 	c.JSON(http.StatusOK, transformer.UserTransform(data, h.profileTransformer))
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(c *gin.Context) {
+func (h *UserHandler) Create(c *gin.Context) {
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание учетной записи"))
+
 	cred, err := request2.BindJSON[request.UserCreateRequest](c)
 	if err != nil {
 		response.Response(c, err)
 		return
 	}
 
-	var profileCred *CreateInput
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание учетной записи: "+cred.Login))
+
+	var profileCred any
 	if h.profileRequest != nil {
 		profileCred, err = h.profileRequest.CreateRequest(c)
 		if err != nil {
@@ -99,17 +105,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Creat
 		}
 	}
 
-	user, err := h.userService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), service.UserCreateInput{
-		Login:      cred.Login,
-		FirstName:  cred.FirstName,
-		SecondName: cred.SecondName,
-		LastName:   cred.LastName,
-		Password:   cred.Password,
-		Email:      cred.Email,
-		Phone:      cred.Phone,
-		Roles:      cred.Roles,
-		Blocked:    cred.Blocked,
-	}, profileCred)
+	user, err := h.userService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), dto.UserCreate(cred), profileCred)
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -118,7 +114,8 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Creat
 	c.JSON(http.StatusCreated, transformer.UserTransform(user, h.profileTransformer))
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(c *gin.Context) {
+func (h *UserHandler) Update(c *gin.Context) {
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение учетной записи"))
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
@@ -131,7 +128,7 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 		return
 	}
 
-	var profileCred *UpdateInput
+	var profileCred any
 	if h.profileRequest != nil {
 		profileCred, err = h.profileRequest.UpdateRequest(c)
 		if err != nil {
@@ -140,17 +137,11 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 		}
 	}
 
-	if err := h.userService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, service.UserUpdateInput{
-		Login:      cred.Login,
-		FirstName:  cred.FirstName,
-		SecondName: cred.SecondName,
-		LastName:   cred.LastName,
-		Password:   cred.Password,
-		Email:      cred.Email,
-		Phone:      cred.Phone,
-		Roles:      cred.Roles,
-		Blocked:    cred.Blocked,
-	}, profileCred); err != nil {
+	userLogin, err := h.userService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.UserUpdate(cred), profileCred)
+	if userLogin != "" {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение учетной записи: "+userLogin))
+	}
+	if err != nil {
 		response.Response(c, err)
 		return
 	}
@@ -158,14 +149,18 @@ func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Updat
 	c.Status(http.StatusOK)
 }
 
-func (h *UserHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Delete(c *gin.Context) {
+func (h *UserHandler) Delete(c *gin.Context) {
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление учетной записи"))
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
 		return
 	}
 
-	err = h.userService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
+	userLogin, err := h.userService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
+	if userLogin != "" {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление учетной записи: "+userLogin))
+	}
 	if err != nil {
 		response.Response(c, err)
 		return

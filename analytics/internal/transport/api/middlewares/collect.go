@@ -5,21 +5,28 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"mime"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/analytics/internal/cache"
+	"github.com/c2pc/go-pkg/v2/analytics/internal/fx"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/constant"
+	loggerServ "github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
+	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 
-	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
+	"github.com/c2pc/go-pkg/v2/analytics/internal/model"
 	"github.com/c2pc/go-pkg/v2/ffm"
 	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
@@ -39,7 +46,7 @@ type LoggerConfig struct {
 type logger struct {
 	db                  *gorm.DB
 	batchSize           int
-	entries             []models.Analytics
+	entries             []model.Analytics
 	userIDMap           map[int]struct{}
 	mu                  sync.Mutex
 	flushInterval       time.Duration
@@ -49,6 +56,8 @@ type logger struct {
 	ExcludeOutputBodies map[string][]string
 	SkipRequests        map[string][]string
 	HiddenKeys          []string
+	configHolder        *fx.ConfigHolder
+	cache               *cache.Cache
 }
 
 type responseWriter struct {
@@ -74,7 +83,7 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
-func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
+func New(cfg LoggerConfig, configHolder *fx.ConfigHolder, cache *cache.Cache) (gin.HandlerFunc, func()) {
 	if cfg.FlushInterval <= 10 {
 		cfg.FlushInterval = 10
 	}
@@ -82,18 +91,20 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 		cfg.BatchSize = 100
 	}
 
-	cfg.HiddenKeys = append(cfg.HiddenKeys, "pass", "token", "pwd", "code")
+	cfg.HiddenKeys = append(cfg.HiddenKeys, "pass", "token", "pwd", "code", "secret")
 
 	l := &logger{
 		db:                  cfg.DB,
 		batchSize:           cfg.BatchSize,
-		entries:             make([]models.Analytics, 0, cfg.BatchSize),
+		entries:             make([]model.Analytics, 0, cfg.BatchSize),
 		userIDMap:           make(map[int]struct{}),
 		flushInterval:       time.Duration(cfg.FlushInterval) * time.Second,
 		ExcludeInputBodies:  cfg.ExcludeInputBodies,
 		ExcludeOutputBodies: cfg.ExcludeOutputBodies,
 		SkipRequests:        cfg.SkipRequests,
 		HiddenKeys:          cfg.HiddenKeys,
+		configHolder:        configHolder,
+		cache:               cache,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -106,37 +117,37 @@ func New(cfg LoggerConfig) (gin.HandlerFunc, func()) {
 }
 
 func (l *logger) check(path string, method string) (bool, bool, bool) {
-	var skipReq, skipInputBody, skipOutputBody = true, true, true
+	var skipReq, skipInputBody, skipOutputBody = false, false, false
 
 	if methods, ok := l.SkipRequests[path]; ok {
 		if len(methods) == 0 {
-			skipReq = false
+			skipReq = true
 		}
 		for _, m := range methods {
 			if m == method {
-				skipReq = false
+				skipReq = true
 			}
 		}
 	}
 
 	if methods, ok := l.ExcludeInputBodies[path]; ok {
 		if len(methods) == 0 {
-			skipInputBody = false
+			skipInputBody = true
 		}
 		for _, m := range methods {
 			if m == method {
-				skipInputBody = false
+				skipInputBody = true
 			}
 		}
 	}
 
 	if methods, ok := l.ExcludeOutputBodies[path]; ok {
 		if len(methods) == 0 {
-			skipOutputBody = false
+			skipOutputBody = true
 		}
 		for _, m := range methods {
 			if m == method {
-				skipOutputBody = false
+				skipOutputBody = true
 			}
 		}
 	}
@@ -151,11 +162,20 @@ func (l *logger) middleware(c *gin.Context) {
 
 	skipReq, skipInputBody, skipOutputBody := l.check(cleanedPath, c.Request.Method)
 
-	if skipReq {
+	var logDisabled bool
+	if c.Request.Context().Value("log_disabled") != nil {
+		logDisabled = c.Request.Context().Value("log_disabled").(bool)
+	}
+
+	if !skipReq && !logDisabled {
 		startTime := time.Now()
 
+		realPath := c.Request.URL.Path
+		method := c.Request.Method
+		clientIP := c.ClientIP()
+
 		var requestBody []byte
-		if skipInputBody {
+		if !skipInputBody && !strings.Contains(realPath, "sso") {
 			if c.Request.Method == http.MethodGet {
 				query := c.Request.URL.Query()
 				if query.Encode() != "" {
@@ -174,7 +194,7 @@ func (l *logger) middleware(c *gin.Context) {
 		}
 
 		var w *responseWriter
-		if skipOutputBody {
+		if !skipOutputBody {
 			w = &responseWriter{
 				ResponseWriter: c.Writer,
 			}
@@ -184,13 +204,9 @@ func (l *logger) middleware(c *gin.Context) {
 		c.Next()
 
 		duration := time.Since(startTime).Milliseconds()
+		status := c.Writer.Status()
 
 		ctx := c.Request.Context()
-
-		realPath := c.Request.URL.Path
-		method := c.Request.Method
-		status := c.Writer.Status()
-		clientIP := c.ClientIP()
 
 		var userID *int
 		id, ok := mcontext.GetOpUserID(ctx)
@@ -198,11 +214,30 @@ func (l *logger) middleware(c *gin.Context) {
 			userID = &id
 		}
 
+		var userData *model.User
+		if userID != nil {
+			usr, _ := l.cache.UserCache.GetUserInfo(c.Request.Context(), *userID, func(ctx context.Context) (*model.User, error) {
+				var usr model.User
+				err := l.db.
+					WithContext(ctx).
+					Where("id = ?", *userID).
+					Find(&usr).Error
+				if err != nil {
+					return nil, err
+				}
+
+				return &usr, nil
+			})
+			userData = usr
+		}
+
 		operationID, _ := mcontext.GetOperationID(ctx)
 
+		var request []byte
 		var compressedRequest []byte
 		if len(requestBody) > 0 {
-			data := compressData(jsonutil.JsonHideImportantData(requestBody, l.HiddenKeys...))
+			request = jsonutil.JsonHideImportantData(requestBody, l.HiddenKeys...)
+			data := compressData(request)
 			compressedRequest = data
 		} else {
 			compressedRequest = nil
@@ -210,24 +245,30 @@ func (l *logger) middleware(c *gin.Context) {
 
 		errResponse := &ffm.ErrorResponse{}
 
+		var response []byte
 		var compressedResponse []byte
-		if w != nil {
+		if w != nil && !strings.Contains(realPath, "sso") {
 			if w.flag && w.body != nil && w.body.Len() > 0 {
-
-				if w.Status() >= 300 {
+				if w.Status() >= 400 {
 					err := json.Unmarshal(w.body.Bytes(), errResponse)
 					if err != nil {
 						errResponse = nil
 					}
 				}
-
-				data := compressData(jsonutil.JsonHideImportantData(w.body.Bytes(), l.HiddenKeys...))
+				response = jsonutil.JsonHideImportantData(w.body.Bytes(), l.HiddenKeys...)
+				data := compressData(response)
 				compressedResponse = data
 			} else {
 				compressedResponse = nil
 			}
 		} else {
 			compressedResponse = nil
+		}
+
+		var userAction *string
+		action, ok := mcontext.GetOpAction(ctx)
+		if ok && action != "" {
+			userAction = &action
 		}
 
 		var errDetailRU *string
@@ -239,21 +280,124 @@ func (l *logger) middleware(c *gin.Context) {
 			}
 		}
 
-		entry := models.Analytics{
-			OperationID:  operationID,
-			Path:         realPath,
-			UserID:       userID,
-			Method:       method,
-			StatusCode:   status,
-			ClientIP:     clientIP,
-			RequestBody:  compressedRequest,
-			ResponseBody: compressedResponse,
-			Duration:     duration,
-			Error:        errDetailRU,
-			CreatedAt:    time.Now().UTC(),
+		entry := model.Analytics{
+			OperationID: operationID,
+			Path:        realPath,
+			UserID:      userID,
+			Method:      method,
+			StatusCode:  status,
+			ClientIP:    clientIP,
+			Duration:    duration,
+			Error:       errDetailRU,
+			CreatedAt:   time.Now().UTC(),
 		}
 
-		l.addEntry(entry)
+		if userData != nil {
+			entry.Login = &userData.Login
+			entry.FirstName = userData.FirstName
+			entry.LastName = userData.LastName
+		}
+
+		if loggerServ.GetLevel() == zerolog.DebugLevel || strings.ToUpper(method) != http.MethodGet || userAction != nil {
+			entry.RequestBody = compressedRequest
+			entry.ResponseBody = compressedResponse
+		}
+
+		var level zerolog.Level
+		logPkg := loggerServ.Info()
+		if status >= 400 {
+			if userAction != nil {
+				logPkg = loggerServ.WithLevel(zerolog.ErrorLevel)
+			} else {
+				logPkg = loggerServ.Error()
+			}
+			level = zerolog.ErrorLevel
+		} else {
+			if userAction != nil {
+				logPkg = loggerServ.WithLevel(zerolog.InfoLevel)
+				level = zerolog.InfoLevel
+			} else {
+				if strings.ToUpper(method) == http.MethodGet {
+					logPkg = loggerServ.Debug()
+					level = zerolog.DebugLevel
+				} else {
+					logPkg = loggerServ.Info()
+					level = zerolog.InfoLevel
+				}
+			}
+		}
+
+		var act string
+		if userAction != nil {
+			act = *userAction
+		} else {
+			switch strings.ToUpper(method) {
+			case http.MethodGet:
+				act = "Чтение объекта"
+			case http.MethodPost:
+				if strings.Contains(realPath, "mass-update") {
+					act = "Массовое изменение объектов"
+				} else if strings.Contains(realPath, "update") {
+					act = "Изменение объекта"
+				} else if strings.Contains(realPath, "mass-delete") {
+					act = "Массовое удаление объектов"
+				} else if strings.Contains(realPath, "import") {
+					act = "Импорт объектов"
+				} else if strings.Contains(realPath, "export") {
+					act = "Экспорт объектов"
+				} else if strings.Contains(realPath, "delete") {
+					act = "Удаление объекта"
+				} else {
+					act = "Создание объекта"
+				}
+			case http.MethodPut, http.MethodPatch:
+				act = "Изменение объекта"
+			case http.MethodDelete:
+				act = "Удаление объекта"
+			}
+		}
+
+		if act != "" {
+			entry.Action = &act
+		}
+
+		logPkg = logPkg.
+			Str(string(constant.OperationID), operationID).
+			Str("ip", clientIP).
+			Str("duration", fmt.Sprintf("%dms", duration))
+
+		if userID != nil {
+			logPkg = logPkg.Int("action_user_id", *userID)
+		}
+
+		if userData != nil {
+			logPkg = logPkg.Str("action_user_login", userData.Login)
+		}
+
+		if act != "" {
+			logPkg = logPkg.Str(string(constant.OpAction), "| "+act)
+		}
+
+		if errDetailRU != nil {
+			logPkg = logPkg.Str("error", *errDetailRU)
+		}
+
+		if len(c.Errors.Errors()) > 0 {
+			logPkg = logPkg.Str("errors", strings.Join(c.Errors.Errors(), ";"))
+		}
+
+		if loggerServ.GetLevel() == zerolog.DebugLevel || userAction != nil {
+			logPkg = logPkg.Str("request", string(request))
+			logPkg = logPkg.Str("response", string(response))
+		}
+
+		logPkg.Msgf("%d | %s %s", status, method, realPath)
+
+		if l.configHolder.Get().Enabled {
+			if userAction != nil || level >= l.configHolder.Get().Level {
+				l.addEntry(entry)
+			}
+		}
 	}
 }
 
@@ -276,7 +420,7 @@ func compressData(data []byte) []byte {
 	return buf.Bytes()
 }
 
-func (l *logger) addEntry(entry models.Analytics) {
+func (l *logger) addEntry(entry model.Analytics) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -315,20 +459,10 @@ func (l *logger) flush() {
 		log.Printf("error when adding user data to the request")
 	}
 
-	var entries []models.Analytics
-	for _, entry := range l.entries {
-		if strings.Contains(strings.ToLower(entry.FirstName), "broker") ||
-			strings.Contains(strings.ToLower(entry.FirstName), "брокер") {
-			continue
-		}
-		entries = append(entries, entry)
-	}
-
-	if len(entries) > 0 {
-		err := l.db.Create(&entries).Error
-		if err != nil {
-			log.Printf("error when inserting analytics: %v", err)
-		}
+	if len(l.entries) > 0 {
+		_ = l.db.
+			WithContext(mcontext.WithOperationIDContext(context.Background(), strconv.FormatInt(time.Now().UnixMilli(), 10))).
+			Create(&l.entries).Error
 	}
 
 	l.entries = l.entries[:0]
@@ -341,14 +475,16 @@ func (l *logger) analyticWithUserData() error {
 		userIDs = append(userIDs, id)
 	}
 
-	var users []models.User
+	var users []model.User
 	if len(userIDs) > 0 {
-		if err := l.db.Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+		if err := l.db.
+			WithContext(mcontext.WithOperationIDContext(context.Background(), strconv.FormatInt(time.Now().UnixMilli(), 10))).
+			Where("id IN ?", userIDs).Find(&users).Error; err != nil {
 			return err
 		}
 	}
 
-	userMap := make(map[int]models.User)
+	userMap := make(map[int]model.User)
 	for _, user := range users {
 		userMap[user.ID] = user
 	}
@@ -377,9 +513,9 @@ func (l *logger) shutdown() {
 			log.Printf("error when adding user data to the request")
 		}
 
-		if err := l.db.Create(&l.entries).Error; err != nil {
-			log.Printf("error when inserting analytics: %v", err)
-		}
+		_ = l.db.
+			WithContext(mcontext.WithOperationIDContext(context.Background(), strconv.FormatInt(time.Now().UnixMilli(), 10))).
+			Create(&l.entries)
 		l.entries = l.entries[:0]
 		l.userIDMap = make(map[int]struct{})
 	}

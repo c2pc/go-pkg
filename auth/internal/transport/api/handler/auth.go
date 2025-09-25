@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"html/template"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
@@ -15,37 +18,38 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/sso"
-	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
-	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
+	"github.com/crewjam/saml/samlsp"
 	"github.com/gin-gonic/gin"
 )
 
-type AuthHandler[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any] struct {
-	authService        service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
-	tr                 mw.ITransaction
-	tokenMiddleware    middleware.ITokenMiddleware
-	profileTransformer profile.ITransformer[Model]
-	profileRequest     profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput]
-	oidcAuth           oidc.AuthService
-	samlAuth           saml.AuthService
+type AuthHandler struct {
+	authService          service.IAuthService
+	tr                   mw.ITransaction
+	tokenMiddleware      *middleware.TokenMiddleware
+	profileTransformer   profile.ITransformer
+	profileRequest       profile.IRequest
+	oidcAuth             *fx.OIDCHolder
+	samlAuth             *fx.SAMLHolder
+	permissionMiddleware middleware.IPermissionMiddleware
 }
 
-func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfileInput any](
-	authService service.IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput],
+func NewAuthHandlers(
+	authService service.IAuthService,
 	tr mw.ITransaction,
-	tokenMiddleware middleware.ITokenMiddleware,
-	profileTransformer profile.ITransformer[Model],
-	profileRequest profile.IRequest[CreateInput, UpdateInput, UpdateProfileInput],
-	oidcAuth oidc.AuthService,
-	samlAuth saml.AuthService,
-) *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	return &AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]{
+	tokenMiddleware *middleware.TokenMiddleware,
+	profileTransformer profile.ITransformer,
+	profileRequest profile.IRequest,
+	oidcAuth *fx.OIDCHolder,
+	samlAuth *fx.SAMLHolder,
+	permissionMiddleware middleware.IPermissionMiddleware,
+) *AuthHandler {
+	return &AuthHandler{
 		authService,
 		tr,
 		tokenMiddleware,
@@ -53,40 +57,73 @@ func NewAuthHandlers[Model profile.IModel, CreateInput, UpdateInput, UpdateProfi
 		profileRequest,
 		oidcAuth,
 		samlAuth,
+		permissionMiddleware,
 	}
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) Init(engine *gin.Engine, api *gin.RouterGroup) {
+func (h *AuthHandler) Init(engine *gin.Engine, api *gin.RouterGroup) {
 	auth := api.Group("")
 	{
 		auth.POST("/login", h.tr.DBTransaction, h.login)
 		auth.POST("/refresh", h.tr.DBTransaction, h.refresh)
 		auth.POST("/logout", h.tr.DBTransaction, h.logout)
 		auth.GET("/account", h.tokenMiddleware.Authenticate, h.account)
-
-		if h.oidcAuth.IsEnabled() {
-			auth.GET("/sso/login", h.oidcLogin)
-			auth.GET("/sso/callback", h.tr.DBTransaction, h.oidcVerify)
-		} else if h.samlAuth.IsEnabled() {
-			auth.GET("/sso/login", h.samlAuth.SamlSP().RequireAccount, h.tr.DBTransaction, h.samlLogin)
-		} else {
-			auth.GET("/sso/login", func(c *gin.Context) {
-				executeTemplate(c, "sso_not_supported.html")
-			})
-			auth.GET("/sso/callback", func(c *gin.Context) {
-				executeTemplate(c, "sso_not_supported.html")
-			})
+		auth.GET("/sso/login", h.tr.DBTransaction, h.ssoLogin)
+		auth.GET("/sso/callback", h.tr.DBTransaction, h.ssoCallback)
+		auth.POST("/configs/saml.metadata", h.tokenMiddleware.Authenticate, h.permissionMiddleware.Can, h.uploadSamlMetadata)
+		auth.POST("/configs/saml.cert", h.tokenMiddleware.Authenticate, h.permissionMiddleware.Can, h.uploadSamlCert)
+	}
+	engine.Any("/saml/:key", func(c *gin.Context) {
+		if h.samlAuth.Get().IsEnabled() {
+			h.samlAuth.Get().SamlSP().ServeHTTP(c)
 		}
+	})
+}
+
+func (h *AuthHandler) ssoLogin(c *gin.Context) {
+	if h.oidcAuth.Get().IsEnabled() {
+		h.oidcLogin(c)
+		return
 	}
 
-	if h.samlAuth.IsEnabled() {
-		engine.Any("/saml/:key", h.samlAuth.SamlSP().ServeHTTP)
+	if h.samlAuth.Get().IsEnabled() {
+		handlers := []gin.HandlerFunc{
+			h.samlAuth.Get().SamlSP().RequireAccount,
+			h.samlLogin,
+		}
+		runHandlers(c, handlers)
+		return
+	}
+
+	executeTemplate(c, "sso_not_supported.html")
+}
+
+func (h *AuthHandler) ssoCallback(c *gin.Context) {
+	if h.oidcAuth.Get().IsEnabled() {
+		handlers := []gin.HandlerFunc{
+			h.oidcVerify,
+		}
+		runHandlers(c, handlers)
+		return
+	}
+
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
+	executeTemplate(c, "sso_not_supported.html")
+}
+
+func runHandlers(c *gin.Context, handlers []gin.HandlerFunc) {
+	for _, h := range handlers {
+		if c.IsAborted() {
+			return
+		}
+		h(c)
 	}
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) login(c *gin.Context) {
+func (h *AuthHandler) login(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthLoginRequest](c)
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 		response.Response(c, err)
 		return
 	}
@@ -95,22 +132,25 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) login
 		Login:    cred.Login,
 		Password: cred.Password,
 		DeviceID: cred.DeviceID,
-		IsDomain: cred.DomainAuth,
+		Secret:   c.GetHeader("X-Broker"),
 	})
 	if userID != 0 {
 		c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), userID))
 	}
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 		response.Response(c, err)
 		return
 	}
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Вход пользователя в систему"))
 
 	c.JSON(http.StatusOK, transformer.AuthTokenTransform(data, h.profileTransformer))
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) refresh(c *gin.Context) {
+func (h *AuthHandler) refresh(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthRefreshRequest](c)
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешное обновление токена"))
 		response.Response(c, err)
 		return
 	}
@@ -123,18 +163,21 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) refre
 		c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), userID))
 	}
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешное обновление токена"))
 		response.Response(c, err)
 		return
 	}
 
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Обновление токена"))
 	c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), data.Auth.UserID))
 
 	c.JSON(http.StatusOK, transformer.AuthTokenTransform(data, h.profileTransformer))
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) logout(c *gin.Context) {
+func (h *AuthHandler) logout(c *gin.Context) {
 	cred, err := request2.BindJSON[request.AuthLogoutRequest](c)
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный выход из системы"))
 		response.Response(c, err)
 		return
 	}
@@ -146,14 +189,16 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) logou
 		c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), userID))
 	}
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный выход из системы"))
 		response.Response(c, err)
 		return
 	}
 
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Выход пользователя из системы"))
 	c.Status(http.StatusOK)
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) account(c *gin.Context) {
+func (h *AuthHandler) account(c *gin.Context) {
 	data, err := h.authService.Account(c.Request.Context())
 	if err != nil {
 		response.Response(c, err)
@@ -163,64 +208,32 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) accou
 	c.JSON(http.StatusOK, transformer.AuthAccountTransform(data, h.profileTransformer))
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) updateAccountData(c *gin.Context) {
-	cred, err := request2.BindJSON[request.AuthUpdateAccountDataRequest](c)
-	if err != nil {
-		response.Response(c, err)
-		return
-	}
-
-	var profileCred *UpdateProfileInput
-	if h.profileRequest != nil {
-		profileCred, err = h.profileRequest.UpdateProfileRequest(c)
-		if err != nil {
-			response.Response(c, err)
-			return
-		}
-	}
-
-	if err := h.authService.Trx(request2.TxHandle(c)).UpdateAccountData(c.Request.Context(), service.AuthUpdateAccountData{
-		Login:      cred.Login,
-		FirstName:  cred.FirstName,
-		SecondName: cred.SecondName,
-		LastName:   cred.LastName,
-		Password:   cred.Password,
-		Email:      cred.Email,
-		Phone:      cred.Phone,
-	}, profileCred); err != nil {
-		response.Response(c, err)
-		return
-	}
-
-	c.Status(http.StatusOK)
-}
-
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcLogin(c *gin.Context) {
+func (h *AuthHandler) oidcLogin(c *gin.Context) {
 	cred, err := request2.BindQuery[request.AuthSSOLoginRequest](c)
 	if err != nil {
-		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("sso.BindQuery error: %v", err))
-		executeTemplate(c, "bad_request.html")
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
+		executeTemplate(c, "bad_request.html", http.StatusBadRequest)
 		return
 	}
 
 	origin := c.GetHeader("Referer")
 
 	if strings.Index(cred.RedirectURL, origin) != 0 {
-		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("RedirectURL and origin is not the same"))
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 		executeTemplate(c, "bad_redirect_url2.html")
 		return
 	}
 
-	if h.oidcAuth.IsEnabled() {
-		if ok := h.oidcAuth.CheckRedirectURLs(cred.RedirectURL); !ok {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.CheckRedirectURLs redirect url not valid"))
+	if h.oidcAuth.Get().IsEnabled() {
+		if ok := h.oidcAuth.Get().CheckRedirectURLs(cred.RedirectURL); !ok {
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "bad_redirect_url.html")
 			return
 		}
 
-		state, code, err := h.oidcAuth.SumState(cred.RedirectURL, cred.DeviceID)
+		state, code, err := h.oidcAuth.Get().SumState(cred.RedirectURL, cred.DeviceID)
 		if err != nil {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.SumState error: %v", err))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "bad_request.html")
 			return
 		}
@@ -234,41 +247,39 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcL
 	}
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcVerify(c *gin.Context) {
-	ctx := mcontext.WithOperationIDContext(c.Request.Context(), strconv.Itoa(int(time.Now().UTC().Unix())))
-
-	if h.oidcAuth.IsEnabled() {
+func (h *AuthHandler) oidcVerify(c *gin.Context) {
+	if h.oidcAuth.Get().IsEnabled() {
 		state, err := c.Request.Cookie("state")
 		if err != nil {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("cookie state error: %v", err))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "sso_invalid_state.html")
 			return
 		}
 
 		if c.Request.URL.Query().Get("state") != state.Value {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("cookie state error: %v", err))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "sso_invalid_state.html")
 			return
 		}
 
-		token, err := h.oidcAuth.Verify(ctx, c.Request.URL.Query().Get("state"), c.Request.URL.Query().Get("code"))
+		token, err := h.oidcAuth.Get().Verify(c.Request.Context(), c.Request.URL.Query().Get("state"), c.Request.URL.Query().Get("code"))
 		if err != nil {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("oidcAuth.Verify error: %v", err))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "sso_invalid_state.html", http.StatusUnauthorized)
 			return
 		}
 
-		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(ctx, service.SSO{
+		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(c.Request.Context(), service.SSO{
 			Provider:     sso.OIDC,
 			RefreshToken: token.IDToken.RefreshToken,
 			Login:        *token.Login,
 			DeviceID:     token.State.DeviceID,
 		})
 		if userID != 0 {
-			c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(ctx, userID))
+			c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), userID))
 		}
 		if err != nil {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			if apperr.Is(err, service.ErrAuthNoAccess) {
 				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
 			} else if apperr.Is(err, service.ErrAuthBlocked) {
@@ -281,57 +292,58 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) oidcV
 			return
 		}
 
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Вход пользователя в систему"))
 		http.Redirect(c.Writer, c.Request,
 			fmt.Sprintf("%s?accessToken=%s&refreshToken=%s&expires=%d",
 				token.State.RedirectURL, authToken.Auth.Token, authToken.Auth.RefreshToken, int(authToken.Auth.ExpiresAt)),
 			http.StatusFound)
 	} else {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 		executeTemplate(c, "sso_not_supported.html")
 		return
 	}
 }
 
-func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) samlLogin(c *gin.Context) {
-	ctx := mcontext.WithOperationIDContext(c.Request.Context(), strconv.Itoa(int(time.Now().UTC().Unix())))
-
+func (h *AuthHandler) samlLogin(c *gin.Context) {
 	cred, err := request2.BindQuery[request.AuthSSOLoginRequest](c)
 	if err != nil {
-		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("sso.BindQuery error: %v", err))
-		executeTemplate(c, "bad_request.html")
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
+		executeTemplate(c, "bad_request.html", http.StatusBadRequest)
 		return
 	}
 
 	origin := c.GetHeader("Origin")
 
 	if !strings.Contains(cred.RedirectURL, origin) {
-		logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("RedirectURL and origin is not the same"))
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 		executeTemplate(c, "bad_redirect_url.html")
 		return
 	}
 
-	if h.samlAuth.IsEnabled() {
-		if ok := h.samlAuth.CheckRedirectURLs(cred.RedirectURL); !ok {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("samlAuth.CheckRedirectURLs redirect url not valid"))
+	if h.samlAuth.Get().IsEnabled() {
+		if ok := h.samlAuth.Get().CheckRedirectURLs(cred.RedirectURL); !ok {
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "bad_redirect_url.html")
 			return
 		}
 
-		login := h.samlAuth.GetLoginFromContext(c.Request.Context())
+		login := h.samlAuth.Get().GetLoginFromContext(c.Request.Context())
 		if login == "" {
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			executeTemplate(c, "sso_invalid_state.html", http.StatusUnauthorized)
 			return
 		}
 
-		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(ctx, service.SSO{
+		authToken, userID, err := h.authService.Trx(request2.TxHandle(c)).SSO(c.Request.Context(), service.SSO{
 			Provider: sso.SAML,
 			Login:    login,
 			DeviceID: cred.DeviceID,
 		})
 		if userID != 0 {
-			c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(ctx, userID))
+			c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), userID))
 		}
 		if err != nil {
-			logger.WarningfLog(c.Request.Context(), "AUTH", fmt.Sprintf("authService.SSO error: %v", err))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 			if apperr.Is(err, service.ErrAuthNoAccess) {
 				executeTemplate(c, "sso_no_access.html", http.StatusForbidden)
 			} else if apperr.Is(err, service.ErrAuthBlocked) {
@@ -344,11 +356,13 @@ func (h *AuthHandler[Model, CreateInput, UpdateInput, UpdateProfileInput]) samlL
 			return
 		}
 
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Вход пользователя в систему"))
 		http.Redirect(c.Writer, c.Request,
 			fmt.Sprintf("%s?accessToken=%s&refreshToken=%s&expires=%d",
 				cred.RedirectURL, authToken.Auth.Token, authToken.Auth.RefreshToken, int(authToken.Auth.ExpiresAt)),
 			http.StatusFound)
 	} else {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неуспешный вход в систему"))
 		executeTemplate(c, "sso_not_supported.html")
 		return
 	}
@@ -362,7 +376,7 @@ func executeTemplate(c *gin.Context, name string, code ...int) {
 	if len(code) > 0 {
 		c.Status(code[0])
 	} else {
-		c.Status(http.StatusBadRequest)
+		c.Status(http.StatusUnauthorized)
 	}
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	_ = tmpl.Execute(c.Writer, nil)
@@ -377,4 +391,104 @@ func setCallbackCookie(w http.ResponseWriter, r *http.Request, name, value strin
 		HttpOnly: true,
 	}
 	http.SetCookie(w, c)
+}
+
+func (h *AuthHandler) uploadSamlMetadata(c *gin.Context) {
+	file, err := c.FormFile("metadata")
+	if err != nil {
+		response.Response(c, apperr.ErrBadRequest.WithError(err))
+		return
+	}
+
+	dat, err := file.Open()
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+	defer dat.Close()
+
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(dat); err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+
+	_, err = samlsp.ParseMetadata(buf.Bytes())
+	if err != nil {
+		response.Response(c, apperr.New("invalid_file", apperr.WithText(err.Error()), apperr.WithCode(code.InvalidArgument)))
+		return
+	}
+
+	err = c.SaveUploadedFile(file, "saml.metadata")
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (h *AuthHandler) uploadSamlCert(c *gin.Context) {
+	cert, err := c.FormFile("cert")
+	if err != nil {
+		response.Response(c, apperr.ErrBadRequest.WithError(err))
+		return
+	}
+
+	key, err := c.FormFile("key")
+	if err != nil {
+		response.Response(c, apperr.ErrBadRequest.WithError(err))
+		return
+	}
+
+	certFile, err := cert.Open()
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+	defer certFile.Close()
+
+	keyFile, err := key.Open()
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+	defer keyFile.Close()
+
+	var certBuf, keyBuf bytes.Buffer
+	if _, err := certBuf.ReadFrom(certFile); err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+
+	if _, err := keyBuf.ReadFrom(keyFile); err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+
+	keyPair, err := tls.X509KeyPair(certBuf.Bytes(), keyBuf.Bytes())
+	if err != nil {
+		response.Response(c, apperr.New("invalid_cert", apperr.WithText(err.Error()), apperr.WithCode(code.InvalidArgument)))
+		return
+	}
+
+	keyPair.Leaf, err = x509.ParseCertificate(keyPair.Certificate[0])
+	if err != nil {
+		response.Response(c, apperr.New("invalid_key", apperr.WithText(err.Error()), apperr.WithCode(code.InvalidArgument)))
+		return
+	}
+
+	err = c.SaveUploadedFile(cert, "saml.cert")
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+
+	err = c.SaveUploadedFile(key, "saml.key")
+	if err != nil {
+		response.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+
+	c.Status(http.StatusOK)
 }

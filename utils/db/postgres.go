@@ -1,12 +1,9 @@
 package db
 
 import (
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormLogger "gorm.io/gorm/logger"
 )
 
 func ConnectPostgres(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
@@ -15,11 +12,7 @@ func ConnectPostgres(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error)
 		return nil, err
 	}
 
-	if logger2.IsDebugEnabled(level.DEVELOPMENT, level.TEST) {
-		db.Logger = NewLogger(defaultLogger())
-	} else {
-		db.Logger = gormLogger.Default.LogMode(gormLogger.Silent)
-	}
+	db.Logger = &logger{}
 
 	sqlDB, err := db.DB()
 	if err != nil {

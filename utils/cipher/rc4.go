@@ -2,8 +2,6 @@ package cipher
 
 import (
 	"crypto/rc4"
-	"encoding/hex"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -54,27 +52,4 @@ func (c *RC4) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	return out, nil
-}
-
-func bsToString(bs []byte) string {
-	str := string(bs)
-	str = strings.Replace(str, "\u0000", "", -1)
-	str = strings.Replace(str, "\x05", "", -1)
-	return str
-}
-
-func hexToByte(src []byte) ([]byte, error) {
-	dst := make([]byte, len(src))
-	n, err := hex.Decode(dst, src)
-	if err != nil {
-		return nil, err
-	}
-
-	return dst[:n], nil
-}
-
-func byteToHex(src []byte) []byte {
-	dst := make([]byte, hex.EncodedLen(len(src)))
-	hex.Encode(dst, src)
-	return dst
 }

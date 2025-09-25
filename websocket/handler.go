@@ -12,8 +12,6 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
@@ -119,9 +117,6 @@ func (s *handler) readPump(ctx context.Context, conn *ws.Conn, client *Client) {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
-				if logger.IsDebugEnabled(level.TEST) {
-					logger.WarningfLog(ctx, "WS", "error: %v", err)
-				}
 			}
 			break
 		}

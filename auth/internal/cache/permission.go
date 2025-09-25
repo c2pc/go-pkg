@@ -23,7 +23,7 @@ type PermissionCache struct {
 	rcClient *rockscache.Client
 }
 
-func NewPermissionCache(rdb redis.UniversalClient, rcClient *rockscache.Client, batchHandler cache.BatchDeleter) IPermissionCache {
+func NewPermissionCache(rdb redis.UniversalClient, rcClient *rockscache.Client, batchHandler cache.BatchDeleter) *PermissionCache {
 	c := &PermissionCache{
 		BatchDeleter: batchHandler,
 		rdb:          rdb,

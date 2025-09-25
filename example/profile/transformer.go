@@ -1,10 +1,12 @@
 package profile
 
-type Transformer[Model Profile] struct {
+import "github.com/c2pc/go-pkg/v2/auth/profile"
+
+type Transformer struct {
 }
 
-func NewTransformer[Model Profile]() *Transformer[Model] {
-	return &Transformer[Model]{}
+func NewTransformer() *Transformer {
+	return &Transformer{}
 }
 
 type Transform struct {
@@ -13,12 +15,12 @@ type Transform struct {
 	Address string `json:"address"`
 }
 
-func (r Transformer[Model]) Transform(m *Model) interface{} {
+func (r Transformer) Transform(m *profile.IModel) interface{} {
 	if m == nil {
 		return nil
 	}
 
-	prof := Profile(*m)
+	prof := (*m).(Profile)
 
 	return &Transform{
 		Age:     prof.Age,
@@ -27,14 +29,14 @@ func (r Transformer[Model]) Transform(m *Model) interface{} {
 	}
 }
 
-func (r Transformer[Model]) TransformList(models []Model) []interface{} {
+func (r Transformer) TransformList(models []profile.IModel) []interface{} {
 	if models == nil {
 		return nil
 	}
 
 	transformed := make([]interface{}, 0, len(models))
 	for _, model := range models {
-		prof := Profile(model)
+		prof := (model).(Profile)
 		transformed = append(transformed, Transform{
 			Age:     prof.Age,
 			Height:  prof.Height,
@@ -45,12 +47,12 @@ func (r Transformer[Model]) TransformList(models []Model) []interface{} {
 	return transformed
 }
 
-func (r Transformer[Model]) TransformProfile(m *Model) interface{} {
+func (r Transformer) TransformProfile(m *profile.IModel) interface{} {
 	if m == nil {
 		return nil
 	}
 
-	prof := Profile(*m)
+	prof := (*m).(Profile)
 
 	return &Transform{
 		Age:     prof.Age,

@@ -19,17 +19,15 @@ type IUserCache interface {
 
 type UserCache struct {
 	cache.BatchDeleter
-	rdb          redis.UniversalClient
-	rcClient     *rockscache.Client
-	accessExpire time.Duration
+	rdb      redis.UniversalClient
+	rcClient *rockscache.Client
 }
 
-func NewUserCache(rdb redis.UniversalClient, rcClient *rockscache.Client, batchHandler cache.BatchDeleter, accessExpire time.Duration) IUserCache {
+func NewUserCache(rdb redis.UniversalClient, rcClient *rockscache.Client, batchHandler cache.BatchDeleter) *UserCache {
 	return &UserCache{
 		BatchDeleter: batchHandler,
 		rdb:          rdb,
 		rcClient:     rcClient,
-		accessExpire: accessExpire,
 	}
 }
 
@@ -37,13 +35,12 @@ func (u *UserCache) CloneUserCache() IUserCache {
 	return &UserCache{
 		BatchDeleter: u.BatchDeleter.Clone(),
 		rdb:          u.rdb,
-		accessExpire: u.accessExpire,
 		rcClient:     u.rcClient,
 	}
 }
 
 func (u *UserCache) GetUserInfo(ctx context.Context, userID int, fn func(ctx context.Context) (*model.User, error)) (userInfo *model.User, err error) {
-	return cache.GetCache(ctx, u.rcClient, cachekey.GetUserInfoKey(userID), u.accessExpire, fn)
+	return cache.GetCache(ctx, u.rcClient, cachekey.GetUserInfoKey(userID), 1*time.Minute, fn)
 }
 
 func (u *UserCache) DelUsersInfo(userIDs ...int) IUserCache {

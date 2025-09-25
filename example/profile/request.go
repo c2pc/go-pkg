@@ -5,23 +5,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Request[CreateInput ProfileCreateInput, UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput] struct {
+type Request struct {
 }
 
-func NewRequest[CreateInput ProfileCreateInput,
-	UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput]() *Request[CreateInput, UpdateInput, UpdateProfileInput] {
-	return &Request[CreateInput, UpdateInput, UpdateProfileInput]{}
+func NewRequest() *Request {
+	return &Request{}
 }
 
 type ProfileCreateRequest struct {
 	Age     *int   `json:"age" binding:"omitempty,gte=0"`
 	Height  *int   `json:"height" binding:"omitempty,gte=0"`
-	Address string `json:"address" binding:"required,min=1,max=255"`
+	Address string `json:"address" binding:"omitempty,min=1,max=255"`
 }
 
-func (r Request[CreateInput, UpdateInput, UpdateProfileInput]) CreateRequest(c *gin.Context) (*CreateInput, error) {
+func (r Request) CreateRequest(c *gin.Context) (any, error) {
 	type Profile struct {
-		Profile ProfileCreateRequest `json:"profile" binding:"required"`
+		Profile ProfileCreateRequest `json:"profile" binding:"omitempty"`
 	}
 
 	cred, err := request2.BindJSON[Profile](c)
@@ -29,15 +28,13 @@ func (r Request[CreateInput, UpdateInput, UpdateProfileInput]) CreateRequest(c *
 		return nil, err
 	}
 
-	input := CreateInput{
+	input := ProfileCreateInput{
 		Age:     cred.Profile.Age,
 		Height:  cred.Profile.Height,
 		Address: cred.Profile.Address,
 	}
 
-	data := CreateInput(input)
-
-	return &data, nil
+	return &input, nil
 }
 
 type ProfileUpdateRequest struct {
@@ -46,7 +43,7 @@ type ProfileUpdateRequest struct {
 	Address *string `json:"address" binding:"omitempty,min=1,max=255"`
 }
 
-func (r Request[CreateInput, UpdateInput, UpdateProfileInput]) UpdateRequest(c *gin.Context) (*UpdateInput, error) {
+func (r Request) UpdateRequest(c *gin.Context) (any, error) {
 	type Profile struct {
 		Profile *ProfileUpdateRequest `json:"profile" binding:"omitempty"`
 	}
@@ -60,44 +57,11 @@ func (r Request[CreateInput, UpdateInput, UpdateProfileInput]) UpdateRequest(c *
 		return nil, nil
 	}
 
-	input := UpdateInput{
+	input := ProfileUpdateInput{
 		Age:     cred.Profile.Age,
 		Height:  cred.Profile.Height,
 		Address: cred.Profile.Address,
 	}
 
-	data := UpdateInput(input)
-
-	return &data, nil
-}
-
-type UpdateProfileRequest struct {
-	Age     *int    `json:"age" binding:"omitempty,gte=0"`
-	Height  *int    `json:"height" binding:"omitempty,gte=0"`
-	Address *string `json:"address" binding:"omitempty,min=1,max=255"`
-}
-
-func (r Request[CreateInput, UpdateInput, UpdateProfileInput]) UpdateProfileRequest(c *gin.Context) (*UpdateProfileInput, error) {
-	type Profile struct {
-		Profile *UpdateProfileRequest `json:"profile" binding:"omitempty"`
-	}
-
-	cred, err := request2.BindJSON[Profile](c)
-	if err != nil {
-		return nil, err
-	}
-
-	if cred.Profile == nil {
-		return nil, nil
-	}
-
-	input := UpdateProfileRequest{
-		Age:     cred.Profile.Age,
-		Height:  cred.Profile.Height,
-		Address: cred.Profile.Address,
-	}
-
-	data := UpdateProfileInput(input)
-
-	return &data, nil
+	return &input, nil
 }

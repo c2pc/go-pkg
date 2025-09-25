@@ -1,18 +1,17 @@
 package ffm
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"io"
-	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/google/go-querystring/query"
+	"resty.dev/v3"
 )
 
 type FileUnpackRequest struct {
@@ -76,76 +75,56 @@ type RemoveRequest struct {
 	OnlyChildren        bool   `json:"only_children"`
 }
 
-func (f *FFM) request(ctx context.Context, method, url string, operationID string, contentType string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, f.addr+"api/v1/"+f.service+"/"+url, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set(constant.OperationIDHeader, operationID)
-
-	client := http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, ErrServerIsNotUnavailable.WithError(err)
-	}
-
-	return resp, nil
-}
-
-func (f *FFM) jsonRequest(ctx context.Context, method, url string, input interface{}, output interface{}) error {
-	var reqBody []byte
-	var err error
-	if input != nil {
-		if method == http.MethodGet {
-			v, err := query.Values(input)
-			if err != nil {
-				return err
-			}
-
-			url = url + "?" + v.Encode()
-		} else {
-			reqBody, err = json.Marshal(input)
-			if err != nil {
-				return err
-			}
+func (f *FFM) request(ctx context.Context, method, url string, input interface{}, output interface{}) error {
+	opID := strconv.Itoa(int(time.Now().UnixMicro()))
+	if op, ok := mcontext.GetOperationID(ctx); ok {
+		parts := strings.Split(op, "-")
+		if len(parts) > 0 {
+			opID = parts[len(parts)-1]
 		}
 	}
 
-	operationID := strconv.Itoa(int(time.Now().UnixMilli()))
-	op := ctx.Value(constant.OperationID)
-	if op2, ok := op.(string); ok {
-		operationID = op2
+	req := f.client.R().
+		SetContext(ctx).
+		SetContentType("application/json").
+		SetHeader("X-Operation-Id", opID)
+
+	if output != nil {
+		req = req.SetResult(output)
 	}
 
-	if logger.IsDebugEnabled(level.TEST) {
-		logger.Infof("REQUEST - %s - %s - %s - %+v", operationID, method, url, string(reqBody))
-	}
-
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	resp, err := f.request(ctx2, method, url, operationID, "application/json", bytes.NewBuffer(reqBody))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if status, err := parseResult(resp, output); err != nil {
-		if logger.IsDebugEnabled(level.TEST) {
-			logger.Infof("RESPONSE - %s - %s - %s - %+v - %d", operationID, method, url, err, status)
+	if method == resty.MethodGet && input != nil {
+		values, err := query.Values(input)
+		if err != nil {
+			return err
 		}
+		req.SetQueryParamsFromValues(values)
+	} else if input != nil {
+		req.SetBody(input)
+	}
 
+	resp, err := req.Execute(method, url)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "connection refused") {
+			return apperr.ErrServerIsNotAvailable.WithError(err)
+		}
 		return err
 	}
 
-	if logger.IsDebugEnabled(level.TEST) {
-		logger.Infof("RESPONSE - %s - %s - %s - %+v", operationID, method, url, output)
+	if resp.IsSuccess() {
+		return nil
 	}
 
-	return nil
+	switch resp.StatusCode() {
+	case 400:
+		return apperr.ErrValidation
+	case 401:
+		return apperr.ErrUnauthenticated
+	case 403:
+		return apperr.ErrForbidden
+	case 404:
+		return apperr.ErrNotFound
+	default:
+		return apperr.ErrInternal
+	}
 }

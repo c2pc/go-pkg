@@ -8,6 +8,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/dto"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
@@ -109,11 +110,15 @@ func (h *RoleHandler) GetById(c *gin.Context) {
 }
 
 func (h *RoleHandler) Create(c *gin.Context) {
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание роли пользователей"))
+
 	cred, err := request2.BindJSON[request.RoleCreateRequest](c)
 	if err != nil {
 		response.Response(c, err)
 		return
 	}
+
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание роли пользователей: "+cred.Name))
 
 	role, err := h.roleService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), dto.RoleCreate(cred))
 	if err != nil {
@@ -125,6 +130,8 @@ func (h *RoleHandler) Create(c *gin.Context) {
 }
 
 func (h *RoleHandler) Update(c *gin.Context) {
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение роли пользователей"))
+
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
@@ -137,7 +144,11 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := h.roleService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.RoleUpdate(cred)); err != nil {
+	roleName, err := h.roleService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.RoleUpdate(cred))
+	if roleName != "" {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение роли пользователей: "+roleName))
+	}
+	if err != nil {
 		response.Response(c, err)
 		return
 	}
@@ -146,13 +157,18 @@ func (h *RoleHandler) Update(c *gin.Context) {
 }
 
 func (h *RoleHandler) Delete(c *gin.Context) {
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление роли пользователей"))
+
 	id, err := request2.Id(c)
 	if err != nil {
 		response.Response(c, err)
 		return
 	}
 
-	err = h.roleService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
+	roleName, err := h.roleService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
+	if roleName != "" {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление роли пользователей: "+roleName))
+	}
 	if err != nil {
 		response.Response(c, err)
 		return

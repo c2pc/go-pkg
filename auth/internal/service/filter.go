@@ -29,19 +29,19 @@ type IFilterService interface {
 }
 
 type FilterService struct {
-	filterRepository repository2.IFilterRepository
+	repositories repository2.Repositories
 }
 
 func NewFilterService(
-	filterRepository repository2.IFilterRepository,
+	repositories repository2.Repositories,
 ) FilterService {
 	return FilterService{
-		filterRepository: filterRepository,
+		repositories: repositories,
 	}
 }
 
 func (s FilterService) Trx(db *gorm.DB) IFilterService {
-	s.filterRepository = s.filterRepository.Trx(db)
+	s.repositories.FilterRepository = s.repositories.FilterRepository.Trx(db)
 	return s
 }
 
@@ -56,7 +56,7 @@ func (s FilterService) List(ctx context.Context, m *model2.Meta[model.Filter]) e
 		return apperr.ErrUnauthenticated.WithErrorText("operation device id is empty")
 	}
 
-	if err := s.filterRepository.Paginate(ctx, m, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
+	if err := s.repositories.FilterRepository.Paginate(ctx, m, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
 		return err
 	}
 
@@ -74,7 +74,7 @@ func (s FilterService) GetById(ctx context.Context, id int) (*model.Filter, erro
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation device id is empty")
 	}
 
-	filter, err := s.filterRepository.Find(ctx, `id = ? AND user_id = ? AND device_id = ?`, id, userID, deviceID)
+	filter, err := s.repositories.FilterRepository.Find(ctx, `id = ? AND user_id = ? AND device_id = ?`, id, userID, deviceID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrFilterNotFound
@@ -102,7 +102,7 @@ func (s FilterService) Create(ctx context.Context, input FilterCreateInput) (*mo
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation device id is empty")
 	}
 
-	filter, err := s.filterRepository.Create(ctx, &model.Filter{
+	filter, err := s.repositories.FilterRepository.Create(ctx, &model.Filter{
 		UserID:   userID,
 		DeviceID: deviceID,
 		Name:     input.Name,
@@ -135,7 +135,7 @@ func (s FilterService) Update(ctx context.Context, id int, input FilterUpdateInp
 		return apperr.ErrUnauthenticated.WithErrorText("operation device id is empty")
 	}
 
-	filter, err := s.filterRepository.Omit("value").Find(ctx, `id = ? AND user_id = ? AND device_id = ?`, id, userID, deviceID)
+	filter, err := s.repositories.FilterRepository.Omit("value").Find(ctx, `id = ? AND user_id = ? AND device_id = ?`, id, userID, deviceID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrFilterNotFound
@@ -155,7 +155,7 @@ func (s FilterService) Update(ctx context.Context, id int, input FilterUpdateInp
 	}
 
 	if len(selects) > 0 {
-		if err = s.filterRepository.Update(ctx, filter, selects, `id = ?`, filter.ID); err != nil {
+		if err = s.repositories.FilterRepository.Update(ctx, filter, selects, `id = ?`, filter.ID); err != nil {
 			if apperr.Is(err, apperr.ErrDBDuplicated) {
 				return ErrFilterExists
 			}
@@ -177,7 +177,7 @@ func (s FilterService) Delete(ctx context.Context, id int) error {
 		return apperr.ErrUnauthenticated.WithErrorText("operation device id is empty")
 	}
 
-	filter, err := s.filterRepository.Omit("value").Find(ctx, `id = ? AND user_id = ? AND device_id = ?`, id, userID, deviceID)
+	filter, err := s.repositories.FilterRepository.Omit("value").Find(ctx, `id = ? AND user_id = ? AND device_id = ?`, id, userID, deviceID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return ErrFilterNotFound
@@ -185,7 +185,7 @@ func (s FilterService) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	if err := s.filterRepository.Delete(ctx, `id = ?`, filter.ID); err != nil {
+	if err := s.repositories.FilterRepository.Delete(ctx, `id = ?`, filter.ID); err != nil {
 		return err
 	}
 

@@ -12,14 +12,14 @@ type IVersionService interface {
 }
 
 type VersionService struct {
-	version             string
-	migrationRepository repository.IMigrationRepository
+	version      string
+	repositories repository.Repositories
 }
 
-func NewVersionService(version string, migrationRepository repository.IMigrationRepository) VersionService {
+func NewVersionService(version string, repositories repository.Repositories) VersionService {
 	return VersionService{
-		version:             version,
-		migrationRepository: migrationRepository,
+		version:      version,
+		repositories: repositories,
 	}
 }
 
@@ -28,7 +28,7 @@ func (s VersionService) Get(ctx context.Context) *model.Version {
 		App: s.version,
 		DB:  "0.0.0",
 	}
-	m, _ := s.migrationRepository.Find(ctx, `version IS NOT NULL`)
+	m, _ := s.repositories.MigrationRepository.Find(ctx, `version IS NOT NULL`)
 	if m != nil {
 		version.DB = "0.0." + m.Version
 	}

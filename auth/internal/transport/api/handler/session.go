@@ -6,6 +6,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
@@ -57,11 +58,16 @@ func (h *SessionHandler) list(c *gin.Context) {
 func (h *SessionHandler) end(c *gin.Context) {
 	id, err := request2.Id(c)
 	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Очистка сессии пользователя"))
 		response.Response(c, err)
 		return
 	}
 
-	if err := h.sessionService.Trx(request2.TxHandle(c)).End(c.Request.Context(), id); err != nil {
+	userLogin, err := h.sessionService.Trx(request2.TxHandle(c)).End(c.Request.Context(), id)
+	if err != nil {
+		if userLogin != "" {
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Очистка сессии пользователя: "+userLogin))
+		}
 		response.Response(c, err)
 		return
 	}

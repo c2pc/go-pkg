@@ -95,9 +95,9 @@ func TestRetry_NeedRetryReturnsFalse(t *testing.T) {
 	assert.EqualError(t, err, "non-retriable error")
 }
 
-func TestRetry_CanselContext(t *testing.T) {
-	ctx, cansel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cansel()
+func TestRetry_CancelContext(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 
 	fn := func() error {
 		return errors.New("non-retriable error")
@@ -107,12 +107,12 @@ func TestRetry_CanselContext(t *testing.T) {
 	}
 
 	err := retry.Retry(ctx, fn, needRetry, 10*time.Millisecond, 1*time.Second)
-	assert.EqualError(t, err, retry.ErrContextCansel.Error())
+	assert.EqualError(t, err, retry.ErrContextCancel.Error())
 }
 
-func TestRetry_CanselContext2(t *testing.T) {
-	ctx, cansel := context.WithCancel(context.Background())
-	cansel()
+func TestRetry_CancelContext2(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	fn := func() error {
 		return errors.New("non-retriable error")
@@ -122,5 +122,5 @@ func TestRetry_CanselContext2(t *testing.T) {
 	}
 
 	err := retry.Retry(ctx, fn, needRetry, 100*time.Millisecond, 1*time.Second)
-	assert.EqualError(t, err, retry.ErrContextCansel.Error())
+	assert.EqualError(t, err, retry.ErrContextCancel.Error())
 }

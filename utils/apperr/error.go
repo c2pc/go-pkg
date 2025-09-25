@@ -123,6 +123,9 @@ func Translate(err error, lang string) string {
 	}
 
 	if appError.TextTranslate == nil {
+		if appError.Text != "" {
+			return appError.Text
+		}
 		return appError.ID
 	}
 

@@ -1,4 +1,4 @@
-package models
+package model
 
 import (
 	"time"
@@ -21,6 +21,7 @@ type Analytics struct {
 	LastName     string    `json:"last_name"`
 	Duration     int64     `json:"duration"`
 	Error        *string   `json:"error"`
+	Action       *string   `json:"action"`
 
 	User *User `json:"user"`
 }

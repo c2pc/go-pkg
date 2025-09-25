@@ -9,25 +9,25 @@ import (
 	"gorm.io/gorm"
 )
 
-type Service[Model Profile, CreateInput ProfileCreateInput, UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput] struct {
+type Service struct {
 	profileRepository IRepository
 }
 
-func NewService[Model Profile, CreateInput ProfileCreateInput, UpdateInput ProfileUpdateInput, UpdateProfileInput ProfileUpdateProfileInput](
+func NewService(
 	profileRepository IRepository,
-) Service[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	return Service[Model, CreateInput, UpdateInput, UpdateProfileInput]{
+) Service {
+	return Service{
 		profileRepository: profileRepository,
 	}
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
+func (s Service) Trx(db *gorm.DB) profile.IProfileService {
 	s.profileRepository = s.profileRepository.Trx(db)
 
 	return s
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetById(ctx context.Context, userID int) (*Model, error) {
+func (s Service) GetById(ctx context.Context, userID int) (*profile.IModel, error) {
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -36,20 +36,20 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetById(ct
 		return nil, err
 	}
 
-	m := Model(*prof)
+	m := profile.IModel(*prof)
 
 	return &m, nil
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) GetByIds(ctx context.Context, userID ...int) ([]Model, error) {
+func (s Service) GetByIds(ctx context.Context, userID ...int) ([]profile.IModel, error) {
 	profs, err := s.profileRepository.List(ctx, &model2.Filter{}, `user_id IN (?)`, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	m := make([]Model, len(profs))
+	m := make([]profile.IModel, len(profs))
 	for i, prof := range profs {
-		m[i] = Model(prof)
+		m[i] = profile.IModel(prof)
 	}
 
 	return m, nil
@@ -61,8 +61,8 @@ type ProfileCreateInput struct {
 	Address string
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(ctx context.Context, userID int, input CreateInput) (*Model, error) {
-	inp := ProfileCreateInput(input)
+func (s Service) Create(ctx context.Context, userID int, input any) (*profile.IModel, error) {
+	inp := input.(*ProfileCreateInput)
 
 	prof, err := s.profileRepository.Create(ctx, &Profile{
 		Age:     inp.Age,
@@ -82,7 +82,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Create(ctx
 		return nil, err
 	}
 
-	m := Model(*prof)
+	m := profile.IModel(*prof)
 
 	return &m, nil
 }
@@ -93,7 +93,7 @@ type ProfileUpdateInput struct {
 	Address *string
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(ctx context.Context, userID int, input UpdateInput) error {
+func (s Service) Update(ctx context.Context, userID int, input any) error {
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -102,7 +102,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Update(ctx
 		return err
 	}
 
-	inp := ProfileUpdateInput(input)
+	inp := input.(*ProfileUpdateInput)
 
 	var selects []interface{}
 	if inp.Age != nil {
@@ -136,7 +136,7 @@ type ProfileUpdateProfileInput struct {
 	Address *string
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateProfile(ctx context.Context, userID int, input UpdateProfileInput) error {
+func (s Service) UpdateProfile(ctx context.Context, userID int, input any) error {
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -145,7 +145,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateProf
 		return err
 	}
 
-	inp := ProfileUpdateProfileInput(input)
+	inp := input.(*ProfileUpdateProfileInput)
 
 	var selects []interface{}
 	if inp.Age != nil {
@@ -182,7 +182,7 @@ func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateProf
 	return nil
 }
 
-func (s Service[Model, CreateInput, UpdateInput, UpdateProfileInput]) Delete(ctx context.Context, userID int) error {
+func (s Service) Delete(ctx context.Context, userID int) error {
 	_, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {

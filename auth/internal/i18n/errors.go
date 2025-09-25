@@ -7,15 +7,15 @@ var (
 	ErrUserExists               = translator.Translate{translator.RU: "Пользователь с таким логином уже зарегистрирован", translator.EN: "A user with this login is already registered"}
 	ErrUserRolesCannotBeChanged = translator.Translate{translator.RU: "Нельзя назначать пользователю другие роли", translator.EN: "User roles cannot be changed"}
 	ErrUserCannotBeBlocked      = translator.Translate{translator.RU: "Пользователь не может быть заблокирован", translator.EN: "User cannot be blocked"}
-	ErrUserCannotBeDeleted      = translator.Translate{translator.RU: "Пользователя нельзя удалять", translator.EN: "User cannot be deleted"}
-	ErrSelfCannotBeDeleted      = translator.Translate{translator.RU: "Вы не можете удалить себя", translator.EN: "You can't delete yourself"}
+	ErrUserCannotBeDeleted      = translator.Translate{translator.RU: "Пользователь не может быть удален", translator.EN: "User cannot be deleted"}
+	ErrSelfCannotBeDeleted      = translator.Translate{translator.RU: "Запрещено удалять свою учетную запись", translator.EN: "It is forbidden to delete your account"}
 )
 
 var (
 	ErrRoleNotFound        = translator.Translate{translator.RU: "Роль не найдена", translator.EN: "Role not found"}
 	ErrRoleExists          = translator.Translate{translator.RU: "Роль уже добавлена", translator.EN: "Role has already been added"}
-	ErrRoleCannotBeChanged = translator.Translate{translator.RU: "Роль нельзя редактировать", translator.EN: "Role cannot be changed"}
-	ErrRoleCannotBeDeleted = translator.Translate{translator.RU: "Роль нельзя удалять", translator.EN: "Role cannot be deleted"}
+	ErrRoleCannotBeChanged = translator.Translate{translator.RU: "Системные роли запрещены редактировать", translator.EN: "System roles cannot be changed"}
+	ErrRoleCannotBeDeleted = translator.Translate{translator.RU: "Системные роли запрещены удалять", translator.EN: "System roles cannot be deleted"}
 )
 
 var (

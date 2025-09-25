@@ -3,12 +3,11 @@ package service
 import (
 	"context"
 	"errors"
-	"time"
 
-	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
-	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
@@ -24,71 +23,63 @@ var (
 type ISessionService interface {
 	Trx(db *gorm.DB) ISessionService
 	List(ctx context.Context, m *model3.Meta[model2.RefreshToken]) error
-	End(ctx context.Context, id int) error
+	End(ctx context.Context, id int) (string, error)
 }
 
 type SessionService struct {
-	tokenRepository repository2.ITokenRepository
-	tokenCache      cache2.ITokenCache
-	userCache       cache2.IUserCache
-	refreshExpire   time.Duration
-	db              *gorm.DB
+	repositories repository.Repositories
+	cache        *fx.CacheHolder
 }
 
 func NewSessionService(
-	tokenRepository repository2.ITokenRepository,
-	tokenCache cache2.ITokenCache,
-	userCache cache2.IUserCache,
-	refreshExpire time.Duration,
+	repositories repository.Repositories,
+	cache *fx.CacheHolder,
 ) SessionService {
 	return SessionService{
-		tokenRepository: tokenRepository,
-		tokenCache:      tokenCache,
-		userCache:       userCache,
-		refreshExpire:   refreshExpire,
+		repositories: repositories,
+		cache:        cache,
 	}
 }
 
 func (s SessionService) Trx(db *gorm.DB) ISessionService {
-	s.tokenRepository = s.tokenRepository.Trx(db)
-	s.db = db
+	s.repositories.TokenRepository = s.repositories.TokenRepository.Trx(db)
 	return s
 }
 
 func (s SessionService) List(ctx context.Context, m *model3.Meta[model2.RefreshToken]) error {
-	return s.tokenRepository.With("user").Paginate(ctx, m, ``)
+	return s.repositories.TokenRepository.With("user").Paginate(ctx, m, ``)
 }
 
-func (s SessionService) End(ctx context.Context, id int) error {
-	token, err := s.tokenRepository.FindById(ctx, id)
+func (s SessionService) End(ctx context.Context, id int) (string, error) {
+	token, err := s.repositories.TokenRepository.With("User").FindById(ctx, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return ErrSessionNotFound
+			return "", ErrSessionNotFound
 		}
-		return err
+		return "", err
 	}
 
-	if err := s.tokenRepository.Delete(ctx, `id = ?`, id); err != nil {
+	if err := s.repositories.TokenRepository.Delete(ctx, `id = ?`, id); err != nil {
 		if !apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return err
+			return token.User.Login, err
 		}
 	}
 
-	m, err := s.tokenCache.GetTokensWithoutError(ctx, token.UserID, token.DeviceID)
+	m, err := s.cache.Get().TokenCache.GetTokensWithoutError(ctx, token.UserID, token.DeviceID)
 	if err != nil && !errors.Is(err, redis.Nil) {
-		return apperr.ErrInternal.WithError(err)
+		return token.User.Login, apperr.ErrInternal.WithError(err)
 	}
 	for k := range m {
 		m[k] = constant.KickedToken
-		err = s.tokenCache.SetTokenMapByUidPid(ctx, token.UserID, token.DeviceID, m)
+		err = s.cache.Get().TokenCache.SetTokenMapByUidPid(ctx, token.UserID, token.DeviceID, m)
 		if err != nil {
-			return apperr.ErrInternal.WithError(err)
+			return token.User.Login, apperr.ErrInternal.WithError(err)
 		}
 	}
 
-	if err := s.userCache.DelUsersInfo(token.UserID).ChainExecDel(ctx); err != nil {
-		return apperr.ErrInternal.WithError(err)
+	if err := s.cache.Get().UserCache.DelUsersInfo(token.UserID).ChainExecDel(ctx); err != nil {
+		return token.User.Login, apperr.ErrInternal.WithError(err)
 	}
 
-	return nil
+	return token.User.Login, nil
 }

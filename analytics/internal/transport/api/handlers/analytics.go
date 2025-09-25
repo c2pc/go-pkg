@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
+	"github.com/c2pc/go-pkg/v2/analytics/internal/model"
 	"github.com/c2pc/go-pkg/v2/analytics/internal/service"
 	"github.com/c2pc/go-pkg/v2/analytics/internal/transport/api/transformer"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
@@ -38,7 +38,7 @@ func (h *AnalyticsHandler) GetList(c *gin.Context) {
 	}
 
 	m := model2.NewMeta(
-		model2.NewPagination[models.Analytics](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		model2.NewPagination[model.Analytics](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
 		model2.NewFilter(cred.OrderBy, cred.Where),
 	)
 

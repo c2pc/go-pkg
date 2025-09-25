@@ -13,7 +13,6 @@ import (
 )
 
 func TestNewRunner(t *testing.T) {
-	fmt.Println("TestNewRunner")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	r := runner.NewRunner(ctx)

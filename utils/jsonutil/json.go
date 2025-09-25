@@ -27,10 +27,6 @@ func JsonStringToStruct(s string, args any) error {
 }
 
 func JsonHideImportantData(input []byte, keys ...string) []byte {
-	if len(keys) == 0 {
-		return input
-	}
-
 	if input == nil {
 		return input
 	}
@@ -40,7 +36,9 @@ func JsonHideImportantData(input []byte, keys ...string) []byte {
 		return input
 	}
 
-	maskSensitiveFields(data, keys...)
+	if len(keys) > 0 {
+		maskSensitiveFields(data, keys...)
+	}
 
 	output, err := json.Marshal(data)
 	if err != nil {

@@ -74,15 +74,16 @@ create table if not exists auth_tasks
     name       varchar(256) not null,
     type       varchar(256) not null,
     status     varchar(256) not null,
-    output     bytea,
-    input      bytea,
+    output bytea,
+    input bytea,
     created_at timestamp default now(),
     updated_at timestamp default now()
 );
 
 ALTER TABLE auth_tokens
     ADD COLUMN IF NOT EXISTS domain BOOLEAN NOT NULL DEFAULT FALSE,
-    ALTER COLUMN token TYPE TEXT;
+ALTER
+COLUMN token TYPE TEXT;
 
 
 create table if not exists auth_filters
@@ -92,5 +93,5 @@ create table if not exists auth_filters
     device_id integer      not null,
     name      varchar(256) not null,
     endpoint  varchar(256) not null,
-    value     bytea        not null
+    value bytea not null
 );

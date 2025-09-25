@@ -7,4 +7,5 @@ var (
 	UsersPermission       = translator.Translate{translator.RU: "Пользователи", translator.EN: "Users"}
 	PermissionsPermission = translator.Translate{translator.RU: "Права", translator.EN: "Permissions"}
 	SessionsPermission    = translator.Translate{translator.RU: "Активные сеансы", translator.EN: "Active sessions"}
+	ConfigPermission      = translator.Translate{translator.RU: "Конфигурации", translator.EN: "Configs"}
 )

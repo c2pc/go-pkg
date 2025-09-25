@@ -26,7 +26,7 @@ func Command() *cobra.Command {
 				}
 			}
 
-			en, err := cipher.RC4Cipher.Encrypt([]byte(plaintext))
+			en, err := cipher.AESCipher.Encrypt([]byte(plaintext))
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)

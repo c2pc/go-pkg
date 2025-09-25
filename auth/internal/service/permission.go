@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
@@ -16,27 +16,27 @@ type IPermissionService interface {
 }
 
 type PermissionService struct {
-	permissionRepository repository.IPermissionRepository
-	permissionCache      cache.IPermissionCache
+	repositories repository.Repositories
+	cache        *fx.CacheHolder
 }
 
 func NewPermissionService(
-	permissionRepository repository.IPermissionRepository,
-	permissionCache cache.IPermissionCache,
+	repositories repository.Repositories,
+	cache *fx.CacheHolder,
 ) PermissionService {
 	return PermissionService{
-		permissionRepository: permissionRepository,
-		permissionCache:      permissionCache,
+		repositories: repositories,
+		cache:        cache,
 	}
 }
 
 func (s PermissionService) Trx(db *gorm.DB) IPermissionService {
-	s.permissionRepository = s.permissionRepository.Trx(db)
+	s.repositories.PermissionRepository = s.repositories.PermissionRepository.Trx(db)
 	return s
 }
 
 func (s PermissionService) List(ctx context.Context) ([]model.Permission, error) {
-	return s.permissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model.Permission, error) {
-		return s.permissionRepository.List(ctx, &model2.Filter{}, ``)
+	return s.cache.Get().PermissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model.Permission, error) {
+		return s.repositories.PermissionRepository.List(ctx, &model2.Filter{}, ``)
 	})
 }

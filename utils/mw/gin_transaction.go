@@ -2,11 +2,13 @@ package mw
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -44,7 +46,7 @@ func (tr *Transaction) DBTransaction(c *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
-			logger.ErrorfLog(c.Request.Context(), constant.APP_ID, "%s - %v", apperr.ErrInternal.Error(), r)
+			logger.Panic().Str(string(constant.OperationID), mcontext.GetOperationID2(c.Request.Context())).Str("error", fmt.Sprintf("%v", r))
 			response.Response(c, apperr.ErrInternal)
 			return
 		}

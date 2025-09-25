@@ -20,7 +20,7 @@ type Downloader interface {
 }
 
 func (f *FFM) secret() string {
-	return f.addr + f.service
+	return f.client.BaseURL() + f.service
 }
 
 func (f *FFM) GenerateLink(ctx context.Context, path string) (string, error) {

@@ -6,10 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/c2pc/go-pkg/interceptors"
-	level2 "github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,20 +32,18 @@ func Connect(urls []string, serviceName string) (*grpc.ClientConn, error) {
 		addr = append(addr, resolver.Address{Addr: url})
 	}
 	var dialOptions []grpc.DialOption
-	if logger.IsDebugEnabled(level2.TEST) {
-		opts := []logging.Option{
-			logging.WithLogOnEvents(logging.StartCall, logging.FinishCall, logging.PayloadSent, logging.PayloadReceived),
-		}
-
-		dialOptions = append(dialOptions,
-			grpc.WithChainUnaryInterceptor(
-				logging.UnaryClientInterceptor(interceptors.Logger(serviceName, false), opts...),
-			),
-			grpc.WithChainStreamInterceptor(
-				logging.StreamClientInterceptor(interceptors.Logger(serviceName, false), opts...),
-			),
-		)
-	}
+	//	opts := []logging.Option{
+	//		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall, logging.PayloadSent, logging.PayloadReceived),
+	//	}
+	//
+	//	dialOptions = append(dialOptions,
+	//		grpc.WithChainUnaryInterceptor(
+	//			logging.UnaryClientInterceptor(interceptors.Logger(serviceName, false), opts...),
+	//		),
+	//		grpc.WithChainStreamInterceptor(
+	//			logging.StreamClientInterceptor(interceptors.Logger(serviceName, false), opts...),
+	//		),
+	//	)
 
 	r := manual.NewBuilderWithScheme("grpc")
 	r.InitialState(resolver.State{Addresses: addr})
@@ -61,8 +55,8 @@ func Connect(urls []string, serviceName string) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 
-	ctx, cansel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cansel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	if err := WaitForConnectionReady(ctx, conn); err != nil {
 		return conn, ErrConnectionNotReady

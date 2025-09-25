@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/internal/cache"
 	model3 "github.com/c2pc/go-pkg/v2/auth/internal/model"
-	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
@@ -22,19 +22,14 @@ type IPermissionMiddleware interface {
 }
 
 type PermissionMiddleware struct {
-	userCache            cache2.IUserCache
-	permissionCache      cache2.IPermissionCache
-	userRepository       repository2.IUserRepository
-	permissionRepository repository2.IPermissionRepository
+	cache        *cache.Cache
+	repositories repository.Repositories
 }
 
-func NewPermissionMiddleware(userCache cache2.IUserCache, permissionCache cache2.IPermissionCache, userRepository repository2.IUserRepository,
-	permissionRepository repository2.IPermissionRepository) *PermissionMiddleware {
+func NewPermissionMiddleware(cache *cache.Cache, repositories repository.Repositories) *PermissionMiddleware {
 	return &PermissionMiddleware{
-		userCache:            userCache,
-		permissionCache:      permissionCache,
-		userRepository:       userRepository,
-		permissionRepository: permissionRepository,
+		cache:        cache,
+		repositories: repositories,
 	}
 }
 
@@ -48,8 +43,8 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
-	user, err := j.userCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model3.User, error) {
-		return j.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
+	user, err := j.cache.UserCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model3.User, error) {
+		return j.repositories.UserRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	})
 	if err != nil {
 		response.Response(c, apperr.ErrInternal.WithError(err))
@@ -57,8 +52,8 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
-	permissions, err := j.permissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model3.Permission, error) {
-		return j.permissionRepository.List(ctx, &model2.Filter{}, ``)
+	permissions, err := j.cache.PermissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model3.Permission, error) {
+		return j.repositories.PermissionRepository.List(ctx, &model2.Filter{}, ``)
 	})
 	if err != nil {
 		response.Response(c, apperr.ErrInternal.WithError(err))
@@ -80,6 +75,8 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 
 	if perm == "" {
 		response.Response(c, apperr.ErrInternal.WithErrorText(c.FullPath()+" permission not found for "+c.Request.URL.Path))
+		c.Abort()
+		return
 	}
 
 	permission := func(perm string) *model3.Permission {
@@ -130,6 +127,7 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 	}(permission.Name)
 
 	if !isCan {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Нет разрешения на доступ"))
 		response.Response(c, apperr.ErrForbidden.WithErrorText("user haven't permission to access "+perm))
 		c.Abort()
 		return

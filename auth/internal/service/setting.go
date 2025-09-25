@@ -17,19 +17,19 @@ type ISettingService interface {
 }
 
 type SettingService struct {
-	settingRepository repository.ISettingRepository
+	repositories repository.Repositories
 }
 
 func NewSettingService(
-	settingRepository repository.ISettingRepository,
+	repositories repository.Repositories,
 ) SettingService {
 	return SettingService{
-		settingRepository: settingRepository,
+		repositories: repositories,
 	}
 }
 
 func (s SettingService) Trx(db *gorm.DB) ISettingService {
-	s.settingRepository = s.settingRepository.Trx(db)
+	s.repositories.SettingRepository = s.repositories.SettingRepository.Trx(db)
 	return s
 }
 
@@ -44,7 +44,7 @@ func (s SettingService) Get(ctx context.Context) (*model.Setting, error) {
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation device id is empty")
 	}
 
-	setting, err := s.settingRepository.FirstOrCreate(ctx, &model.Setting{
+	setting, err := s.repositories.SettingRepository.FirstOrCreate(ctx, &model.Setting{
 		UserID:   userID,
 		DeviceID: deviceID,
 		Settings: nil,
@@ -88,7 +88,7 @@ func (s SettingService) Update(ctx context.Context, input SettingUpdateInput) er
 	}
 
 	if len(selects) > 0 {
-		if err := s.settingRepository.Update(ctx, setting, selects, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
+		if err := s.repositories.SettingRepository.Update(ctx, setting, selects, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
 			return err
 		}
 	}

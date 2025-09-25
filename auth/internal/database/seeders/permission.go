@@ -30,7 +30,7 @@ func PermissionSeeder(ctx context.Context, permissionRepository repository.IPerm
 		}
 	}
 
-	for permission, _ := range permissionsMap {
+	for permission := range permissionsMap {
 		if _, ok := permsMap[permission]; !ok {
 			_, err := permissionRepository.Create(ctx, &model2.Permission{
 				Name: permission,

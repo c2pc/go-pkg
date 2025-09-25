@@ -246,7 +246,6 @@ func evaluateIntOperation(fieldValue int, operator, value string) (bool, error) 
 	if operator != clause.OpIn && operator != clause.OpNin && operator != clause.OpPt && operator != clause.OpNp {
 		intValue, err = strconv.Atoi(value)
 		if err != nil {
-			fmt.Println(fieldValue, operator, value)
 			return false, clause.ErrFilterInvalidValue.WithErrorText(value)
 		}
 	}

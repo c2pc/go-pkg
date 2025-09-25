@@ -8,37 +8,46 @@ import (
 	"resty.dev/v3"
 )
 
-const DefaultLimit = 1000
-
-func limitString(s string, limit int) string {
-	if limit == -1 {
-		return s
-	}
-
-	if len(s) > limit {
-		return s[:limit]
-	}
-
-	return s
+type LoggerFields struct {
+	Request  LoggerFieldsRequest  `json:"request"`
+	Response LoggerFieldsResponse `json:"response"`
 }
 
-func DebugLogFormatterFunc(limit int) func(dl *resty.DebugLog) string {
+type LoggerFieldsRequest struct {
+	Method string `json:"method"`
+	URL    string `json:"url"`
+	Body   string `json:"body"`
+}
+type LoggerFieldsResponse struct {
+	StatusCode string `json:"status_code"`
+	Duration   string `json:"duration"`
+	Body       string `json:"body"`
+}
+
+func DebugLogFormatterFunc() func(dl *resty.DebugLog) string {
 	return func(dl *resty.DebugLog) string {
-		debugLog := "\n"
-
 		req := dl.Request
-		debugLog += "~~~ REQUEST ~~~\n" +
-			fmt.Sprintf("HOST          : %s  %s%s\n", req.Method, req.Host, req.URI) +
-			fmt.Sprintf("OPERATION-ID  : %s\n", req.Header.Get("X-Operation-Id")) +
-			fmt.Sprintf("BODY          : %s\n", limitString(string(JsonHideImportantData([]byte(req.Body), "pass", "token", "pwd", "code")), limit))
-
 		res := dl.Response
-		debugLog += "~~~ RESPONSE ~~~\n" +
-			fmt.Sprintf("STATUS    : %s\n", res.Status) +
-			fmt.Sprintf("DURATION  : %v\n", res.Duration) +
-			fmt.Sprintf("BODY      : %v\n", limitString(string(JsonHideImportantData([]byte(res.Body), "pass", "token", "pwd", "code")), limit))
 
-		return debugLog
+		srt := LoggerFields{
+			Request: LoggerFieldsRequest{
+				Method: req.Method,
+				URL:    fmt.Sprintf("%s%s", req.Host, req.URI),
+				Body:   string(JsonHideImportantData([]byte(req.Body), "pass", "token", "pwd", "code", "secret")),
+			},
+			Response: LoggerFieldsResponse{
+				StatusCode: res.Status,
+				Duration:   fmt.Sprintf("%.3fms", float64(res.Duration)/1e6),
+				Body:       string(JsonHideImportantData([]byte(res.Body), "pass", "token", "pwd", "code", "secret")),
+			},
+		}
+
+		jsonBytes, err := json.Marshal(srt)
+		if err != nil {
+			return ""
+		}
+
+		return string(jsonBytes)
 	}
 }
 

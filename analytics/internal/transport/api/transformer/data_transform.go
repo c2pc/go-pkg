@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
+	"github.com/c2pc/go-pkg/v2/analytics/internal/model"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
@@ -44,10 +44,11 @@ type AnalyticsTransformer struct {
 	SecondName   string    `json:"second_name"`
 	LastName     string    `json:"last_name"`
 	Error        *string   `json:"error"`
+	Action       *string   `json:"action"`
 	Login        *string   `json:"login"`
 }
 
-func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
+func AnalyticTransform(m *model.Analytics) AnalyticsTransformer {
 	if m.User != nil {
 		m.Login = &m.User.Login
 		m.FirstName = m.User.FirstName
@@ -70,6 +71,7 @@ func AnalyticTransform(m *models.Analytics) AnalyticsTransformer {
 		SecondName:   m.SecondName,
 		LastName:     m.LastName,
 		Error:        m.Error,
+		Action:       m.Action,
 		Login:        m.Login,
 	}
 }
@@ -87,10 +89,11 @@ type AnalyticsSummaryTransformer struct {
 	SecondName  string    `json:"second_name"`
 	LastName    string    `json:"last_name"`
 	Error       *string   `json:"error"`
+	Action      *string   `json:"action"`
 	Login       *string   `json:"login"`
 }
 
-func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
+func AnalyticSummaryTransform(m *model.Analytics) AnalyticsSummaryTransformer {
 	return AnalyticsSummaryTransformer{
 		ID:          m.ID,
 		Path:        m.Path,
@@ -104,11 +107,12 @@ func AnalyticSummaryTransform(m *models.Analytics) AnalyticsSummaryTransformer {
 		SecondName:  m.SecondName,
 		LastName:    m.LastName,
 		Error:       m.Error,
+		Action:      m.Action,
 		Login:       m.Login,
 	}
 }
 
-func AnalyticListTransform(c *gin.Context, p *model2.Pagination[models.Analytics]) []AnalyticsSummaryTransformer {
+func AnalyticListTransform(c *gin.Context, p *model2.Pagination[model.Analytics]) []AnalyticsSummaryTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]AnalyticsSummaryTransformer, 0)

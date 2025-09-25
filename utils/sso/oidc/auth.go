@@ -57,8 +57,8 @@ type Auth struct {
 
 func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 	auth := new(Auth)
-	auth.enabled = cfg.Enabled
 	auth.validRedirectURLs = cfg.ValidRedirectURLs
+	auth.enabled = false
 
 	if cfg.LoginAttr == "" {
 		cfg.LoginAttr = "sub"
@@ -66,19 +66,19 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 
 	auth.loginAttr = cfg.LoginAttr
 
-	if auth.enabled {
+	if cfg.Enabled {
 		if cfg.ConfigURL == "" {
-			return nil, apperr.New("OIDC config url is required")
+			return auth, apperr.New("OIDC config url is required")
 		}
 		if cfg.ClientID == "" {
-			return nil, apperr.New("OIDC client id is required")
+			return auth, apperr.New("OIDC client id is required")
 		}
 		if cfg.ClientSecret == "" {
-			return nil, apperr.New("OIDC client secret is required")
+			return auth, apperr.New("OIDC client secret is required")
 		}
 
 		if cfg.RootURL == "" {
-			return nil, apperr.New("OIDC redirect url is required")
+			return auth, apperr.New("OIDC redirect url is required")
 		}
 
 		tr := &http.Transport{
@@ -88,7 +88,7 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 
 		provider, err := oidc.NewProvider(ctx, cfg.ConfigURL)
 		if err != nil {
-			return nil, ErrServerIsNotUnavailable.WithError(err)
+			return auth, ErrServerIsNotUnavailable.WithError(err)
 		}
 
 		auth.oauth2 = &oauth2.Config{
@@ -103,6 +103,8 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 			ClientID: cfg.ClientID,
 		})
 	}
+
+	auth.enabled = cfg.Enabled
 
 	return auth, nil
 }

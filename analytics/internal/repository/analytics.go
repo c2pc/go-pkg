@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/c2pc/go-pkg/v2/analytics/internal/models"
+	"github.com/c2pc/go-pkg/v2/analytics/internal/model"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/repository"
 	"gorm.io/gorm"
@@ -40,11 +40,11 @@ var analyticOrderBy = clause.FieldOrderBy{
 }
 
 type AnalyticsRepository struct {
-	repository.Repo[models.Analytics]
+	repository.Repo[model.Analytics]
 }
 
 func NewAnalyticRepository(db *gorm.DB) AnalyticsRepository {
-	return AnalyticsRepository{Repo: repository.NewRepository[models.Analytics](db, analyticSearchable, analyticOrderBy)}
+	return AnalyticsRepository{Repo: repository.NewRepository[model.Analytics](db, analyticSearchable, analyticOrderBy)}
 }
 
 func (r AnalyticsRepository) With(models ...string) AnalyticsRepository {

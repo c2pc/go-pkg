@@ -4,16 +4,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-
-	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
@@ -22,31 +19,18 @@ import (
 
 var (
 	ErrToManyRequest = apperr.New("to_many_request", apperr.WithTextTranslate(
-		translator.Translate{translator.RU: "Много запросов", translator.EN: "To many request"}),
+		translator.Translate{translator.RU: "Слишком много запросов", translator.EN: "Too many requests"}),
 		apperr.WithCode(code.ResourceExhausted),
 	)
 )
 
-type ConfigLimiter struct {
-	MaxAttempts int
-	TTL         time.Duration
-}
-
 type AuthMiddleware struct {
-	cfg   ConfigLimiter
-	cache cache.ILimiterCache
+	cache *fx.CacheHolder
+	cfg   *fx.LimiterHolder
 }
 
-func NewAuthLimiterMiddleware(cfg ConfigLimiter, cache cache.ILimiterCache) AuthMiddleware {
-	if cfg.MaxAttempts == 0 {
-		cfg.MaxAttempts = 10
-	}
-
-	if cfg.TTL == 0 {
-		cfg.TTL = time.Second
-	}
-
-	return AuthMiddleware{cfg: cfg, cache: cache}
+func NewAuthLimiterMiddleware(cache *fx.CacheHolder, cfg *fx.LimiterHolder) *AuthMiddleware {
+	return &AuthMiddleware{cfg: cfg, cache: cache}
 }
 
 type AuthLimiter interface {
@@ -74,25 +58,17 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 		key = cachekey.GetUserIPKey() + clientIP
 	}
 
-	attempts, err := a.cache.GetAttempts(c.Request.Context(), key)
-
-	if logger.IsDebugEnabled(level.TEST) && err != nil {
-		logger.Warningf("[REDIS] error get attempts - %v", err)
-	}
-
+	attempts, err := a.cache.Get().LimiterCache.GetAttempts(c.Request.Context(), key)
 	if err != nil {
 		return
 	}
 
-	if attempts >= a.cfg.MaxAttempts {
-		ttl, err := a.cache.GetTTL(c.Request.Context(), key)
-		if err != nil {
-			if logger.IsDebugEnabled(level.TEST) {
-				logger.Warningf("[REDIS] error get TTL - %v", err)
-			}
-		} else {
-			c.Header("RateLimit-Limit", strconv.Itoa(a.cfg.MaxAttempts))
-			c.Header("RateLimit-Remaining", strconv.Itoa(attempts-a.cfg.MaxAttempts))
+	if attempts >= a.cfg.Get().MaxAttempts {
+		ttl, err := a.cache.Get().LimiterCache.GetTTL(c.Request.Context(), key)
+		if err == nil {
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Слишком много запросов"))
+			c.Header("RateLimit-Limit", strconv.Itoa(a.cfg.Get().MaxAttempts))
+			c.Header("RateLimit-Remaining", strconv.Itoa(attempts-a.cfg.Get().MaxAttempts))
 			c.Header("RateLimit-Reset", strconv.FormatInt(int64(ttl.Seconds()), 10))
 			response.Response(c, ErrToManyRequest)
 			return
@@ -103,10 +79,7 @@ func (a *AuthMiddleware) limiter(c *gin.Context) {
 
 	statusCode := c.Writer.Status()
 	if statusCode == http.StatusUnauthorized {
-		_, err = a.cache.IncrAttempts(c.Request.Context(), key, a.cfg.TTL)
-		if logger.IsDebugEnabled(level.TEST) && err != nil {
-			logger.Warningf("[REDIS] error incr attempts - %v", err)
-		}
+		_, err = a.cache.Get().LimiterCache.IncrAttempts(c.Request.Context(), key, a.cfg.Get().TTL)
 		if err != nil {
 			return
 		}

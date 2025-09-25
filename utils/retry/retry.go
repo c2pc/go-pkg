@@ -7,7 +7,7 @@ import (
 )
 
 var ErrMaxAttempts = fmt.Errorf("max attempts exceeded error")
-var ErrContextCansel = fmt.Errorf("context canseled")
+var ErrContextCancel = fmt.Errorf("context canceled")
 
 var DefaultDelay = 2 * time.Second
 var DefaultMaxDelay = 5 * time.Minute
@@ -19,7 +19,7 @@ func Retry(ctx context.Context, fn func() error, needRetry func(error) bool, del
 	for tm.After(time.Now()) {
 		select {
 		case <-ctx.Done():
-			return ErrContextCansel
+			return ErrContextCancel
 		default:
 			err := fn()
 			if err == nil {
@@ -31,7 +31,7 @@ func Retry(ctx context.Context, fn func() error, needRetry func(error) bool, del
 				case <-time.After(time.Duration(attempt) * delay):
 					continue
 				case <-ctx.Done():
-					return ErrContextCansel
+					return ErrContextCancel
 				}
 			} else {
 				return err

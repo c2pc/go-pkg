@@ -16,7 +16,7 @@ type AuthTokenTransformer struct {
 	User *AuthAccountTransformer `json:"user"`
 }
 
-func AuthTokenTransform[Model any](m *model2.AuthToken, profileTransformer profile.ITransformer[Model]) *AuthTokenTransformer {
+func AuthTokenTransform(m *model2.AuthToken, profileTransformer profile.ITransformer) *AuthTokenTransformer {
 	return &AuthTokenTransformer{
 		Token:        m.Auth.Token,
 		RefreshToken: m.Auth.RefreshToken,
@@ -40,7 +40,7 @@ type AuthAccountTransformer struct {
 	Profile interface{}        `json:"profile,omitempty"`
 }
 
-func AuthAccountTransform[Model any](m *model2.User, profileTransformer profile.ITransformer[Model]) *AuthAccountTransformer {
+func AuthAccountTransform(m *model2.User, profileTransformer profile.ITransformer) *AuthAccountTransformer {
 	r := &AuthAccountTransformer{
 		ID:         m.ID,
 		Login:      m.Login,
@@ -53,7 +53,7 @@ func AuthAccountTransform[Model any](m *model2.User, profileTransformer profile.
 	}
 
 	if profileTransformer != nil && m.Profile != nil {
-		if prof, ok := m.Profile.(*Model); ok {
+		if prof, ok := m.Profile.(*profile.IModel); ok {
 			r.Profile = profileTransformer.TransformProfile(prof)
 		}
 	}

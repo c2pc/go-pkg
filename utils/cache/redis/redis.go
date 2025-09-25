@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -53,11 +51,6 @@ func NewRedisClient(config *RedisClient) (redis.UniversalClient, error) {
 			MaxRetries: config.MaxRetry,
 		}
 		cli = redis.NewClient(opt)
-	}
-
-	// Установка логгера для клиента Redis, если режим отладки активен
-	if logger2.IsDebugEnabled(level.TEST) {
-		redis.SetLogger(defaultLogger())
 	}
 
 	// Проверка подключения к Redis

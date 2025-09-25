@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/crewjam/saml"
@@ -112,7 +111,6 @@ func (m *Middleware) ServeACS(c *gin.Context) {
 // to start the SAML auth flow.
 func (m *Middleware) RequireAccount(c *gin.Context) {
 	session, err := m.Session.GetSession(c.Request)
-	fmt.Println(session, err)
 	if session != nil {
 		c.Request = c.Request.WithContext(samlsp.ContextWithSession(c.Request.Context(), session))
 		c.Next()

@@ -16,12 +16,12 @@ func UserCreate(input *request.UserCreateRequest) service.UserCreateInput {
 		Phone:      input.Phone,
 		Roles:      input.Roles,
 		Blocked:    input.Blocked,
+		IsDomain:   input.IsDomain,
 	}
 }
 
 func UserUpdate(input *request.UserUpdateRequest) service.UserUpdateInput {
 	return service.UserUpdateInput{
-		Login:      input.Login,
 		FirstName:  input.FirstName,
 		SecondName: input.SecondName,
 		LastName:   input.LastName,
@@ -30,5 +30,6 @@ func UserUpdate(input *request.UserUpdateRequest) service.UserUpdateInput {
 		Phone:      input.Phone,
 		Roles:      input.Roles,
 		Blocked:    input.Blocked,
+		IsDomain:   input.IsDomain,
 	}
 }

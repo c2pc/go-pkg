@@ -2,9 +2,10 @@ package apperr
 
 import (
 	"errors"
+	"sync"
+
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/i18n"
-	"sync"
 )
 
 type ErrMap struct {

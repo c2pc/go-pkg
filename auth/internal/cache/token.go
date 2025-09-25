@@ -25,7 +25,7 @@ type TokenCache struct {
 	accessExpire time.Duration
 }
 
-func NewTokenCache(rdb redis.UniversalClient, accessExpire time.Duration) ITokenCache {
+func NewTokenCache(rdb redis.UniversalClient, accessExpire time.Duration) *TokenCache {
 	return &TokenCache{
 		rdb:          rdb,
 		accessExpire: accessExpire,
@@ -81,7 +81,7 @@ func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userIDs ...int) er
 				return err
 			}
 			var deleteTokenKey []string
-			for k, _ := range tokens {
+			for k := range tokens {
 				deleteTokenKey = append(deleteTokenKey, k)
 			}
 			if len(deleteTokenKey) != 0 {

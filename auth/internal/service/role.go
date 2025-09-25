@@ -4,10 +4,10 @@ import (
 	"context"
 	"slices"
 
-	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
-	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
@@ -28,53 +28,41 @@ type IRoleService interface {
 	UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error
 	GetById(ctx context.Context, id int) (*model.Role, error)
 	Create(ctx context.Context, input RoleCreateInput) (*model.Role, error)
-	Update(ctx context.Context, id int, input RoleUpdateInput) error
-	Delete(ctx context.Context, id int) error
+	Update(ctx context.Context, id int, input RoleUpdateInput) (string, error)
+	Delete(ctx context.Context, id int) (string, error)
 }
 
 type RoleService struct {
-	roleRepository           repository2.IRoleRepository
-	permissionRepository     repository2.IPermissionRepository
-	rolePermissionRepository repository2.IRolePermissionRepository
-	userRoleRepository       repository2.IUserRoleRepository
-	userCache                cache2.IUserCache
-	tokenCache               cache2.ITokenCache
+	repositories repository.Repositories
+	cache        *fx.CacheHolder
 }
 
 func NewRoleService(
-	roleRepository repository2.IRoleRepository,
-	permissionRepository repository2.IPermissionRepository,
-	rolePermissionRepository repository2.IRolePermissionRepository,
-	userRoleRepository repository2.IUserRoleRepository,
-	userCache cache2.IUserCache,
-	tokenCache cache2.ITokenCache,
+	repositories repository.Repositories,
+	cache *fx.CacheHolder,
 ) RoleService {
 	return RoleService{
-		roleRepository:           roleRepository,
-		permissionRepository:     permissionRepository,
-		rolePermissionRepository: rolePermissionRepository,
-		userRoleRepository:       userRoleRepository,
-		userCache:                userCache,
-		tokenCache:               tokenCache,
+		repositories: repositories,
+		cache:        cache,
 	}
 }
 
 func (s RoleService) Trx(db *gorm.DB) IRoleService {
-	s.roleRepository = s.roleRepository.Trx(db)
-	s.rolePermissionRepository = s.rolePermissionRepository.Trx(db)
+	s.repositories.RoleRepository = s.repositories.RoleRepository.Trx(db)
+	s.repositories.RolePermissionRepository = s.repositories.RolePermissionRepository.Trx(db)
 	return s
 }
 
 func (s RoleService) List(ctx context.Context, m *model2.Meta[model.Role]) error {
-	return s.roleRepository.With("role_permissions").Paginate(ctx, m, ``)
+	return s.repositories.RoleRepository.With("role_permissions").Paginate(ctx, m, ``)
 }
 
 func (s RoleService) UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error {
-	return s.userRoleRepository.With("user", "user.roles").Paginate(ctx, m, `auth_user_roles.role_id = ?`, id)
+	return s.repositories.UserRoleRepository.With("user", "user.roles").Paginate(ctx, m, `auth_user_roles.role_id = ?`, id)
 }
 
 func (s RoleService) GetById(ctx context.Context, id int) (*model.Role, error) {
-	role, err := s.roleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
+	role, err := s.repositories.RoleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return nil, ErrRoleNotFound
@@ -93,7 +81,7 @@ type RoleCreateInput struct {
 }
 
 func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.Role, error) {
-	role, err := s.roleRepository.Create(ctx, &model.Role{
+	role, err := s.repositories.RoleRepository.Create(ctx, &model.Role{
 		Name: input.Name,
 	}, "id")
 	if err != nil {
@@ -114,32 +102,42 @@ func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.
 }
 
 type RoleUpdateInput struct {
-	Name  *string
-	Write []int
-	Read  []int
-	Exec  []int
+	Name        *string
+	Write       []int
+	Read        []int
+	Exec        []int
+	LogDisabled *bool
 }
 
-func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) error {
-	role, err := s.roleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
+func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) (string, error) {
+	role, err := s.repositories.RoleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return ErrRoleNotFound
+			return "", ErrRoleNotFound
 		}
-		return err
+		return "", err
 	}
 
-	if role.Name == model.SuperAdmin {
-		return ErrRoleCannotBeChanged
+	if role.Name == model.SuperAdmin || role.Name == model.Broker {
+		if input.LogDisabled != nil && role.Name == model.Broker {
+			if err = s.repositories.RoleRepository.Update(ctx, &model.Role{LogDisabled: *input.LogDisabled}, []interface{}{"log_disabled"}, `id = ?`, role.ID); err != nil {
+				if apperr.Is(err, apperr.ErrDBDuplicated) {
+					return role.Name, ErrRoleExists
+				}
+				return role.Name, err
+			}
+			return role.Name, nil
+		}
+		return role.Name, ErrRoleCannotBeChanged
 	}
 
 	if input.Name != nil && *input.Name != "" {
 		if *input.Name != role.Name {
-			if err = s.roleRepository.Update(ctx, &model.Role{Name: *input.Name}, []interface{}{"name"}, `id = ?`, role.ID); err != nil {
+			if err = s.repositories.RoleRepository.Update(ctx, &model.Role{Name: *input.Name}, []interface{}{"name"}, `id = ?`, role.ID); err != nil {
 				if apperr.Is(err, apperr.ErrDBDuplicated) {
-					return ErrRoleExists
+					return role.Name, ErrRoleExists
 				}
-				return err
+				return role.Name, err
 			}
 		}
 	}
@@ -168,62 +166,62 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 			exec = input.Exec
 		}
 
-		if err = s.rolePermissionRepository.Delete(ctx, `role_id = ?`, role.ID); err != nil {
-			return err
+		if err = s.repositories.RolePermissionRepository.Delete(ctx, `role_id = ?`, role.ID); err != nil {
+			return role.Name, err
 		}
 
 		_, err = s.createPermissions(ctx, role, write, read, exec)
 		if err != nil {
-			return err
+			return role.Name, err
 		}
 
-		userIDs, err := s.userRoleRepository.GetUsersByRole(ctx, role.ID)
+		userIDs, err := s.repositories.UserRoleRepository.GetUsersByRole(ctx, role.ID)
 		if err != nil {
-			return err
+			return role.Name, err
 		}
 
 		if len(userIDs) > 0 {
-			if err := s.userCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
-				return apperr.ErrInternal.WithError(err)
+			if err := s.cache.Get().UserCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
+				return role.Name, apperr.ErrInternal.WithError(err)
 			}
 		}
 	}
 
-	return nil
+	return role.Name, nil
 }
 
-func (s RoleService) Delete(ctx context.Context, id int) error {
-	role, err := s.roleRepository.Find(ctx, `id = ?`, id)
+func (s RoleService) Delete(ctx context.Context, id int) (string, error) {
+	role, err := s.repositories.RoleRepository.Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
-			return ErrRoleNotFound
+			return "", ErrRoleNotFound
 		}
-		return err
+		return "", err
 	}
 
-	userIDs, err := s.userRoleRepository.GetUsersByRole(ctx, role.ID)
+	userIDs, err := s.repositories.UserRoleRepository.GetUsersByRole(ctx, role.ID)
 	if err != nil {
-		return err
+		return role.Name, err
 	}
 
-	if role.Name == model.SuperAdmin {
-		return ErrRoleCannotBeDeleted
+	if role.Name == model.SuperAdmin || role.Name == model.Broker {
+		return role.Name, ErrRoleCannotBeDeleted
 	}
 
-	if err := s.roleRepository.Delete(ctx, `id = ?`, role.ID); err != nil {
-		return err
+	if err := s.repositories.RoleRepository.Delete(ctx, `id = ?`, role.ID); err != nil {
+		return role.Name, err
 	}
 
 	if len(userIDs) > 0 {
-		if err := s.userCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
-			return apperr.ErrInternal.WithError(err)
+		if err := s.cache.Get().UserCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
+			return role.Name, apperr.ErrInternal.WithError(err)
 		}
-		if err := s.tokenCache.DeleteAllUserTokens(ctx, userIDs...); err != nil {
-			return apperr.ErrInternal.WithError(err)
+		if err := s.cache.Get().TokenCache.DeleteAllUserTokens(ctx, userIDs...); err != nil {
+			return role.Name, apperr.ErrInternal.WithError(err)
 		}
 	}
 
-	return nil
+	return role.Name, nil
 }
 
 func (s RoleService) createPermissions(ctx context.Context, role *model.Role, write, read, exec []int) ([]model.RolePermission, error) {
@@ -235,7 +233,7 @@ func (s RoleService) createPermissions(ctx context.Context, role *model.Role, wr
 
 	uniquePerms := stringutil.RemoveDuplicate(slices.Concat(write, read, exec))
 
-	permissions, err := s.permissionRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniquePerms)
+	permissions, err := s.repositories.PermissionRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniquePerms)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +275,7 @@ func (s RoleService) createPermissions(ctx context.Context, role *model.Role, wr
 	}
 
 	if len(rolePermissions) > 0 {
-		if _, err := s.rolePermissionRepository.Create2(ctx, &rolePermissions, ""); err != nil {
+		if _, err := s.repositories.RolePermissionRepository.Create2(ctx, &rolePermissions, ""); err != nil {
 			return nil, err
 		}
 	}

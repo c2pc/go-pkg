@@ -2,9 +2,13 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
-	cache2 "github.com/c2pc/go-pkg/v2/auth/internal/cache"
+	"github.com/c2pc/go-pkg/v2/auth/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
 	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
@@ -15,9 +19,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/utils/sso"
-	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
-	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
-	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/rs/xid"
@@ -30,64 +31,48 @@ var (
 	ErrSSONotSupported = apperr.New("sso_not_supported", apperr.WithTextTranslate(i18n.ErrSSONotSupported), apperr.WithCode(code.Unauthenticated))
 )
 
-type IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] interface {
-	Trx(db *gorm.DB) IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]
+type IAuthService interface {
+	Trx(db *gorm.DB) IAuthService
 	Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, int, error)
 	Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, int, error)
 	Logout(ctx context.Context, input AuthLogout) (int, error)
 	Account(ctx context.Context) (*model2.User, error)
-	UpdateAccountData(ctx context.Context, input AuthUpdateAccountData, profileInput *UpdateProfileInput) error
 	SSO(ctx context.Context, input SSO) (*model2.AuthToken, int, error)
 }
 
-type AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any] struct {
-	profileService  profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput]
-	userRepository  repository2.IUserRepository
-	tokenRepository repository2.ITokenRepository
-	tokenCache      cache2.ITokenCache
-	userCache       cache2.IUserCache
-	hasher          secret.Hasher
-	accessExpire    time.Duration
-	refreshExpire   time.Duration
-	ldapAuth        ldap.AuthService
-	oidcAuth        oidc.AuthService
-	samlAuth        saml.AuthService
-	accessSecret    string
+type AuthService struct {
+	profileService profile.IProfileService
+	repositories   repository2.Repositories
+	cache          *fx.CacheHolder
+	cfg            *fx.AuthHolder
+	ldapAuth       *fx.LDAPHolder
+	oidcAuth       *fx.OIDCHolder
+	samlAuth       *fx.SAMLHolder
 }
 
-func NewAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput any](
-	profileService profile.IProfileService[Model, CreateInput, UpdateInput, UpdateProfileInput],
-	userRepository repository2.IUserRepository,
-	tokenRepository repository2.ITokenRepository,
-	tokenCache cache2.ITokenCache,
-	userCache cache2.IUserCache,
-	hasher secret.Hasher,
-	accessExpire time.Duration,
-	refreshExpire time.Duration,
-	accessSecret string,
-	ldapAuth ldap.AuthService,
-	oidcAuth oidc.AuthService,
-	samlAuth saml.AuthService,
-) AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	return AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]{
-		profileService:  profileService,
-		userRepository:  userRepository,
-		tokenRepository: tokenRepository,
-		tokenCache:      tokenCache,
-		userCache:       userCache,
-		hasher:          hasher,
-		accessExpire:    accessExpire,
-		refreshExpire:   refreshExpire,
-		accessSecret:    accessSecret,
-		ldapAuth:        ldapAuth,
-		oidcAuth:        oidcAuth,
-		samlAuth:        samlAuth,
+func NewAuthService(
+	profileService profile.IProfileService,
+	repositories repository2.Repositories,
+	cache *fx.CacheHolder,
+	cfg *fx.AuthHolder,
+	ldapAuth *fx.LDAPHolder,
+	oidcAuth *fx.OIDCHolder,
+	samlAuth *fx.SAMLHolder,
+) AuthService {
+	return AuthService{
+		profileService: profileService,
+		repositories:   repositories,
+		cache:          cache,
+		cfg:            cfg,
+		ldapAuth:       ldapAuth,
+		oidcAuth:       oidcAuth,
+		samlAuth:       samlAuth,
 	}
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db *gorm.DB) IAuthService[Model, CreateInput, UpdateInput, UpdateProfileInput] {
-	s.userRepository = s.userRepository.Trx(db)
-	s.tokenRepository = s.tokenRepository.Trx(db)
+func (s AuthService) Trx(db *gorm.DB) IAuthService {
+	s.repositories.UserRepository = s.repositories.UserRepository.Trx(db)
+	s.repositories.TokenRepository = s.repositories.TokenRepository.Trx(db)
 
 	if s.profileService != nil {
 		s.profileService = s.profileService.Trx(db)
@@ -99,34 +84,63 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Trx(db
 type AuthLogin struct {
 	Login    string
 	Password string
+	Secret   string
 	DeviceID int
-	IsDomain bool
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, int, error) {
-	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
+func (s AuthService) Login(ctx context.Context, input AuthLogin) (*model2.AuthToken, int, error) {
+	user, err := s.repositories.UserRepository.With("roles").Find(ctx, "login = ?", input.Login)
 	if err != nil {
 		return nil, 0, apperr.ErrUnauthenticated.WithError(err)
+	}
+
+	var isBroker bool
+	for _, role := range user.Roles {
+		if role.Name == model2.Broker {
+			isBroker = true
+			break
+		}
+	}
+
+	if isBroker {
+		secr := sha256.Sum256([]byte(input.Login + input.Password + strconv.Itoa(input.DeviceID)))
+		if input.Secret == "" || input.Secret != fmt.Sprintf("%x", secr) {
+			return nil, 0, ErrAuthBlocked.WithErrorText("broker invalid")
+		}
 	}
 
 	if user.Blocked {
 		return nil, user.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
-	var provider, refreshToken string
-	if input.IsDomain && s.ldapAuth != nil && s.ldapAuth.IsEnabled() {
-		err = s.ldapAuth.CheckAuth(input.Login, input.Password)
-		if err != nil {
-			return nil, user.ID, apperr.ErrUnauthenticated.WithError(err)
-		}
+	var domain string
+	spl := strings.SplitN(user.Login, "@", 2)
+	if len(spl) == 2 {
+		domain = spl[1]
+	}
 
-		provider = "ldap"
-		refreshToken = xid.New().String()
-	} else {
-		if !s.hasher.HashMatchesString(user.Password, input.Password) {
-			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
+	var provider, refreshToken string
+	if user.IsDomain {
+		if s.ldapAuth.Get() != nil && s.ldapAuth.Get().IsEnabled() {
+			err = s.ldapAuth.Get().CheckAuth(domain, input.Login, input.Password)
+			if err != nil {
+				return nil, user.ID, apperr.ErrUnauthenticated.WithError(err)
+			}
+
+			provider = "ldap"
+			refreshToken = xid.New().String()
+		} else {
+			return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("domain is empty")
 		}
-		refreshToken = xid.New().String()
+	} else {
+		if user.Password != nil {
+			if !secret.HasherSecret.HashMatchesString(*user.Password, input.Password) {
+				return nil, user.ID, apperr.ErrUnauthenticated.WithErrorText("hash matches password error")
+			}
+			refreshToken = xid.New().String()
+		} else {
+			return nil, user.ID, apperr.ErrUnauthenticated
+		}
 	}
 
 	data, err := s.createSession(ctx, createSessionInput{
@@ -147,8 +161,8 @@ type SSO struct {
 	DeviceID     int
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) SSO(ctx context.Context, input SSO) (*model2.AuthToken, int, error) {
-	user, err := s.userRepository.Find(ctx, "login = ?", input.Login)
+func (s AuthService) SSO(ctx context.Context, input SSO) (*model2.AuthToken, int, error) {
+	user, err := s.repositories.UserRepository.Find(ctx, "login = ?", input.Login)
 	if err != nil {
 		return nil, 0, ErrAuthNoAccess.WithError(err)
 	}
@@ -157,12 +171,12 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) SSO(ct
 		return nil, user.ID, ErrAuthBlocked.WithErrorText("user is blocked")
 	}
 
-	if input.Provider == sso.OIDC && !s.oidcAuth.IsEnabled() {
+	if input.Provider == sso.OIDC && !s.oidcAuth.Get().IsEnabled() {
 		return nil, user.ID, ErrSSONotSupported
 	}
 
 	if input.Provider == sso.SAML {
-		if !s.samlAuth.IsEnabled() {
+		if !s.samlAuth.Get().IsEnabled() {
 			return nil, user.ID, ErrSSONotSupported
 		}
 		input.RefreshToken = xid.New().String()
@@ -184,8 +198,8 @@ type AuthRefresh struct {
 	DeviceID int
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, int, error) {
-	token, err := s.tokenRepository.With("user").Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
+func (s AuthService) Refresh(ctx context.Context, input AuthRefresh) (*model2.AuthToken, int, error) {
+	token, err := s.repositories.TokenRepository.With("user").Find(ctx, "token = ? AND device_id = ?", input.Token, input.DeviceID)
 	if err != nil {
 		return nil, 0, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -211,15 +225,15 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 			}
 			refreshToken = xid.New().String()
 		} else if token.Provider != nil {
-			if *token.Provider == sso.OIDC && s.oidcAuth.IsEnabled() {
-				oidcToken, err := s.oidcAuth.Refresh(ctx, input.Token)
+			if *token.Provider == sso.OIDC && s.oidcAuth.Get().IsEnabled() {
+				oidcToken, err := s.oidcAuth.Get().Refresh(ctx, input.Token)
 				if err != nil {
-					_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
+					_ = s.repositories.TokenRepository.Delete(ctx, "token = ? ", input.Token)
 					return apperr.ErrUnauthenticated.WithErrorText("error to refresh token")
 				}
 				provider = sso.OIDC
 				refreshToken = oidcToken.IDToken.RefreshToken
-			} else if *token.Provider == sso.SAML && s.samlAuth.IsEnabled() {
+			} else if *token.Provider == sso.SAML && s.samlAuth.Get().IsEnabled() {
 				provider = sso.SAML
 				refreshToken = xid.New().String()
 			} else {
@@ -232,7 +246,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Refres
 		return nil
 	}()
 	if err != nil {
-		_ = s.tokenRepository.Delete(ctx, "token = ? ", input.Token)
+		_ = s.repositories.TokenRepository.Delete(ctx, "token = ? ", input.Token)
 		return nil, token.User.ID, err
 	}
 
@@ -251,8 +265,8 @@ type AuthLogout struct {
 	Token string
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Logout(ctx context.Context, input AuthLogout) (int, error) {
-	claims, err := tokenverify.GetClaimFromToken(input.Token, tokenverify.Secret(s.accessSecret))
+func (s AuthService) Logout(ctx context.Context, input AuthLogout) (int, error) {
+	claims, err := tokenverify.GetClaimFromToken(input.Token, tokenverify.Secret(s.cfg.Get().AccessSecret))
 	if err != nil {
 		return 0, apperr.ErrUnauthenticated.WithErrorText("invalid token")
 	}
@@ -260,18 +274,18 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Logout
 	return claims.UserID, s.clearSession(ctx, claims.UserID, claims.DeviceID, true)
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Account(ctx context.Context) (*model2.User, error) {
+func (s AuthService) Account(ctx context.Context) (*model2.User, error) {
 	userID, ok := mcontext.GetOpUserID(ctx)
 	if !ok {
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
 	}
 
-	user, err := s.userRepository.GetUserWithPermissions(ctx, "id = ?", userID)
+	user, err := s.repositories.UserRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	var prof *Model
+	var prof *profile.IModel
 	if s.profileService != nil {
 		prof, err = s.profileService.GetById(ctx, userID)
 		if err != nil {
@@ -286,105 +300,6 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) Accoun
 	return user, nil
 }
 
-type AuthUpdateAccountData struct {
-	Login      *string
-	FirstName  *string
-	SecondName *string
-	LastName   *string
-	Password   *string
-	Email      *string
-	Phone      *string
-}
-
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) UpdateAccountData(ctx context.Context, input AuthUpdateAccountData, profileInput *UpdateProfileInput) error {
-	userID, ok := mcontext.GetOpUserID(ctx)
-	if !ok {
-		return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
-	}
-
-	user := &model2.User{}
-
-	var selects []interface{}
-	if input.Login != nil && *input.Login != "" {
-		user.Login = *input.Login
-		selects = append(selects, "login")
-	}
-
-	if input.FirstName != nil && *input.FirstName != "" {
-		user.FirstName = *input.FirstName
-		selects = append(selects, "first_name")
-	}
-
-	if input.Password != nil && *input.Password != "" {
-		password, err := s.hasher.HashString(*input.Password)
-		if err != nil {
-			return apperr.ErrUnauthenticated.WithError(err)
-		}
-		user.Password = password
-		selects = append(selects, "password")
-	}
-
-	if input.SecondName != nil {
-		if *input.SecondName == "" {
-			user.SecondName = nil
-		} else {
-			user.SecondName = input.SecondName
-		}
-		selects = append(selects, "second_name")
-	}
-
-	if input.LastName != nil {
-		if *input.LastName == "" {
-			user.LastName = nil
-		} else {
-			user.LastName = input.LastName
-		}
-		selects = append(selects, "last_name")
-	}
-
-	if input.Email != nil {
-		if *input.Email == "" {
-			user.Email = nil
-		} else {
-			user.Email = input.Email
-		}
-		selects = append(selects, "email")
-	}
-
-	if input.Phone != nil {
-		if *input.Phone == "" {
-			user.Phone = nil
-		} else {
-			user.Phone = input.Phone
-		}
-		selects = append(selects, "phone")
-	}
-
-	if len(selects) > 0 {
-		if err := s.userRepository.Update(ctx, user, selects, `id = ?`, userID); err != nil {
-			if apperr.Is(err, apperr.ErrDBDuplicated) {
-				return ErrUserExists
-			}
-			return err
-		}
-	}
-
-	if s.profileService != nil && profileInput != nil {
-		err := s.profileService.UpdateProfile(ctx, userID, *profileInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(selects) > 0 {
-		if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
-			return apperr.ErrInternal.WithError(err)
-		}
-	}
-
-	return nil
-}
-
 type createSessionInput struct {
 	IsLogin      bool
 	UserID       int
@@ -393,10 +308,10 @@ type createSessionInput struct {
 	RefreshToken string
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) createSession(ctx context.Context, input createSessionInput) (*model2.AuthToken, error) {
-	claims := tokenverify.BuildClaims(input.UserID, input.DeviceID, s.accessExpire)
+func (s AuthService) createSession(ctx context.Context, input createSessionInput) (*model2.AuthToken, error) {
+	claims := tokenverify.BuildClaims(input.UserID, input.DeviceID, s.cfg.Get().AccessExpire)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(s.accessSecret))
+	tokenString, err := token.SignedString([]byte(s.cfg.Get().AccessSecret))
 	if err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
@@ -412,13 +327,13 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		provider = &input.Provider
 	}
 
-	if _, err := s.tokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
+	if _, err := s.repositories.TokenRepository.CreateOrUpdate(ctx, &model2.RefreshToken{
 		UserID:    input.UserID,
 		DeviceID:  input.DeviceID,
 		Token:     input.RefreshToken,
 		LoggedAt:  time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		ExpiresAt: time.Now().UTC().Add(s.refreshExpire),
+		ExpiresAt: time.Now().UTC().Add(s.cfg.Get().RefreshExpire),
 		Provider:  provider,
 	}, []interface{}{"user_id", "device_id"}, doUpdate, doCreate); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
@@ -429,12 +344,12 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	if err = s.tokenCache.SetTokenFlagEx(ctx, input.UserID, input.DeviceID, tokenString, constant.NormalToken); err != nil {
+	if err = s.cache.Get().TokenCache.SetTokenFlagEx(ctx, input.UserID, input.DeviceID, tokenString, constant.NormalToken); err != nil {
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	user, err := s.userCache.GetUserInfo(ctx, input.UserID, func(ctx context.Context) (*model2.User, error) {
-		user, err := s.userRepository.GetUserWithPermissions(ctx, "id = ?", input.UserID)
+	user, err := s.cache.Get().UserCache.GetUserInfo(ctx, input.UserID, func(ctx context.Context) (*model2.User, error) {
+		user, err := s.repositories.UserRepository.GetUserWithPermissions(ctx, "id = ?", input.UserID)
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +360,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		return nil, apperr.ErrUnauthenticated.WithError(err)
 	}
 
-	var prof *Model
+	var prof *profile.IModel
 	if s.profileService != nil {
 		prof, err = s.profileService.GetById(ctx, input.UserID)
 		if err != nil {
@@ -461,7 +376,7 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 		Auth: model2.Token{
 			Token:        tokenString,
 			RefreshToken: input.RefreshToken,
-			ExpiresAt:    s.refreshExpire.Seconds(),
+			ExpiresAt:    s.cfg.Get().RefreshExpire.Seconds(),
 			TokenType:    "Bearer",
 			UserID:       input.UserID,
 		},
@@ -469,33 +384,33 @@ func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) create
 	}, nil
 }
 
-func (s AuthService[Model, CreateInput, UpdateInput, UpdateProfileInput]) clearSession(ctx context.Context, userID, deviceID int, clearRefresh bool) error {
+func (s AuthService) clearSession(ctx context.Context, userID, deviceID int, clearRefresh bool) error {
 	if clearRefresh {
-		if err := s.tokenRepository.Delete(ctx, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
+		if err := s.repositories.TokenRepository.Delete(ctx, `user_id = ? AND device_id = ?`, userID, deviceID); err != nil {
 			if !apperr.Is(err, apperr.ErrDBRecordNotFound) {
 				return apperr.ErrUnauthenticated.WithError(err)
 			}
 		}
 	}
 
-	tokens, err := s.tokenCache.GetTokensWithoutError(ctx, userID, deviceID)
+	tokens, err := s.cache.Get().TokenCache.GetTokensWithoutError(ctx, userID, deviceID)
 	if err != nil {
 		return apperr.ErrUnauthenticated.WithError(err)
 	}
 
 	var deleteTokenKey []string
-	for k, _ := range tokens {
+	for k := range tokens {
 		deleteTokenKey = append(deleteTokenKey, k)
 	}
 
 	if len(deleteTokenKey) != 0 {
-		err = s.tokenCache.DeleteTokenByUidPid(ctx, userID, deviceID, deleteTokenKey)
+		err = s.cache.Get().TokenCache.DeleteTokenByUidPid(ctx, userID, deviceID, deleteTokenKey)
 		if err != nil {
 			return apperr.ErrUnauthenticated.WithError(err)
 		}
 	}
 
-	if err := s.userCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
+	if err := s.cache.Get().UserCache.DelUsersInfo(userID).ChainExecDel(ctx); err != nil {
 		return apperr.ErrUnauthenticated.WithError(err)
 	}
 

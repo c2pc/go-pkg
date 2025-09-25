@@ -6,11 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/task/internal/logger"
 	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	logger2 "github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/constant"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 )
 
@@ -69,8 +68,6 @@ func NewRunner(ctx context.Context) *Runner {
 		ctx:         ctx,
 	}
 
-	runner.printf(runner.ctx, "Runner initialized")
-
 	go runner.listen()
 
 	return runner
@@ -124,7 +121,7 @@ func (r *Runner) run(data Data) {
 		}
 	}()
 
-	ctx := mcontext.SetOpUserID(r.ctx, data.ClientID)
+	ctx := mcontext.WithOpUserIDContext(r.ctx, data.ClientID)
 	ctx, cancel := context.WithCancel(mcontext.WithOperationIDContext(ctx, fmt.Sprintf("runner-task-%d", data.ID)))
 	defer cancel()
 
@@ -302,8 +299,5 @@ func (r *Runner) sendTaskResult(data TaskResult) {
 }
 
 func (r *Runner) printf(ctx context.Context, format string, v ...any) {
-	if logger2.IsDebugEnabled(level.TEST) {
-		logger.LogInfo(ctx, format, v...)
-	}
-	//log.Printf(logger.WithOperationID(ctx, fmt.Sprintf(format+"\n", v...)))
+	logger.Info().Str(string(constant.OperationID), mcontext.GetOperationID2(ctx)).Msgf(format, v...)
 }

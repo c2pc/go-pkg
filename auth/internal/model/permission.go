@@ -10,6 +10,7 @@ var Permissions = []model2.Permission{
 	{Method: "auth/roles", Desc: i18n.RolesPermission},
 	{Method: "auth/users", Desc: i18n.UsersPermission},
 	{Method: "auth/sessions", Desc: i18n.SessionsPermission},
+	{Method: "auth/configs", Desc: i18n.ConfigPermission},
 }
 
 var permissions = make(map[string]translator.Translate)

@@ -1,10 +1,12 @@
 package model
 
 const SuperAdmin = "SuperAdmin"
+const Broker = "Broker"
 
 type Role struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	LogDisabled bool   `json:"log_disabled"`
 
 	RolePermissions []RolePermission `json:"role_permissions"`
 }

@@ -138,10 +138,10 @@ func (r Repo[C]) With(models ...string) Repo[C] {
 		newModels := r.reformatModels(models...)
 
 		for _, m := range newModels {
-			r.with = append(r.with, m)
 			if strings.Index(m, ".") != -1 || m[len(m)-1:] == "s" {
 				r.db = r.db.Preload(m)
 			} else {
+				r.with = append(r.with, m)
 				r.db = r.db.Joins(m)
 			}
 		}
@@ -152,7 +152,6 @@ func (r Repo[C]) With(models ...string) Repo[C] {
 
 func (r Repo[C]) WithOne(model string, args ...any) Repo[C] {
 	m := r.reformatModel(model)
-	r.with = append(r.with, m)
 	r.db = r.db.Preload(m, args...)
 
 	return r

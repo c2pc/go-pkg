@@ -1,17 +1,11 @@
 package mw
 
 import (
-	"bytes"
-	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/jsonutil"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +18,7 @@ func CorsHandler() gin.HandlerFunc {
 		c.Header("Access-Control-Allow-Headers", "*")
 		c.Header(
 			"Access-Control-Expose-Headers",
-			"Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers,Cache-Control,Content-Language,Content-Type,Expires,Last-Modified,Pragma,FooBar,X-Operation-Id,X-Total-Count",
+			"Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers,Cache-Control,Content-Language,Content-Type,Expires,Last-Modified,Pragma,FooBar,X-Operation-Id,X-Total-Count,X-Broker",
 		) // Cross-domain key settings allow browsers to resolve.
 		c.Header(
 			"Access-Control-Max-Age",
@@ -48,57 +42,6 @@ func CorsHandler() gin.HandlerFunc {
 	}
 }
 
-func LogHandler(moduleID string) gin.LoggerConfig {
-	writer := logger.NewLogWriter(moduleID, false, 0)
-
-	prefix := ""
-	if logger.IsDebugEnabled(level.TEST) {
-		prefix = "\t"
-	}
-
-	return gin.LoggerConfig{
-		Formatter: func(param gin.LogFormatterParams) string {
-			var statusColor, methodColor, resetColor string
-			if param.IsOutputColor() {
-				statusColor = param.StatusCodeColor()
-				methodColor = param.MethodColor()
-				resetColor = param.ResetColor()
-			}
-
-			if param.Latency > time.Minute {
-				param.Latency = param.Latency.Truncate(time.Second)
-			}
-
-			var userInfo = "unknown"
-			userID, _ := mcontext.GetOpUserID(param.Request.Context())
-			userLogin, _ := mcontext.GetOpUserLogin(param.Request.Context())
-
-			if userID != 0 {
-				userInfo = strconv.Itoa(userID)
-			}
-
-			if userLogin != "" {
-				if userInfo != "unknown" {
-					userInfo = userInfo + " - " + userLogin
-				} else {
-					userInfo = userLogin
-				}
-			}
-
-			return fmt.Sprintf(" | %s %s %s | %s %3d %s| %13v | %15s |%s %-7s %s %#v\n%s\n%s",
-				statusColor, userInfo, resetColor,
-				statusColor, param.StatusCode, resetColor,
-				param.Latency,
-				param.ClientIP,
-				methodColor, param.Method, resetColor,
-				param.Path,
-				param.ErrorMessage, prefix,
-			)
-		},
-		Output: writer.Stdout,
-	}
-}
-
 func GinParseOperationID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodOptions {
@@ -118,42 +61,4 @@ func GinParseOperationID() gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
-}
-
-type bodyLogWriter struct {
-	gin.ResponseWriter
-	body *bytes.Buffer
-}
-
-func (w bodyLogWriter) Write(b []byte) (int, error) {
-	w.body.Write(b)
-	return w.ResponseWriter.Write(b)
-}
-
-func GinBodyLogMiddleware(module string, hiddenKeys ...string) gin.HandlerFunc {
-	if logger.IsDebugEnabled(level.TEST) {
-		return func(c *gin.Context) {
-			hiddenKeys = append(hiddenKeys, "pass", "token", "pwd", "code", "secret")
-
-			var buf bytes.Buffer
-			blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
-			c.Writer = blw
-
-			tee := io.TeeReader(c.Request.Body, &buf)
-			body, _ := io.ReadAll(tee)
-			c.Request.Body = io.NopCloser(&buf)
-
-			if c.Request.Header.Get("Content-Type") == "application/json" {
-				logger.InfofLog(c.Request.Context(), module, "Request: %s", jsonutil.JsonHideImportantData(body, hiddenKeys...))
-			}
-
-			c.Next()
-
-			if c.Writer.Header().Get("Content-Type") == "application/json" {
-				logger.InfofLog(c.Request.Context(), module, "Response: %s", jsonutil.JsonHideImportantData(blw.body.Bytes(), hiddenKeys...))
-			}
-		}
-	}
-
-	return func(c *gin.Context) {}
 }

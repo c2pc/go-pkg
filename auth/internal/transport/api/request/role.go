@@ -8,8 +8,9 @@ type RoleCreateRequest struct {
 }
 
 type RoleUpdateRequest struct {
-	Name  *string `json:"name" binding:"omitempty,max=255,min=2,dot_underscore_hyphen_space"`
-	Write []int   `json:"write" binding:"omitempty,dive,gte=1"`
-	Read  []int   `json:"read" binding:"omitempty,dive,gte=1"`
-	Exec  []int   `json:"exec" binding:"omitempty,dive,gte=1"`
+	Name        *string `json:"name" binding:"omitempty,max=255,min=2,dot_underscore_hyphen_space"`
+	LogDisabled *bool   `json:"log_disabled"`
+	Write       []int   `json:"write" binding:"omitempty,dive,gte=1"`
+	Read        []int   `json:"read" binding:"omitempty,dive,gte=1"`
+	Exec        []int   `json:"exec" binding:"omitempty,dive,gte=1"`
 }

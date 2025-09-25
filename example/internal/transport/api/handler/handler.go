@@ -9,8 +9,6 @@ import (
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/task"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/level"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/websocket"
@@ -19,7 +17,7 @@ import (
 
 type Handler struct {
 	authService       auth.IAuth
-	authConfigService auth_config.IAuthConfigHandler
+	authConfigService auth_config.Config
 	taskService       task.Tasker
 	analyticService   analytics.Analytics
 	services          service.Services
@@ -28,7 +26,7 @@ type Handler struct {
 }
 
 func NewHandlers(authService auth.IAuth,
-	authConfigService auth_config.IAuthConfigHandler,
+	authConfigService auth_config.Config,
 	services service.Services,
 	trx mw.ITransaction,
 	taskService task.Tasker,
@@ -58,13 +56,6 @@ func (h *Handler) Init() *gin.Engine {
 		mw.GinParseOperationID(),
 	)
 
-	if logger.IsDebugEnabled(level.DEVELOPMENT, level.TEST) {
-		handler.Use(
-			gin.LoggerWithConfig(mw.LogHandler("HTTP")),
-			mw.GinBodyLogMiddleware("HTTP"),
-		)
-	}
-
 	// Init handler
 	handler.NoRoute(func(c *gin.Context) {
 		response.Response(c, apperr.ErrNotFound)
@@ -82,16 +73,16 @@ func (h *Handler) Init() *gin.Engine {
 }
 
 func (h *Handler) initAPI(handler *gin.Engine) {
-	api := handler.Group("api/v1", h.authService.LimiterMiddleware)
+	api := handler.Group("api/v1", h.analyticService.CollectAnalytic, h.authService.LimiterMiddleware)
 	{
-		unsecured := api.Group("", h.analyticService.CollectAnalytic)
+		unsecured := api.Group("")
 		{
 			h.authService.InitHandler(handler, unsecured)
 		}
 
 		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)
 		{
-			h.authConfigService.InitHandler(secure, unsecured)
+			h.authConfigService.InitHandler(secure)
 			h.analyticService.InitHandler(secure)
 			h.ws.InitHandler(secure)
 			withLimiter := secure.Group("", h.analyticService.CollectAnalytic)

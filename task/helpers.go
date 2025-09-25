@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	model2 "github.com/c2pc/go-pkg/v2/task/internal/model"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 
 	"github.com/c2pc/go-pkg/v2/task/model"
@@ -82,7 +81,6 @@ func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan 
 		func() {
 			defer func() {
 				if err := recover(); err != nil {
-					logger.WarningfLog(ctx2, "TASK", "%v", err)
 					msg.AddError(idToString(id), apperr.Translate(apperr.ErrInternal, translator.RU.String()))
 				}
 			}()
@@ -150,7 +148,6 @@ func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan 
 		func() {
 			defer func() {
 				if err := recover(); err != nil {
-					logger.WarningfLog(ctx2, "TASK", "%v", err)
 					msg.AddError(idToString(id), apperr.Translate(apperr.ErrInternal, translator.RU.String()))
 				}
 			}()
@@ -206,7 +203,6 @@ func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan c
 		func() {
 			defer func() {
 				if err := recover(); err != nil {
-					logger.WarningfLog(ctx2, "TASK", "%v", err)
 					msg.AddError(k, apperr.Translate(apperr.ErrInternal, translator.RU.String()))
 				}
 			}()
@@ -287,7 +283,6 @@ func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.
 		func() {
 			defer func() {
 				if err := recover(); err != nil {
-					logger.WarningfLog(ctx, "TASK", "%v", err)
 					msg.AddError(strconv.Itoa(i), apperr.Translate(apperr.ErrInternal, translator.RU.String()))
 				}
 			}()
