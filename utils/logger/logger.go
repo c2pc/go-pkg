@@ -104,34 +104,7 @@ func reload(cfg Config) {
 	}
 
 	if len(writers) == 0 && cfg.File == nil {
-		writers = append(writers, zerolog.ConsoleWriter{
-			Out:        os.Stdout,
-			TimeFormat: time.RFC3339,
-			FormatLevel: func(i interface{}) string {
-				return strings.ToUpper(fmt.Sprintf("| %-6s|", i))
-			},
-			FormatMessage: func(i interface{}) string {
-				if i == nil {
-					return ""
-				}
-				return fmt.Sprintf("| %s |", i)
-			},
-			FormatFieldValue: func(i interface{}) string {
-				if i == nil {
-					return ""
-				}
-				return fmt.Sprintf("%s", i)
-			},
-			PartsOrder: []string{
-				zerolog.TimestampFieldName,
-				zerolog.LevelFieldName,
-				string(constant.OperationID),
-				string(constant.OpAction),
-				zerolog.CallerFieldName,
-				zerolog.MessageFieldName,
-			},
-			FieldsExclude: []string{string(constant.OperationID), string(constant.OpAction)},
-		})
+		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stdout})
 	}
 
 	multi := zerolog.MultiLevelWriter(writers...)
