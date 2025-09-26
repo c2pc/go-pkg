@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"io"
 )
@@ -39,10 +40,16 @@ func (c *AES) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 
 	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
-	return ciphertext, nil
+
+	return []byte(base64.StdEncoding.EncodeToString(ciphertext)), nil
 }
 
 func (c *AES) Decrypt(ciphertext []byte) ([]byte, error) {
+	ct, err := base64.StdEncoding.DecodeString(string(ciphertext))
+	if err != nil {
+		return nil, err
+	}
+
 	block, err := aes.NewCipher(c.key)
 	if err != nil {
 		return nil, err
@@ -54,10 +61,11 @@ func (c *AES) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
+	if len(ct) < nonceSize {
 		return nil, errors.New("ciphertext too short")
 	}
 
-	nonce, data := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	nonce, data := ct[:nonceSize], ct[nonceSize:]
+
 	return gcm.Open(nil, nonce, data, nil)
 }
