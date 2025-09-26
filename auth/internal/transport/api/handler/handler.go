@@ -89,6 +89,10 @@ func (h *Handler) Init(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin
 	sessionHandler := NewSessionHandlers(h.sessionService, h.tr)
 	versionHandler := NewVersionHandlers(h.versionService)
 
+	api.Any("ping", func(c *gin.Context) {
+		c.Data(200, "text/plain", []byte("pong"))
+	})
+
 	handler := api.Group("/auth")
 	{
 		authHandler.Init(engine, handler)
