@@ -75,13 +75,16 @@ func reload(cfg Config) {
 			NoColor:    true,
 			TimeFormat: time.RFC3339,
 			FormatLevel: func(i interface{}) string {
-				return strings.ToUpper(fmt.Sprintf("| %-6s|", i))
+				if i == nil {
+					return fmt.Sprintf("%-6s", "")
+				}
+				return strings.ToUpper(fmt.Sprintf("%-6s", i))
 			},
 			FormatMessage: func(i interface{}) string {
 				if i == nil {
 					return ""
 				}
-				return fmt.Sprintf("| %s |", i)
+				return fmt.Sprintf("%s", i)
 			},
 			FormatFieldValue: func(i interface{}) string {
 				if i == nil {
