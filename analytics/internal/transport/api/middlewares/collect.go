@@ -307,14 +307,14 @@ func (l *logger) middleware(c *gin.Context) {
 		logPkg := loggerServ.Info()
 		if status >= 400 {
 			if userAction != nil {
-				logPkg = loggerServ.WithLevel(zerolog.ErrorLevel)
+				logPkg = loggerServ.NoLevel()
 			} else {
 				logPkg = loggerServ.Error()
 			}
 			level = zerolog.ErrorLevel
 		} else {
 			if userAction != nil {
-				logPkg = loggerServ.WithLevel(zerolog.InfoLevel)
+				logPkg = loggerServ.NoLevel()
 				level = zerolog.InfoLevel
 			} else {
 				if strings.ToUpper(method) == http.MethodGet {

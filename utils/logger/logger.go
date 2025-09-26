@@ -142,11 +142,11 @@ func reload(cfg Config) {
 	closers = clrs
 }
 
-func Debug() *zerolog.Event                        { return log.Debug() }
-func Info() *zerolog.Event                         { return log.Info() }
-func Warn() *zerolog.Event                         { return log.Warn() }
-func Error() *zerolog.Event                        { return log.Error() }
-func Fatal() *zerolog.Event                        { return log.Fatal() }
-func Panic() *zerolog.Event                        { return log.Panic() }
-func WithLevel(level zerolog.Level) *zerolog.Event { return log.WithLevel(level) }
-func GetLevel() zerolog.Level                      { return log.GetLevel() }
+func Debug() *zerolog.Event   { return log.Debug() }
+func Info() *zerolog.Event    { return log.Info() }
+func Warn() *zerolog.Event    { return log.Warn() }
+func Error() *zerolog.Event   { return log.Error() }
+func Fatal() *zerolog.Event   { return log.WithLevel(zerolog.FatalLevel) }
+func Panic() *zerolog.Event   { return log.WithLevel(zerolog.PanicLevel) }
+func NoLevel() *zerolog.Event { return log.WithLevel(zerolog.NoLevel) }
+func GetLevel() zerolog.Level { return log.GetLevel() }
