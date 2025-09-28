@@ -36,7 +36,7 @@ type Request struct {
 		OIDC    *struct {
 			ConfigURL         string   `json:"config_url" binding:"required"`
 			ClientID          string   `json:"client_id" binding:"required"`
-			ClientSecret      *string  `json:"client_secret" binding:"omitempty"`
+			ClientSecret      *string  `json:"client_secret" binding:"omitempty,min=1"`
 			RootURL           string   `json:"root_url" binding:"required,min=1,max=1024"`
 			LoginAttr         string   `json:"login_attr" binding:"required"`
 			ValidRedirectURLs []string `json:"valid_redirect_urls" binding:"required,max=10,dive,min=1,max=256"`
@@ -223,7 +223,7 @@ func (c *Configurator) Check(newData, lastData []byte) ([]byte, error) {
 		}
 
 		if newCfg.SSO.OIDC != nil {
-			if lastCfg.SSO.OIDC == nil && newCfg.SSO.OIDC.ClientSecret == nil {
+			if (lastCfg.SSO.OIDC == nil || lastCfg.SSO.OIDC.ClientSecret == nil) && (newCfg.SSO.OIDC.ClientSecret == nil) {
 				return nil, ErrInvalidOIDCSecret
 			}
 
