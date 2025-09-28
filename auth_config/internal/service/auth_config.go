@@ -9,6 +9,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth_config/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
+	"github.com/c2pc/go-pkg/v2/utils/clause"
 	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 
@@ -114,7 +115,9 @@ func (s AuthConfigService) createDefault(ctx context.Context, key string, cfg co
 }
 
 func (s AuthConfigService) List(ctx context.Context) ([]model.AuthConfig, error) {
-	data, err := s.authConfigRepo.List(ctx, &model2.Filter{}, ``)
+	data, err := s.authConfigRepo.List(ctx, &model2.Filter{
+		OrderBy: []clause.ExpressionOrderBy{{Column: "key", Order: clause.OrderByAsc}},
+	}, ``)
 	if err != nil {
 		return nil, err
 	}
