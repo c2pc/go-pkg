@@ -4,6 +4,7 @@ import (
 	"os"
 )
 
+var LogLevel int8
 var devMode bool
 
 func init() {
@@ -11,5 +12,5 @@ func init() {
 }
 
 func IsDevMode() bool {
-	return devMode
+	return devMode || LogLevel == 0
 }

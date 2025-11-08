@@ -56,6 +56,7 @@ func Init(cfg Config) {
 		Compress:   cfg.Compress,
 	}
 
+	app_data.LogLevel = int8(cfg.Level)
 	level := convertLevel(cfg.Level)
 
 	backendFile := logging.NewLogBackend(rotator, "", 0)
