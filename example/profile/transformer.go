@@ -15,12 +15,12 @@ type Transform struct {
 	Address string `json:"address"`
 }
 
-func (r Transformer) Transform(m *profile.IModel) interface{} {
+func (r Transformer) Transform(m profile.IModel) interface{} {
 	if m == nil {
 		return nil
 	}
 
-	prof := (*m).(Profile)
+	prof := (m).(*Profile)
 
 	return &Transform{
 		Age:     prof.Age,
@@ -47,12 +47,12 @@ func (r Transformer) TransformList(models []profile.IModel) []interface{} {
 	return transformed
 }
 
-func (r Transformer) TransformProfile(m *profile.IModel) interface{} {
+func (r Transformer) TransformProfile(m profile.IModel) interface{} {
 	if m == nil {
 		return nil
 	}
 
-	prof := (*m).(Profile)
+	prof := (m).(*Profile)
 
 	return &Transform{
 		Age:     prof.Age,

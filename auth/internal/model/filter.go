@@ -2,7 +2,7 @@ package model
 
 type Filter struct {
 	ID       int    `json:"id"`
-	UserID   int    `json:"user_id"`
+	UserID   int64  `json:"user_id"`
 	DeviceID int    `json:"device_id"`
 	Endpoint string `json:"endpoint"`
 	Name     string `json:"name"`

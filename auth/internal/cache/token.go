@@ -32,12 +32,12 @@ func NewTokenCache(rdb redis.UniversalClient, accessExpire time.Duration) *Token
 	}
 }
 
-func (c *TokenCache) SetTokenFlag(ctx context.Context, userID int, DeviceID int, token string, flag int) error {
+func (c *TokenCache) SetTokenFlag(ctx context.Context, userID int64, DeviceID int, token string, flag int) error {
 	return c.rdb.HSet(ctx, cachekey.GetTokenKey(userID, DeviceID), token, flag).Err()
 }
 
 // SetTokenFlagEx set token and flag with expire time
-func (c *TokenCache) SetTokenFlagEx(ctx context.Context, userID int, DeviceID int, token string, flag int) error {
+func (c *TokenCache) SetTokenFlagEx(ctx context.Context, userID int64, DeviceID int, token string, flag int) error {
 	key := cachekey.GetTokenKey(userID, DeviceID)
 	if err := c.rdb.HSet(ctx, key, token, flag).Err(); err != nil {
 		return err
@@ -48,7 +48,7 @@ func (c *TokenCache) SetTokenFlagEx(ctx context.Context, userID int, DeviceID in
 	return nil
 }
 
-func (c *TokenCache) GetTokensWithoutError(ctx context.Context, userID int, DeviceID int) (map[string]int, error) {
+func (c *TokenCache) GetTokensWithoutError(ctx context.Context, userID int64, DeviceID int) (map[string]int, error) {
 	m, err := c.rdb.HGetAll(ctx, cachekey.GetTokenKey(userID, DeviceID)).Result()
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func (c *TokenCache) GetTokensWithoutError(ctx context.Context, userID int, Devi
 	return mm, nil
 }
 
-func (c *TokenCache) SetTokenMapByUidPid(ctx context.Context, userID int, DeviceID int, m map[string]int) error {
+func (c *TokenCache) SetTokenMapByUidPid(ctx context.Context, userID int64, DeviceID int, m map[string]int) error {
 	mm := make(map[string]any)
 	for k, v := range m {
 		mm[k] = v
@@ -69,11 +69,11 @@ func (c *TokenCache) SetTokenMapByUidPid(ctx context.Context, userID int, Device
 	return c.rdb.HSet(ctx, cachekey.GetTokenKey(userID, DeviceID), mm).Err()
 }
 
-func (c *TokenCache) DeleteTokenByUidPid(ctx context.Context, userID int, DeviceID int, fields []string) error {
+func (c *TokenCache) DeleteTokenByUidPid(ctx context.Context, userID int64, DeviceID int, fields []string) error {
 	return c.rdb.HDel(ctx, cachekey.GetTokenKey(userID, DeviceID), fields...).Err()
 }
 
-func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userIDs ...int) error {
+func (c *TokenCache) DeleteAllUserTokens(ctx context.Context, userIDs ...int64) error {
 	for _, userID := range userIDs {
 		for _, deviceID := range model.DeviceIDs {
 			tokens, err := c.GetTokensWithoutError(ctx, userID, deviceID)

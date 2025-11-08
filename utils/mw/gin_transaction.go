@@ -7,8 +7,6 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/c2pc/go-pkg/v2/utils/logger"
-	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -46,8 +44,7 @@ func (tr *Transaction) DBTransaction(c *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			txHandle.Rollback()
-			logger.Panic().Str(string(constant.OperationID), mcontext.GetOperationID2(c.Request.Context())).Str("error", fmt.Sprintf("%v", r))
-			response.Response(c, apperr.ErrInternal)
+			response.Response(c, apperr.ErrInternal.WithErrorText(fmt.Sprint(r)))
 			return
 		}
 	}()

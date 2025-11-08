@@ -18,7 +18,7 @@ var (
 )
 
 type IModel interface {
-	GetUserId() int
+	GetUserId() int64
 }
 
 type Profile struct {
@@ -29,12 +29,12 @@ type Profile struct {
 
 type IProfileService interface {
 	Trx(db *gorm.DB) IProfileService
-	GetById(ctx context.Context, userID int) (*IModel, error)
-	GetByIds(ctx context.Context, userIDs ...int) ([]IModel, error)
-	Create(ctx context.Context, userID int, input any) (*IModel, error)
-	Update(ctx context.Context, userID int, input any) error
-	UpdateProfile(ctx context.Context, userID int, input any) error
-	Delete(ctx context.Context, userID int) error
+	GetById(ctx context.Context, userID int64) (IModel, error)
+	GetByIds(ctx context.Context, userIDs ...int64) ([]IModel, error)
+	Create(ctx context.Context, userID int64, input any) (IModel, error)
+	Update(ctx context.Context, userID int64, input any) error
+	UpdateProfile(ctx context.Context, userID int64, input any) error
+	Delete(ctx context.Context, userID int64) error
 }
 
 type IRequest interface {
@@ -43,7 +43,7 @@ type IRequest interface {
 }
 
 type ITransformer interface {
-	Transform(m *IModel) interface{}
+	Transform(m IModel) interface{}
 	TransformList(models []IModel) []interface{}
-	TransformProfile(m *IModel) interface{}
+	TransformProfile(m IModel) interface{}
 }

@@ -3,8 +3,8 @@ package model
 import "time"
 
 type RefreshToken struct {
-	ID        int       `json:"id"`
-	UserID    int       `json:"user_id"`
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
 	DeviceID  int       `json:"device_id"`
 	Token     string    `json:"token"`
 	LoggedAt  time.Time `json:"logged_at"`

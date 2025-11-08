@@ -22,12 +22,12 @@ var (
 const minutesBefore = 5
 
 type Claims struct {
-	UserID   int
+	UserID   int64
 	DeviceID int // login Device
 	jwt.RegisteredClaims
 }
 
-func BuildClaims(userID int, DeviceID int, ttl time.Duration) Claims {
+func BuildClaims(userID int64, DeviceID int, ttl time.Duration) Claims {
 	now := time.Now().UTC()
 	before := now.Add(-time.Minute * time.Duration(minutesBefore))
 	return Claims{

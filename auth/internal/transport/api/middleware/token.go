@@ -5,13 +5,14 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/c2pc/go-pkg/v2/auth/fx"
-	model3 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/internal/fx"
+	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/utils/syslog"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/gin-gonic/gin"
 )
@@ -38,8 +39,6 @@ func NewTokenMiddleware(cache *fx.CacheHolder, repositories repository.Repositor
 }
 
 func (j *TokenMiddleware) Authenticate(c *gin.Context) {
-	ctx := c.Request.Context()
-
 	tokensString, err := j.parseAuthHeader(c)
 	if err != nil {
 		http.Response(c, apperr.ErrUnauthenticated.WithError(err))
@@ -48,29 +47,16 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 
 	claims, err := tokenverify.GetClaimFromToken(tokensString, tokenverify.Secret(j.authHolder.Get().AccessSecret))
 	if claims != nil {
-		ctx = mcontext.WithOpUserIDContext(ctx, claims.UserID)
-		ctx = mcontext.WithOpDeviceIDContext(ctx, claims.DeviceID)
-		c.Request = c.Request.WithContext(ctx)
+		c.Request = c.Request.WithContext(mcontext.WithOpUserIDContext(c.Request.Context(), claims.UserID))
+		c.Request = c.Request.WithContext(mcontext.WithOpDeviceIDContext(c.Request.Context(), claims.DeviceID))
 	}
 	if claims == nil || err != nil {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Неверный токен доступа"))
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неверный токен доступа"))
 		http.Response(c, apperr.ErrUnauthenticated.WithError(err))
 		return
 	}
 
-	m, err := j.cache.Get().TokenCache.GetTokensWithoutError(ctx, claims.UserID, claims.DeviceID)
-	if err != nil {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Неверный токен доступа"))
-		http.Response(c, apperr.ErrInternal.WithError(err))
-		return
-	}
-	if len(m) == 0 {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Неверный токен доступа"))
-		http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
-		return
-	}
-
-	user, err := j.cache.Get().UserCache.GetUserInfo(ctx, claims.UserID, func(ctx context.Context) (*model3.User, error) {
+	user, err := j.cache.Get().UserCache.GetUserInfo(c.Request.Context(), claims.UserID, func(ctx context.Context) (*model.User, error) {
 		return j.repositories.UserRepository.GetUserWithPermissions(ctx, "id = ?", claims.UserID)
 	})
 	if err != nil {
@@ -78,24 +64,32 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 		return
 	}
 
+	c.Request = c.Request.WithContext(mcontext.WithOpUserLoginContext(c.Request.Context(), user.Login))
+	c.Request = c.Request.WithContext(syslog.CtxWithData(c.Request.Context(), syslog.DataFromRequest(c)))
+
+	m, err := j.cache.Get().TokenCache.GetTokensWithoutError(c.Request.Context(), claims.UserID, claims.DeviceID)
+	if err != nil {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неверный токен доступа"))
+		http.Response(c, apperr.ErrInternal.WithError(err))
+		return
+	}
+	if len(m) == 0 {
+		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неверный токен доступа"))
+		http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
+		return
+	}
+
 	var roleName string
-	var logDisabled bool
 	for _, role := range user.Roles {
-		if role.Name == model3.Broker {
-			roleName = role.Name
-			logDisabled = role.LogDisabled
-			break
-		} else if role.Name == model3.SuperAdmin {
+		if model.IsRole(role.Name, model.SuperAdmin) {
 			roleName = role.Name
 			break
 		}
 	}
 
 	if roleName != "" {
-		ctx = mcontext.WithOpUserRoleContext(ctx, roleName)
-		ctx = context.WithValue(ctx, "log_disabled", logDisabled)
+		c.Request = c.Request.WithContext(mcontext.WithOpUserRoleContext(c.Request.Context(), roleName))
 	}
-	c.Request = c.Request.WithContext(ctx)
 
 	if v, ok := m[tokensString]; ok {
 		switch v {
@@ -103,19 +97,19 @@ func (j *TokenMiddleware) Authenticate(c *gin.Context) {
 			c.Next()
 			return
 		case constant.KickedToken:
-			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Неверный токен доступа"))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неверный токен доступа"))
 			http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenKicked))
 			c.Abort()
 			return
 		default:
-			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Неверный токен доступа"))
+			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неверный токен доступа"))
 			http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenUnknown))
 			c.Abort()
 			return
 		}
 	}
 
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(ctx, "Неверный токен доступа"))
+	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Неверный токен доступа"))
 	http.Response(c, apperr.ErrUnauthenticated.WithError(tokenverify.ErrTokenNotExist))
 	c.Abort()
 	return

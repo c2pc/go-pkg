@@ -6,10 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type WebSocket interface {
-	InitHandler(api *gin.RouterGroup)
+type Sender interface {
 	SendMessage(ctx context.Context, m Message) error
 	RegisterClientListener() <-chan Listener
+}
+
+type WebSocket interface {
+	Sender
+	InitHandler(api *gin.RouterGroup)
 	ShutDown()
 }
 

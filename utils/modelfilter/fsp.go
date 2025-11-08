@@ -2,14 +2,14 @@ package modelfilter
 
 import (
 	"github.com/c2pc/go-pkg/v2/utils/clause"
-	"github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 )
 
 func FSP[T any](objs []T,
 	searchable clause.FieldSearchable,
 	FilterFunc GetFieldValueFunc[T],
 	SorterFunc GetFieldValueFunc[T],
-	m *model.Meta[T],
+	m *meta.Meta[T],
 ) error {
 	objs, err := ApplyFilters[T](objs, searchable, FilterFunc, m.Where)
 	if err != nil {

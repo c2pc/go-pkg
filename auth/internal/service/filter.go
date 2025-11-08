@@ -10,7 +10,7 @@ import (
 	repository2 "github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"gorm.io/gorm"
 )
 
@@ -21,7 +21,7 @@ var (
 
 type IFilterService interface {
 	Trx(db *gorm.DB) IFilterService
-	List(ctx context.Context, m *model2.Meta[model.Filter]) error
+	List(ctx context.Context, m *meta.Meta[model.Filter]) error
 	GetById(ctx context.Context, id int) (*model.Filter, error)
 	Create(ctx context.Context, input FilterCreateInput) (*model.Filter, error)
 	Update(ctx context.Context, id int, input FilterUpdateInput) error
@@ -45,7 +45,7 @@ func (s FilterService) Trx(db *gorm.DB) IFilterService {
 	return s
 }
 
-func (s FilterService) List(ctx context.Context, m *model2.Meta[model.Filter]) error {
+func (s FilterService) List(ctx context.Context, m *meta.Meta[model.Filter]) error {
 	userID, ok := mcontext.GetOpUserID(ctx)
 	if !ok {
 		return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")

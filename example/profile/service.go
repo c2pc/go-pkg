@@ -5,7 +5,7 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/auth/profile"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +27,7 @@ func (s Service) Trx(db *gorm.DB) profile.IProfileService {
 	return s
 }
 
-func (s Service) GetById(ctx context.Context, userID int) (*profile.IModel, error) {
+func (s Service) GetById(ctx context.Context, userID int64) (profile.IModel, error) {
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -36,33 +36,31 @@ func (s Service) GetById(ctx context.Context, userID int) (*profile.IModel, erro
 		return nil, err
 	}
 
-	m := profile.IModel(*prof)
-
-	return &m, nil
+	return prof, nil
 }
 
-func (s Service) GetByIds(ctx context.Context, userID ...int) ([]profile.IModel, error) {
-	profs, err := s.profileRepository.List(ctx, &model2.Filter{}, `user_id IN (?)`, userID)
+func (s Service) GetByIds(ctx context.Context, userID ...int64) ([]profile.IModel, error) {
+	profs, err := s.profileRepository.List(ctx, &meta.Filter{}, `user_id IN (?)`, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	m := make([]profile.IModel, len(profs))
 	for i, prof := range profs {
-		m[i] = profile.IModel(prof)
+		m[i] = prof
 	}
 
 	return m, nil
 }
 
-type ProfileCreateInput struct {
+type CreateInput struct {
 	Age     *int
 	Height  *int
 	Address string
 }
 
-func (s Service) Create(ctx context.Context, userID int, input any) (*profile.IModel, error) {
-	inp := input.(*ProfileCreateInput)
+func (s Service) Create(ctx context.Context, userID int64, input any) (profile.IModel, error) {
+	inp := input.(*CreateInput)
 
 	prof, err := s.profileRepository.Create(ctx, &Profile{
 		Age:     inp.Age,
@@ -82,18 +80,16 @@ func (s Service) Create(ctx context.Context, userID int, input any) (*profile.IM
 		return nil, err
 	}
 
-	m := profile.IModel(*prof)
-
-	return &m, nil
+	return prof, nil
 }
 
-type ProfileUpdateInput struct {
+type UpdateInput struct {
 	Age     *int
 	Height  *int
 	Address *string
 }
 
-func (s Service) Update(ctx context.Context, userID int, input any) error {
+func (s Service) Update(ctx context.Context, userID int64, input any) error {
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -102,7 +98,7 @@ func (s Service) Update(ctx context.Context, userID int, input any) error {
 		return err
 	}
 
-	inp := input.(*ProfileUpdateInput)
+	inp := input.(*UpdateInput)
 
 	var selects []interface{}
 	if inp.Age != nil {
@@ -130,13 +126,13 @@ func (s Service) Update(ctx context.Context, userID int, input any) error {
 	return nil
 }
 
-type ProfileUpdateProfileInput struct {
+type UpdateProfileInput struct {
 	Age     *int
 	Height  *int
 	Address *string
 }
 
-func (s Service) UpdateProfile(ctx context.Context, userID int, input any) error {
+func (s Service) UpdateProfile(ctx context.Context, userID int64, input any) error {
 	prof, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -145,7 +141,7 @@ func (s Service) UpdateProfile(ctx context.Context, userID int, input any) error
 		return err
 	}
 
-	inp := input.(*ProfileUpdateProfileInput)
+	inp := input.(*UpdateProfileInput)
 
 	var selects []interface{}
 	if inp.Age != nil {
@@ -182,7 +178,7 @@ func (s Service) UpdateProfile(ctx context.Context, userID int, input any) error
 	return nil
 }
 
-func (s Service) Delete(ctx context.Context, userID int) error {
+func (s Service) Delete(ctx context.Context, userID int64) error {
 	_, err := s.profileRepository.Find(ctx, `user_id = ?`, userID)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {

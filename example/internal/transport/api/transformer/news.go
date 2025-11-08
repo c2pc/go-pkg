@@ -2,7 +2,7 @@ package transformer
 
 import (
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +28,7 @@ type NewsListTransformer struct {
 	Title string `json:"title"`
 }
 
-func NewsListTransform(c *gin.Context, p *model2.Pagination[model.News]) []NewsListTransformer {
+func NewsListTransform(c *gin.Context, p *meta.Pagination[model.News]) []NewsListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]NewsListTransformer, 0)

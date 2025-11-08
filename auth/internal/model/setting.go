@@ -1,7 +1,7 @@
 package model
 
 type Setting struct {
-	UserID   int    `json:"user_id"`
+	UserID   int64  `json:"user_id"`
 	DeviceID int    `json:"device_id"`
 	Settings []byte `json:"settings"`
 

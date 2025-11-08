@@ -16,10 +16,9 @@ func RoleCreate(input *request.RoleCreateRequest) service.RoleCreateInput {
 
 func RoleUpdate(input *request.RoleUpdateRequest) service.RoleUpdateInput {
 	return service.RoleUpdateInput{
-		Name:        input.Name,
-		Write:       input.Write,
-		Read:        input.Read,
-		Exec:        input.Exec,
-		LogDisabled: input.LogDisabled,
+		Name:  input.Name,
+		Write: input.Write,
+		Read:  input.Read,
+		Exec:  input.Exec,
 	}
 }

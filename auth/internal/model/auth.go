@@ -5,7 +5,7 @@ type Token struct {
 	RefreshToken string  `json:"refresh_token"`
 	ExpiresAt    float64 `json:"expires_at"`
 	TokenType    string  `json:"token_type"`
-	UserID       int     `json:"user_id"`
+	UserID       int64   `json:"user_id"`
 }
 
 type AuthToken struct {

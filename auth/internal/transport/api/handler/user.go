@@ -11,7 +11,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
@@ -57,9 +57,9 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	m := model2.NewMeta(
-		model2.NewPagination[model.User](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy, cred.Where),
+	m := meta.NewMeta(
+		meta.NewPagination[model.User](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		meta.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.userService.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)
@@ -70,7 +70,7 @@ func (h *UserHandler) List(c *gin.Context) {
 }
 
 func (h *UserHandler) GetById(c *gin.Context) {
-	id, err := request2.Id(c)
+	id, err := request2.Id64(c)
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -86,7 +86,7 @@ func (h *UserHandler) GetById(c *gin.Context) {
 }
 
 func (h *UserHandler) Create(c *gin.Context) {
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание учетной записи"))
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Создание учетной записи")
 
 	cred, err := request2.BindJSON[request.UserCreateRequest](c)
 	if err != nil {
@@ -94,7 +94,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание учетной записи: "+cred.Login))
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Создание учетной записи: "+cred.Login)
 
 	var profileCred any
 	if h.profileRequest != nil {
@@ -115,8 +115,8 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 func (h *UserHandler) Update(c *gin.Context) {
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение учетной записи"))
-	id, err := request2.Id(c)
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Изменение учетной записи")
+	id, err := request2.Id64(c)
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -139,7 +139,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	userLogin, err := h.userService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.UserUpdate(cred), profileCred)
 	if userLogin != "" {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение учетной записи: "+userLogin))
+		c.Request = mcontext.WithOpActionRequest(c.Request, "Изменение учетной записи: "+userLogin)
 	}
 	if err != nil {
 		response.Response(c, err)
@@ -150,8 +150,8 @@ func (h *UserHandler) Update(c *gin.Context) {
 }
 
 func (h *UserHandler) Delete(c *gin.Context) {
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление учетной записи"))
-	id, err := request2.Id(c)
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Удаление учетной записи")
+	id, err := request2.Id64(c)
 	if err != nil {
 		response.Response(c, err)
 		return
@@ -159,7 +159,7 @@ func (h *UserHandler) Delete(c *gin.Context) {
 
 	userLogin, err := h.userService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
 	if userLogin != "" {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление учетной записи: "+userLogin))
+		c.Request = mcontext.WithOpActionRequest(c.Request, "Удаление учетной записи: "+userLogin)
 	}
 	if err != nil {
 		response.Response(c, err)

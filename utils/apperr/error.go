@@ -42,15 +42,10 @@ func Replace(err Error, annotators ...Annotator) Error {
 // Error возвращает строковое представление ошибки.
 func (e Error) Error() string {
 	if e.Err == nil {
-		return e.ID
+		return Translate(e, string(translator.RU))
 	}
 
-	var appError Error
-	if errors.As(e.Err, &appError) {
-		return fmt.Sprintf("%s.%s", e.ID, e.Err.Error())
-	}
-
-	return fmt.Sprintf("%s.(%s)", e.ID, e.Err.Error())
+	return fmt.Sprintf("%s->%s", Translate(e, string(translator.RU)), e.Err.Error())
 }
 
 // LastError возвращает последнюю ошибку из цепочки ошибок.

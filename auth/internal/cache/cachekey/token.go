@@ -9,6 +9,6 @@ const (
 	UidPidToken = "TOKEN_STATUS:"
 )
 
-func GetTokenKey(userID int, DeviceID int) string {
-	return ServiceName + UidPidToken + stringutil.IntToString(userID) + ":" + model.DeviceIDToName(DeviceID)
+func GetTokenKey(userID int64, DeviceID int) string {
+	return ServiceName + UidPidToken + stringutil.Int64ToString(userID) + ":" + model.DeviceIDToName(DeviceID)
 }

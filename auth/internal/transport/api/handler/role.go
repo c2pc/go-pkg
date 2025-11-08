@@ -10,7 +10,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
@@ -51,9 +51,9 @@ func (h *RoleHandler) List(c *gin.Context) {
 		return
 	}
 
-	m := model2.NewMeta(
-		model2.NewPagination[model.Role](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy, cred.Where),
+	m := meta.NewMeta(
+		meta.NewPagination[model.Role](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		meta.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.roleService.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)
@@ -76,9 +76,9 @@ func (h *RoleHandler) UserList(c *gin.Context) {
 		return
 	}
 
-	m := model2.NewMeta(
-		model2.NewPagination[model.UserRole](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy, cred.Where),
+	m := meta.NewMeta(
+		meta.NewPagination[model.UserRole](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		meta.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.roleService.UserList(c.Request.Context(), id, &m); err != nil {
 		response.Response(c, err)
@@ -110,7 +110,7 @@ func (h *RoleHandler) GetById(c *gin.Context) {
 }
 
 func (h *RoleHandler) Create(c *gin.Context) {
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание роли пользователей"))
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Создание роли администраторов")
 
 	cred, err := request2.BindJSON[request.RoleCreateRequest](c)
 	if err != nil {
@@ -118,7 +118,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Создание роли пользователей: "+cred.Name))
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Создание роли администраторов: "+cred.Name)
 
 	role, err := h.roleService.Trx(request2.TxHandle(c)).Create(c.Request.Context(), dto.RoleCreate(cred))
 	if err != nil {
@@ -130,7 +130,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 }
 
 func (h *RoleHandler) Update(c *gin.Context) {
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение роли пользователей"))
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Изменение роли администраторов")
 
 	id, err := request2.Id(c)
 	if err != nil {
@@ -146,7 +146,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 	roleName, err := h.roleService.Trx(request2.TxHandle(c)).Update(c.Request.Context(), id, dto.RoleUpdate(cred))
 	if roleName != "" {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Изменение роли пользователей: "+roleName))
+		c.Request = mcontext.WithOpActionRequest(c.Request, "Изменение роли администраторов: "+roleName)
 	}
 	if err != nil {
 		response.Response(c, err)
@@ -157,7 +157,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 }
 
 func (h *RoleHandler) Delete(c *gin.Context) {
-	c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление роли пользователей"))
+	c.Request = mcontext.WithOpActionRequest(c.Request, "Удаление роли администраторов")
 
 	id, err := request2.Id(c)
 	if err != nil {
@@ -167,7 +167,7 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 
 	roleName, err := h.roleService.Trx(request2.TxHandle(c)).Delete(c.Request.Context(), id)
 	if roleName != "" {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Удаление роли пользователей: "+roleName))
+		c.Request = mcontext.WithOpActionRequest(c.Request, "Удаление роли администраторов: "+roleName)
 	}
 	if err != nil {
 		response.Response(c, err)

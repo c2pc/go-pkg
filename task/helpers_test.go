@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/c2pc/go-pkg/v2/task"
-	"github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +39,7 @@ func TestMassDelete(t *testing.T) {
 
 	notFoundError := apperr.ErrNotFound
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -91,7 +91,7 @@ func TestMassUpdate(t *testing.T) {
 
 	notFoundError := apperr.ErrNotFound
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -140,7 +140,7 @@ func TestImport(t *testing.T) {
 		return element, nil, nil
 	}
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -186,7 +186,7 @@ func TestExport(t *testing.T) {
 	emptyListError := apperr.ErrBadRequest
 	data := []byte(`{}`)
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -218,7 +218,7 @@ func TestMassDelete_InvalidJSON(t *testing.T) {
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) { return nil, nil }
 	actionFn := func(ctx context.Context, input struct{}, id int) error { return nil }
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -245,7 +245,7 @@ func TestMassDelete_ContextCancelled(t *testing.T) {
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) { return ids, nil }
 	actionFn := func(ctx context.Context, input struct{ IDs []int }, id int) error { return nil }
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -274,7 +274,7 @@ func TestMassUpdate_PluckIDsFnError(t *testing.T) {
 	}
 	actionFn := func(ctx context.Context, id int, input struct{ IDs []int }) error { return nil }
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -305,7 +305,7 @@ func TestImport_AllSuccess(t *testing.T) {
 		return element, nil, nil
 	}
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -339,7 +339,7 @@ func TestExport_EmptyList(t *testing.T) {
 	emptyListError := errors.New("empty list")
 	data := []byte(`{"filter": "empty"}`)
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -367,7 +367,7 @@ func TestMassDelete_PluckIDsFnError(t *testing.T) {
 	}
 	actionFn := func(ctx context.Context, input struct{ IDs []int }, id int) error { return nil }
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -396,7 +396,7 @@ func TestMassUpdate_InvalidJSON(t *testing.T) {
 		return nil
 	}
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -424,7 +424,7 @@ func TestMassUpdate_ContextCancelled(t *testing.T) {
 	pluckIDsFn := func(ctx context.Context, ids []int) ([]int, error) { return ids, nil }
 	actionFn := func(ctx context.Context, id int, input struct{}) error { return nil }
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {
@@ -458,7 +458,7 @@ func TestExport_ListFnError(t *testing.T) {
 	emptyListError := errors.New("empty list")
 	data := []byte(`{"filter": "test"}`)
 
-	msgChan := make(chan *model.Message)
+	msgChan := make(chan *types.Message)
 	defer close(msgChan)
 
 	go func() {

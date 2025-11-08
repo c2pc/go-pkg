@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/c2pc/go-pkg/v2/auth/fx"
+	"github.com/c2pc/go-pkg/v2/auth/internal/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
@@ -11,9 +12,10 @@ import (
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
+	"github.com/c2pc/go-pkg/v2/utils/syslog"
 	"gorm.io/gorm"
 )
 
@@ -24,15 +26,21 @@ var (
 	ErrUserCannotBeBlocked      = apperr.New("user_cannot_be_blocked", apperr.WithTextTranslate(i18n.ErrUserCannotBeBlocked), apperr.WithCode(code.PermissionDenied))
 	ErrUserCannotBeDeleted      = apperr.New("user_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrUserCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
 	ErrSelfCannotBeDeleted      = apperr.New("self_cannot_be_deleted", apperr.WithTextTranslate(i18n.ErrSelfCannotBeDeleted), apperr.WithCode(code.PermissionDenied))
+
+	ErrUserCannotCreateDomain = apperr.New("cannot_create_domain_admin", apperr.WithTextTranslate(i18n.ErrUserCannotCreateDomain), apperr.WithCode(code.PermissionDenied))
+	ErrLocalCannotBeDomain    = apperr.New("local_cannot_be_domain", apperr.WithTextTranslate(i18n.ErrLocalCannotBeDomain), apperr.WithCode(code.PermissionDenied))
+	ErrDomainCannotBeLocal    = apperr.New("domain_cannot_be_local", apperr.WithTextTranslate(i18n.ErrDomainCannotBeLocal), apperr.WithCode(code.PermissionDenied))
+	ErrDomainLoginChange      = apperr.New("domain_login_change_forbidden", apperr.WithTextTranslate(i18n.ErrDomainLoginChange), apperr.WithCode(code.PermissionDenied))
+	ErrDomainPasswordChange   = apperr.New("domain_password_change_forbidden", apperr.WithTextTranslate(i18n.ErrDomainPasswordChange), apperr.WithCode(code.PermissionDenied))
 )
 
 type IUserService interface {
 	Trx(db *gorm.DB) IUserService
-	List(ctx context.Context, m *model2.Meta[model.User]) error
-	GetById(ctx context.Context, id int) (*model.User, error)
+	List(ctx context.Context, m *meta.Meta[model.User]) error
+	GetById(ctx context.Context, id int64) (*model.User, error)
 	Create(ctx context.Context, input UserCreateInput, profileInput any) (*model.User, error)
-	Update(ctx context.Context, id int, input UserUpdateInput, profileInput any) (string, error)
-	Delete(ctx context.Context, id int) (string, error)
+	Update(ctx context.Context, id int64, input UserUpdateInput, profileInput any) (string, error)
+	Delete(ctx context.Context, id int64) (string, error)
 }
 
 type UserService struct {
@@ -65,13 +73,13 @@ func (s UserService) Trx(db *gorm.DB) IUserService {
 	return s
 }
 
-func (s UserService) List(ctx context.Context, m *model2.Meta[model.User]) error {
+func (s UserService) List(ctx context.Context, m *meta.Meta[model.User]) error {
 	if err := s.repositories.UserRepository.With("roles").Paginate(ctx, m, ``); err != nil {
 		return err
 	}
 
 	if s.profileService != nil && len(m.Rows) > 0 {
-		ids := make([]int, len(m.Rows))
+		ids := make([]int64, len(m.Rows))
 		for i, user := range m.Rows {
 			ids[i] = user.ID
 		}
@@ -81,7 +89,7 @@ func (s UserService) List(ctx context.Context, m *model2.Meta[model.User]) error
 			return err
 		}
 
-		profilesMap := make(map[int]profile.IModel)
+		profilesMap := make(map[int64]profile.IModel)
 
 		for _, prof := range profiles {
 			profilesMap[prof.GetUserId()] = prof
@@ -97,7 +105,7 @@ func (s UserService) List(ctx context.Context, m *model2.Meta[model.User]) error
 	return nil
 }
 
-func (s UserService) GetById(ctx context.Context, id int) (*model.User, error) {
+func (s UserService) GetById(ctx context.Context, id int64) (*model.User, error) {
 	user, err := s.repositories.UserRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -106,7 +114,7 @@ func (s UserService) GetById(ctx context.Context, id int) (*model.User, error) {
 		return nil, err
 	}
 
-	var prof *profile.IModel
+	var prof profile.IModel
 	if s.profileService != nil {
 		prof, err = s.profileService.GetById(ctx, user.ID)
 		if err != nil {
@@ -136,33 +144,28 @@ type UserCreateInput struct {
 	IsDomain   bool
 }
 
-func (s UserService) Create(ctx context.Context, input UserCreateInput, profileInput any) (*model.User, error) {
-	role, ok := mcontext.GetOpUserRole(ctx)
-	if !ok {
-		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user role is empty")
-	}
-
-	isBroker := role == model.Broker
-
-	if !isBroker && input.IsDomain {
-		return nil, apperr.ErrForbidden.WithErrorText("user is a domain")
-	}
-
-	var password *string
-	if !input.IsDomain && input.Password != nil {
-		pwd, err := secret.HasherSecret.HashString(*input.Password)
+func (s UserService) Create(ctx context.Context, input UserCreateInput, profileInput any) (user *model.User, err error) {
+	defer func() {
+		success := err == nil
+		msg := fmt.Sprintf("Создание учетной записи: %s", input.Login)
 		if err != nil {
-			return nil, err
+			msg = fmt.Sprintf("%s: %s", msg, err.Error())
 		}
-		password = &pwd
-	}
 
-	user, err := s.repositories.UserRepository.Create(ctx, &model.User{
+		syslog.Write(ctx, syslog.Record{EventID: "create-admin", EventName: "Создание учетной записи", Severity: syslog.SeverityLow, Success: success}, msg)
+
+		if err == nil {
+			if input.Blocked {
+				syslog.Write(ctx, syslog.Record{EventID: "block-admin", EventName: "Блокировка учетной записи", Severity: syslog.SeverityLow, Success: success}, "Блокировка учетной записи: %s", input.Login)
+			}
+		}
+	}()
+
+	user, err = s.repositories.UserRepository.Create(ctx, &model.User{
 		Login:      input.Login,
 		FirstName:  input.FirstName,
 		SecondName: input.SecondName,
 		LastName:   input.LastName,
-		Password:   password,
 		Email:      input.Email,
 		Phone:      input.Phone,
 		Blocked:    input.Blocked,
@@ -175,11 +178,25 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput, profileI
 		return nil, err
 	}
 
+	var password *string
+	if !input.IsDomain && input.Password != nil {
+		pwd, err := secret.HasherSecret.HashString(model.GeneratePassword(*input.Password, user.ID))
+		if err != nil {
+			return nil, err
+		}
+		password = &pwd
+
+		err = s.repositories.UserRepository.Update(ctx, &model.User{Password: password}, []interface{}{"password"}, `id = ?`, user.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.createRoles(ctx, user, input.Roles); err != nil {
 		return nil, err
 	}
 
-	var prof *profile.IModel
+	var prof profile.IModel
 	if s.profileService != nil && profileInput != nil {
 		prof, err = s.profileService.Create(ctx, user.ID, profileInput)
 		if err != nil {
@@ -202,6 +219,7 @@ func (s UserService) Create(ctx context.Context, input UserCreateInput, profileI
 }
 
 type UserUpdateInput struct {
+	Login      *string
 	FirstName  *string
 	SecondName *string
 	LastName   *string
@@ -213,7 +231,26 @@ type UserUpdateInput struct {
 	IsDomain   *bool
 }
 
-func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, profileInput any) (string, error) {
+func (s UserService) Update(ctx context.Context, id int64, input UserUpdateInput, profileInput any) (userLogin string, err error) {
+	var actions []syslog.Record
+	var msgs []string
+	defer func() {
+		success := err == nil
+		msg := fmt.Sprintf("Редактирование учетной записи: %s", userLogin)
+		if err != nil {
+			msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		}
+
+		syslog.Write(ctx, syslog.Record{EventID: "update-admin", EventName: "Редактирование учетной записи", Severity: syslog.SeverityLow, Success: success}, msg)
+
+		if err == nil {
+			for i, act := range actions {
+				act.Success = success
+				syslog.Write(ctx, act, msgs[i])
+			}
+		}
+	}()
+
 	user, err := s.repositories.UserRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -221,26 +258,41 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 		}
 		return "", err
 	}
+	userLogin = user.Login
 
-	role, ok := mcontext.GetOpUserRole(ctx)
-	if !ok {
-		return user.Login, apperr.ErrUnauthenticated.WithErrorText("operation user role is empty")
-	}
-
-	isBroker := role == model.Broker
 	isDomain := user.IsDomain
+
 	if input.IsDomain != nil {
-		isDomain = *input.IsDomain
+		// Попытка сделать администратора доменным
+		if *input.IsDomain && !user.IsDomain {
+			isDomain = true
+		}
+
+		// Попытка сделать администратора недоменным
+		if user.IsDomain && !*input.IsDomain {
+			return userLogin, ErrDomainCannotBeLocal
+		}
 	}
 
 	var selects []interface{}
-	if input.IsDomain != nil {
-		if !isBroker {
-			return user.Login, apperr.ErrForbidden.WithErrorText("user is a domain")
-		}
-
-		user.IsDomain = *input.IsDomain
+	if input.IsDomain != nil && user.IsDomain != isDomain {
+		user.IsDomain = isDomain
 		selects = append(selects, "is_domain")
+	}
+	if input.Login != nil {
+		if *input.Login != user.Login {
+			if isDomain {
+				return userLogin, ErrDomainLoginChange
+			}
+
+			user.Login = *input.Login
+			selects = append(selects, "login")
+
+			defer func() {
+				actions = append(actions, syslog.Record{EventID: "update-admin-login", EventName: "Смена логина учетной записи", Severity: syslog.SeverityLow})
+				msgs = append(msgs, fmt.Sprintf("Смена логина учетной записи: %s на %s", userLogin, *input.Login))
+			}()
+		}
 	}
 	if input.FirstName != nil && *input.FirstName != "" {
 		user.FirstName = *input.FirstName
@@ -248,18 +300,23 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 	}
 	if input.Password != nil {
 		if isDomain {
-			user.Password = nil
-		} else if *input.Password == "" {
+			return userLogin, ErrDomainPasswordChange
+		}
+
+		if *input.Password == "" {
 			user.Password = nil
 		} else {
-			password, err := secret.HasherSecret.HashString(*input.Password)
+			password, err := secret.HasherSecret.HashString(model.GeneratePassword(*input.Password, user.ID))
 			if err != nil {
-				return user.Login, err
+				return userLogin, err
 			}
 			user.Password = &password
 		}
 
 		selects = append(selects, "password")
+
+		actions = append(actions, syslog.Record{EventID: "update-admin-password", EventName: "Смена пароля учетной записи", Severity: syslog.SeverityLow})
+		msgs = append(msgs, "")
 	}
 
 	if input.SecondName != nil {
@@ -299,15 +356,11 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 	}
 
 	if input.Blocked != nil {
-		if !isBroker && isDomain {
-			return user.Login, apperr.ErrForbidden.WithErrorText("user is a domain")
-		}
-
 		if *input.Blocked {
 			var superAdminRole *model.Role
-			for _, role := range user.Roles {
-				if role.Name == model.SuperAdmin {
-					superAdminRole = &role
+			for _, r := range user.Roles {
+				if model.IsRole(r.Name, model.SuperAdmin) {
+					superAdminRole = &r
 					break
 				}
 			}
@@ -315,12 +368,22 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 			if superAdminRole != nil {
 				userIDs, err := s.repositories.UserRoleRepository.GetUsersByRole(ctx, superAdminRole.ID)
 				if err != nil {
-					return user.Login, err
+					return userLogin, err
 				}
 
 				if len(userIDs) <= 1 {
-					return user.Login, ErrUserCannotBeBlocked
+					return userLogin, ErrUserCannotBeBlocked
 				}
+			}
+		}
+
+		if user.Blocked != *input.Blocked {
+			if *input.Blocked {
+				actions = append(actions, syslog.Record{EventID: "block-admin", EventName: "Блокировка учетной записи", Severity: syslog.SeverityLow})
+				msgs = append(msgs, fmt.Sprintf("Блокировка учетной записи: %s", userLogin))
+			} else {
+				actions = append(actions, syslog.Record{EventID: "unlock-admin", EventName: "Разблокировка учетной записи", Severity: syslog.SeverityLow})
+				msgs = append(msgs, fmt.Sprintf("Разблокировка учетной записи: %s", userLogin))
 			}
 		}
 
@@ -331,20 +394,16 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 	if len(selects) > 0 {
 		if err = s.repositories.UserRepository.Update(ctx, user, selects, `id = ?`, user.ID); err != nil {
 			if apperr.Is(err, apperr.ErrDBDuplicated) {
-				return user.Login, ErrUserExists
+				return userLogin, ErrUserExists
 			}
-			return user.Login, err
+			return userLogin, err
 		}
 	}
 
 	if input.Roles != nil {
-		if !isBroker && isDomain {
-			return user.Login, apperr.ErrForbidden.WithErrorText("user is a domain")
-		}
-
 		var superAdminRole *model.Role
 		for _, r := range user.Roles {
-			if r.Name == model.SuperAdmin {
+			if model.IsRole(r.Name, model.SuperAdmin) {
 				superAdminRole = &r
 				break
 			}
@@ -353,14 +412,14 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 		if superAdminRole != nil {
 			uniqueRoles := stringutil.RemoveDuplicate(input.Roles)
 
-			roles, err := s.repositories.RoleRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniqueRoles)
+			roles, err := s.repositories.RoleRepository.List(ctx, &meta.Filter{}, `id IN (?)`, uniqueRoles)
 			if err != nil {
-				return user.Login, err
+				return userLogin, err
 			}
 
 			isSuperAdminRole := false
 			for _, r := range roles {
-				if r.Name == model.SuperAdmin {
+				if model.IsRole(r.Name, model.SuperAdmin) {
 					isSuperAdminRole = true
 					break
 				}
@@ -369,22 +428,25 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 			if !isSuperAdminRole {
 				userIDs, err := s.repositories.UserRoleRepository.GetUsersByRole(ctx, superAdminRole.ID)
 				if err != nil {
-					return user.Login, err
+					return userLogin, err
 				}
 
 				if len(userIDs) <= 1 {
-					return user.Login, ErrUserRolesCannotBeChanged
+					return userLogin, ErrUserRolesCannotBeChanged
 				}
 			}
 		}
 
 		if err = s.repositories.UserRoleRepository.Delete(ctx, `user_id = ?`, user.ID); err != nil {
-			return user.Login, err
+			return userLogin, err
 		}
 
 		if err := s.createRoles(ctx, user, input.Roles); err != nil {
-			return user.Login, err
+			return userLogin, err
 		}
+
+		actions = append(actions, syslog.Record{EventID: "update-admin-roles", EventName: "Включение/Исключение пользователя в/из состава ролей", Severity: syslog.SeverityLow})
+		msgs = append(msgs, fmt.Sprintf("Включение/Исключение пользователя в/из состава ролей: %s", userLogin))
 	}
 
 	if s.profileService != nil && profileInput != nil {
@@ -393,33 +455,43 @@ func (s UserService) Update(ctx context.Context, id int, input UserUpdateInput, 
 			if !(apperr.Is(err, profile.ErrNotFound) ||
 				apperr.Is(err, apperr.ErrDBRecordNotFound) ||
 				apperr.Is(err, apperr.ErrNotFound)) {
-				return user.Login, err
+				return userLogin, err
 			}
 		}
 	}
 
 	if len(selects) > 0 || input.Roles != nil || profileInput != nil {
 		if err := s.cache.Get().UserCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
-			return user.Login, apperr.ErrInternal.WithError(err)
+			return userLogin, apperr.ErrInternal.WithError(err)
 		}
 	}
 
 	if input.Blocked != nil {
 		if *input.Blocked {
 			if err := s.cache.Get().UserCache.DelUsersInfo(user.ID).ChainExecDel(ctx); err != nil {
-				return user.Login, apperr.ErrInternal.WithError(err)
+				return userLogin, apperr.ErrInternal.WithError(err)
 			}
 
 			if err := s.cache.Get().TokenCache.DeleteAllUserTokens(ctx, user.ID); err != nil {
-				return user.Login, apperr.ErrInternal.WithError(err)
+				return userLogin, apperr.ErrInternal.WithError(err)
 			}
 		}
 	}
 
-	return user.Login, nil
+	return userLogin, nil
 }
 
-func (s UserService) Delete(ctx context.Context, id int) (string, error) {
+func (s UserService) Delete(ctx context.Context, id int64) (login string, err error) {
+	defer func() {
+		success := err == nil
+		msg := fmt.Sprintf("Удаление учетной записи %s", login)
+		if err != nil {
+			msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		}
+
+		syslog.Write(ctx, syslog.Record{EventID: "delete-admin", EventName: "Удаление учетной записи", Severity: syslog.SeverityLow, Success: success}, msg)
+	}()
+
 	user, err := s.repositories.UserRepository.With("roles").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -439,7 +511,7 @@ func (s UserService) Delete(ctx context.Context, id int) (string, error) {
 
 	superAdminRole := func() *model.Role {
 		for _, role := range user.Roles {
-			if role.Name == model.SuperAdmin {
+			if model.IsRole(role.Name, model.SuperAdmin) {
 				return &role
 			}
 		}
@@ -487,23 +559,13 @@ func (s UserService) createRoles(ctx context.Context, user *model.User, rls []in
 	if len(rls) > 0 {
 		uniqueRoles := stringutil.RemoveDuplicate(rls)
 
-		roles, err := s.repositories.RoleRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniqueRoles)
+		roles, err := s.repositories.RoleRepository.List(ctx, &meta.Filter{}, `id IN (?)`, uniqueRoles)
 		if err != nil {
 			return err
 		}
 
 		var rolesToCreate []model.UserRole
 		for _, role := range roles {
-			if role.Name == model.SuperAdmin || role.Name == model.Broker {
-				rolesToCreate = []model.UserRole{
-					{
-						UserID: user.ID,
-						RoleID: role.ID,
-					},
-				}
-				break
-			}
-
 			rolesToCreate = append(rolesToCreate, model.UserRole{
 				UserID: user.ID,
 				RoleID: role.ID,

@@ -1,8 +1,8 @@
 package request
 
 type AuthLoginRequest struct {
-	Login    string `json:"login" binding:"required,max=255,dot_underscore_hyphen"`
-	Password string `json:"password" binding:"required,max=60,spec_chars"`
+	Login    string `json:"login" binding:"required,max=255"`
+	Password string `json:"password" binding:"required,max=60"`
 	DeviceID int    `json:"device_id" binding:"required,device_id"`
 }
 

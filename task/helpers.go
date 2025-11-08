@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strconv"
 
-	model2 "github.com/c2pc/go-pkg/v2/task/internal/model"
+	"github.com/c2pc/go-pkg/v2/task/internal/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/secret"
 
-	"github.com/c2pc/go-pkg/v2/task/model"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
@@ -34,8 +34,8 @@ type ImportActionFn[T, C any, D string | int] func(context.Context, T, C) (D, er
 type ListFn[T, N any] func(context.Context, N) ([]T, error)
 type ExportActionFn[T, C any] func(T) (C, error)
 
-func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn DeleteActionFn[T, C]) (*model.Message, error) {
-	msg := model.NewMessage()
+func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan chan<- *types.Message, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn DeleteActionFn[T, C]) (*types.Message, error) {
+	msg := types.NewMessage()
 
 	var input T
 	err := json.Unmarshal(data, &input)
@@ -101,8 +101,8 @@ func MassDelete[T any, C string | int](ctx context.Context, taskID int, msgChan 
 	return msg, nil
 }
 
-func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn UpdateActionFn[T, C]) (*model.Message, error) {
-	msg := model.NewMessage()
+func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan chan<- *types.Message, data []byte, notFoundError error, checkDataFn CheckDataFn[T], idsFn IdsFn[T, C], pluckIDsFn PluckIDsFn[C], actionFn UpdateActionFn[T, C]) (*types.Message, error) {
+	msg := types.NewMessage()
 
 	var input T
 	err := json.Unmarshal(data, &input)
@@ -168,8 +168,8 @@ func MassUpdate[T any, C string | int](ctx context.Context, taskID int, msgChan 
 	return msg, nil
 }
 
-func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, checkDataFn CheckDataFn[T], dataFn DataFn[T, C], actionFn ImportActionFn[T, C, D]) (*model.Message, error) {
-	msg := model.NewMessage()
+func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan chan<- *types.Message, data []byte, checkDataFn CheckDataFn[T], dataFn DataFn[T, C], actionFn ImportActionFn[T, C, D]) (*types.Message, error) {
+	msg := types.NewMessage()
 
 	var input T
 	err := json.Unmarshal(data, &input)
@@ -230,8 +230,8 @@ func Import[T, C any, D string | int](ctx context.Context, taskID int, msgChan c
 	return msg, nil
 }
 
-func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *model.Message, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*model.Message, error) {
-	msg := model.NewMessage()
+func Export[T, C, N any](ctx context.Context, taskID int, msgChan chan<- *types.Message, data []byte, emptyListError error, checkDataFn CheckDataFn[N], listFn ListFn[T, N], actionFn ExportActionFn[T, C]) (*types.Message, error) {
+	msg := types.NewMessage()
 
 	var input N
 	err := json.Unmarshal(data, &input)
@@ -320,19 +320,19 @@ func idToString[C string | int](id C) string {
 	case string:
 		return v
 	default:
-		return "unsupported type"
+		return ""
 	}
 }
 
 func CreateFile(fileName string) (*os.File, string, error) {
-	filePath := path.Join(model2.MediaPath, fileName)
+	filePath := path.Join(model.MediaPath, fileName)
 
-	err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
+	err := os.MkdirAll(filepath.Dir(filePath), 0o740)
 	if err != nil {
 		return nil, "", err
 	}
 
-	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o640)
 	if err != nil {
 		return nil, "", err
 	}

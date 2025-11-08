@@ -12,7 +12,7 @@ func NewRequest() *Request {
 	return &Request{}
 }
 
-type ProfileCreateRequest struct {
+type CreateRequest struct {
 	Age     *int   `json:"age" binding:"omitempty,gte=0"`
 	Height  *int   `json:"height" binding:"omitempty,gte=0"`
 	Address string `json:"address" binding:"omitempty,min=1,max=255"`
@@ -20,7 +20,7 @@ type ProfileCreateRequest struct {
 
 func (r Request) CreateRequest(c *gin.Context) (any, error) {
 	type Profile struct {
-		Profile ProfileCreateRequest `json:"profile" binding:"omitempty"`
+		Profile CreateRequest `json:"profile" binding:"omitempty"`
 	}
 
 	cred, err := request2.BindJSON[Profile](c)
@@ -28,7 +28,7 @@ func (r Request) CreateRequest(c *gin.Context) (any, error) {
 		return nil, err
 	}
 
-	input := ProfileCreateInput{
+	input := CreateInput{
 		Age:     cred.Profile.Age,
 		Height:  cred.Profile.Height,
 		Address: cred.Profile.Address,
@@ -37,7 +37,7 @@ func (r Request) CreateRequest(c *gin.Context) (any, error) {
 	return &input, nil
 }
 
-type ProfileUpdateRequest struct {
+type UpdateRequest struct {
 	Age     *int    `json:"age" binding:"omitempty,gte=0"`
 	Height  *int    `json:"height" binding:"omitempty,gte=0"`
 	Address *string `json:"address" binding:"omitempty,min=1,max=255"`
@@ -45,7 +45,7 @@ type ProfileUpdateRequest struct {
 
 func (r Request) UpdateRequest(c *gin.Context) (any, error) {
 	type Profile struct {
-		Profile *ProfileUpdateRequest `json:"profile" binding:"omitempty"`
+		Profile *UpdateRequest `json:"profile" binding:"omitempty"`
 	}
 
 	cred, err := request2.BindJSON[Profile](c)
@@ -57,7 +57,7 @@ func (r Request) UpdateRequest(c *gin.Context) (any, error) {
 		return nil, nil
 	}
 
-	input := ProfileUpdateInput{
+	input := UpdateInput{
 		Age:     cred.Profile.Age,
 		Height:  cred.Profile.Height,
 		Address: cred.Profile.Address,

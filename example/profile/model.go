@@ -6,13 +6,13 @@ type Profile struct {
 	Height  *int   `json:"height"`
 	Address string `json:"address"`
 
-	UserID int `json:"user_id"`
+	UserID int64 `json:"user_id"`
 }
 
 func (m Profile) TableName() string {
 	return "auth_profiles"
 }
 
-func (m Profile) GetUserId() int {
+func (m Profile) GetUserId() int64 {
 	return m.UserID
 }

@@ -1,71 +1,31 @@
 package handler
 
 import (
-	"net/http"
-
-	"github.com/c2pc/go-pkg/v2/analytics"
 	"github.com/c2pc/go-pkg/v2/auth"
-	"github.com/c2pc/go-pkg/v2/auth_config"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
-	"github.com/c2pc/go-pkg/v2/task"
-	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
-	response "github.com/c2pc/go-pkg/v2/utils/response/http"
-	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	authService       auth.IAuth
-	authConfigService auth_config.Config
-	taskService       task.Tasker
-	analyticService   analytics.Analytics
-	services          service.Services
-	trx               mw.ITransaction
-	ws                websocket.WebSocket
+	authService auth.IAuth
+	services    service.Services
+	trx         mw.ITransaction
 }
 
 func NewHandlers(authService auth.IAuth,
-	authConfigService auth_config.Config,
 	services service.Services,
 	trx mw.ITransaction,
-	taskService task.Tasker,
-	analyticService analytics.Analytics,
-	ws websocket.WebSocket,
 ) *Handler {
 	return &Handler{
-		authService:       authService,
-		authConfigService: authConfigService,
-		services:          services,
-		trx:               trx,
-		taskService:       taskService,
-		analyticService:   analyticService,
-		ws:                ws,
+		authService: authService,
+		services:    services,
+		trx:         trx,
 	}
 }
 
 func (h *Handler) Init() *gin.Engine {
-	gin.SetMode(gin.ReleaseMode)
-	handler := gin.New()
-
-	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {}
-
-	handler.Use(
-		gin.Recovery(),
-		mw.CorsHandler(),
-		mw.GinParseOperationID(),
-	)
-
-	// Init handler
-	handler.NoRoute(func(c *gin.Context) {
-		response.Response(c, apperr.ErrNotFound)
-	})
-	handler.POST("/ping", func(c *gin.Context) {
-		c.String(http.StatusOK, "pong")
-	})
-	handler.GET("/", func(c *gin.Context) {
-		c.String(http.StatusOK, "")
-	})
+	handler := h.authService.NewHandlerEngine()
 
 	h.initAPI(handler)
 
@@ -73,24 +33,13 @@ func (h *Handler) Init() *gin.Engine {
 }
 
 func (h *Handler) initAPI(handler *gin.Engine) {
-	api := handler.Group("api/v1", h.analyticService.CollectAnalytic, h.authService.LimiterMiddleware)
+	api := handler.Group("api/v1")
 	{
-		unsecured := api.Group("")
-		{
-			h.authService.InitHandler(handler, unsecured)
-		}
+		h.authService.InitHandler(handler, api)
 
-		secure := api.Group("", h.authService.Authenticate, h.authService.CanPermission)
+		secure := api.Group("", h.authService.AuthenticateMW, h.authService.CanPermissionMW)
 		{
-			h.authConfigService.InitHandler(secure)
-			h.analyticService.InitHandler(secure)
-			h.ws.InitHandler(secure)
-			withLimiter := secure.Group("", h.analyticService.CollectAnalytic)
-			{
-				h.taskService.InitHandler(withLimiter, unsecured)
-				NewNewsHandlers(h.services.News, h.trx, h.taskService).Init(withLimiter)
-			}
-
+			NewNewsHandlers(h.services.News, h.trx, h.authService.Task()).Init(secure)
 		}
 	}
 }

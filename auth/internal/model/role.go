@@ -1,12 +1,18 @@
 package model
 
-const SuperAdmin = "SuperAdmin"
-const Broker = "Broker"
+type RoleName string
+
+const (
+	SuperAdmin RoleName = "SuperAdmin"
+)
+
+func (r RoleName) String() string {
+	return string(r)
+}
 
 type Role struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	LogDisabled bool   `json:"log_disabled"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 
 	RolePermissions []RolePermission `json:"role_permissions"`
 }
@@ -27,4 +33,13 @@ type RolePermission struct {
 
 func (m RolePermission) TableName() string {
 	return "auth_role_permissions"
+}
+
+func IsRole(role string, r ...RoleName) bool {
+	for _, r := range r {
+		if role == string(r) {
+			return true
+		}
+	}
+	return false
 }

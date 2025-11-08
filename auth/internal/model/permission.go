@@ -2,15 +2,18 @@ package model
 
 import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 )
 
-var Permissions = []model2.Permission{
-	{Method: "auth/roles", Desc: i18n.RolesPermission},
+var Permissions = []meta.Permission{
 	{Method: "auth/users", Desc: i18n.UsersPermission},
+	{Method: "auth/roles", Desc: i18n.RolesPermission},
+	{Method: "auth/users-blocked", Desc: i18n.UsersBlockedPermission},
 	{Method: "auth/sessions", Desc: i18n.SessionsPermission},
+	{Method: "auth/analytics", Desc: i18n.AnalyticPermission},
 	{Method: "configs", Desc: i18n.ConfigPermission},
+	{Method: "tasks", Desc: i18n.TaskPermission},
 }
 
 var permissions = make(map[string]translator.Translate)
@@ -21,7 +24,7 @@ func init() {
 	}
 }
 
-func SetPermissions(perms []model2.Permission) {
+func SetPermissions(perms []meta.Permission) {
 	for _, p := range perms {
 		permissions[p.Method] = p.Desc
 	}

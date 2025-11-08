@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetClaimFromToken(t *testing.T) {
-	claims, err := tokenverify.GetClaimFromToken(
+	_, err := tokenverify.GetClaimFromToken(
 		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySUQiOjIsIkRldmljZUlEIjo0LCJleHAiOjE3NTIwODQzNDQsIm5iZiI6MTc1MjA4MzE0NCwiaWF0IjoxNzUyMDgzNDQ0fQ._AjfIg-p4qFmOaxrZyy8meLe4TZz2qLSLdTAHSmjZxI",
 		tokenverify.Secret("123123"))
 	if err != nil {

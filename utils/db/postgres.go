@@ -1,9 +1,12 @@
 package db
 
 import (
+	"time"
+
 	_ "github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 func ConnectPostgres(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
@@ -12,7 +15,13 @@ func ConnectPostgres(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error)
 		return nil, err
 	}
 
-	db.Logger = &logger{}
+	db.Logger = NewLogger(gormLogger.Config{
+		SlowThreshold:             1 * time.Second,
+		Colorful:                  false,
+		IgnoreRecordNotFoundError: true,
+		ParameterizedQueries:      true,
+		LogLevel:                  gormLogger.Info,
+	})
 
 	sqlDB, err := db.DB()
 	if err != nil {

@@ -1,8 +1,9 @@
 package model
 
 type Version struct {
-	App string `json:"app"`
-	DB  string `json:"db"`
+	AppName string
+	App     string `json:"app"`
+	DB      string `json:"db"`
 }
 
 type Migration struct {
@@ -12,4 +13,8 @@ type Migration struct {
 
 func (m Migration) TableName() string {
 	return "schema_migrations"
+}
+
+func (m Migration) TableNameAuth() string {
+	return "schema_auth_migrations"
 }

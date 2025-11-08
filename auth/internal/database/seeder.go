@@ -9,6 +9,7 @@ import (
 	seeders2 "github.com/c2pc/go-pkg/v2/auth/internal/database/seeders"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
+	database "github.com/c2pc/go-pkg/v2/utils/db"
 	"gorm.io/gorm"
 )
 
@@ -17,11 +18,18 @@ func SeedersRun(ctx context.Context, db *gorm.DB, repositories repository.Reposi
 
 	defer func() {
 		if r := recover(); r != nil {
-			txHandle.Rollback()
 			err = errors.New(fmt.Sprint(r))
 			return
 		}
+		if err != nil {
+			txHandle.Rollback()
+		}
 	}()
+
+	err = database.EnsureAutoIncrement(db, model.User{}.TableName(), "id", 1024)
+	if err != nil {
+		return nil, err
+	}
 
 	admin, err = func() (*model.User, error) {
 		perms, err := seeders2.PermissionSeeder(ctx, repositories.PermissionRepository.Trx(txHandle), permissions)

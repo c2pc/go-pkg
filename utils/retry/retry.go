@@ -13,10 +13,10 @@ var DefaultDelay = 2 * time.Second
 var DefaultMaxDelay = 5 * time.Minute
 
 func Retry(ctx context.Context, fn func() error, needRetry func(error) bool, delay time.Duration, maxDelay time.Duration) error {
-	tm := time.Now().Add(maxDelay)
+	tm := time.Now().UTC().Add(maxDelay)
 	var attempt int
 
-	for tm.After(time.Now()) {
+	for tm.After(time.Now().UTC()) {
 		select {
 		case <-ctx.Done():
 			return ErrContextCancel

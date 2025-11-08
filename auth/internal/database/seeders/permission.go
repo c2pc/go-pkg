@@ -3,18 +3,18 @@ package seeders
 import (
 	"context"
 
-	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
-	"github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 )
 
-func PermissionSeeder(ctx context.Context, permissionRepository repository.IPermissionRepository, permissions []string) ([]model2.Permission, error) {
+func PermissionSeeder(ctx context.Context, permissionRepository repository.IPermissionRepository, permissions []string) ([]model.Permission, error) {
 	permissionsMap := make(map[string]struct{})
 	for _, permission := range permissions {
 		permissionsMap[permission] = struct{}{}
 	}
 
-	perms, err := permissionRepository.List(ctx, &model.Filter{}, ``)
+	perms, err := permissionRepository.List(ctx, &meta.Filter{}, ``)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func PermissionSeeder(ctx context.Context, permissionRepository repository.IPerm
 
 	for permission := range permissionsMap {
 		if _, ok := permsMap[permission]; !ok {
-			_, err := permissionRepository.Create(ctx, &model2.Permission{
+			_, err := permissionRepository.Create(ctx, &model.Permission{
 				Name: permission,
 			}, `id`)
 			if err != nil {
@@ -41,5 +41,5 @@ func PermissionSeeder(ctx context.Context, permissionRepository repository.IPerm
 		}
 	}
 
-	return permissionRepository.List(ctx, &model.Filter{}, ``)
+	return permissionRepository.List(ctx, &meta.Filter{}, ``)
 }

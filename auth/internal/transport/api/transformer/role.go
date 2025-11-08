@@ -2,42 +2,42 @@ package transformer
 
 import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
 
 type SimpleRoleTransformer struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	LogDisabled bool   `json:"log_disabled"`
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	IsSystem bool   `json:"is_system"`
 }
 
 func SimpleRoleTransform(m *model.Role) *SimpleRoleTransformer {
 	return &SimpleRoleTransformer{
-		ID:          m.ID,
-		Name:        m.Name,
-		LogDisabled: m.LogDisabled,
+		ID:       m.ID,
+		Name:     m.Name,
+		IsSystem: model.IsRole(m.Name, model.SuperAdmin),
 	}
 }
 
 type RoleTransformer struct {
-	ID          int           `json:"id"`
-	Name        string        `json:"name"`
-	Read        []interface{} `json:"read"`
-	Write       []interface{} `json:"write"`
-	Exec        []interface{} `json:"exec"`
-	LogDisabled bool          `json:"log_disabled"`
+	ID       int           `json:"id"`
+	Name     string        `json:"name"`
+	IsSystem bool          `json:"is_system"`
+	Read     []interface{} `json:"read"`
+	Write    []interface{} `json:"write"`
+	Exec     []interface{} `json:"exec"`
 }
 
 func RoleTransform(m *model.Role) *RoleTransformer {
 	r := &RoleTransformer{
-		ID:          m.ID,
-		Name:        m.Name,
-		Read:        []interface{}{},
-		Write:       []interface{}{},
-		Exec:        []interface{}{},
-		LogDisabled: m.LogDisabled,
+		ID:       m.ID,
+		Name:     m.Name,
+		IsSystem: model.IsRole(m.Name, model.SuperAdmin),
+		Read:     []interface{}{},
+		Write:    []interface{}{},
+		Exec:     []interface{}{},
 	}
 
 	r.Write, r.Read, r.Exec = getRolePermissions(m, true)
@@ -47,12 +47,12 @@ func RoleTransform(m *model.Role) *RoleTransformer {
 
 func RoleWithNameTransform(m *model.Role) *RoleTransformer {
 	r := &RoleTransformer{
-		ID:          m.ID,
-		Name:        m.Name,
-		Read:        []interface{}{},
-		Write:       []interface{}{},
-		Exec:        []interface{}{},
-		LogDisabled: m.LogDisabled,
+		ID:       m.ID,
+		Name:     m.Name,
+		IsSystem: model.IsRole(m.Name, model.SuperAdmin),
+		Read:     []interface{}{},
+		Write:    []interface{}{},
+		Exec:     []interface{}{},
 	}
 
 	r.Write, r.Read, r.Exec = getRolePermissions(m, false)
@@ -61,24 +61,24 @@ func RoleWithNameTransform(m *model.Role) *RoleTransformer {
 }
 
 type RoleListTransformer struct {
-	ID          int           `json:"id"`
-	Name        string        `json:"name"`
-	Read        []interface{} `json:"read"`
-	Write       []interface{} `json:"write"`
-	Exec        []interface{} `json:"exec"`
-	LogDisabled bool          `json:"log_disabled"`
+	ID       int           `json:"id"`
+	Name     string        `json:"name"`
+	IsSystem bool          `json:"is_system"`
+	Read     []interface{} `json:"read"`
+	Write    []interface{} `json:"write"`
+	Exec     []interface{} `json:"exec"`
 }
 
-func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) []RoleListTransformer {
+func RoleListTransform(c *gin.Context, p *meta.Pagination[model.Role]) []RoleListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]RoleListTransformer, 0)
 
 	for _, m := range p.Rows {
 		t := RoleListTransformer{
-			ID:          m.ID,
-			Name:        m.Name,
-			LogDisabled: m.LogDisabled,
+			ID:       m.ID,
+			Name:     m.Name,
+			IsSystem: model.IsRole(m.Name, model.SuperAdmin),
 		}
 		t.Write, t.Read, t.Exec = getRolePermissions(&m, true)
 		r = append(r, t)
@@ -87,7 +87,7 @@ func RoleListTransform(c *gin.Context, p *model2.Pagination[model.Role]) []RoleL
 	return r
 }
 
-func UserRoleListTransform(c *gin.Context, p *model2.Pagination[model.UserRole]) []UserListTransformer {
+func UserRoleListTransform(c *gin.Context, p *meta.Pagination[model.UserRole]) []UserListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]UserListTransformer, 0)
@@ -101,7 +101,6 @@ func UserRoleListTransform(c *gin.Context, p *model2.Pagination[model.UserRole])
 				SecondName: m.User.SecondName,
 				LastName:   m.User.LastName,
 				Email:      m.User.Email,
-				Phone:      m.User.Phone,
 				Blocked:    m.User.Blocked,
 				IsDomain:   m.User.IsDomain,
 				Roles:      transformer.Array(m.User.Roles, SimpleRoleTransform),

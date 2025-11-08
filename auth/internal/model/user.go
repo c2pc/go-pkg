@@ -1,7 +1,12 @@
 package model
 
+import (
+	"fmt"
+	"time"
+)
+
 type User struct {
-	ID         int     `json:"id"`
+	ID         int64   `json:"id"`
 	Login      string  `json:"login"`
 	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
@@ -20,13 +25,28 @@ func (m User) TableName() string {
 	return "auth_users"
 }
 
+func GeneratePassword(password string, id int64) string {
+	return fmt.Sprintf("%s_%d", password, id)
+}
+
 type UserRole struct {
-	UserID int `json:"user_id"`
-	RoleID int `json:"role_id"`
+	UserID int64 `json:"user_id"`
+	RoleID int   `json:"role_id"`
 
 	User *User `json:"user"`
 }
 
 func (m UserRole) TableName() string {
 	return "auth_user_roles"
+}
+
+type UserBlocked struct {
+	UserID    int64     `json:"user_id"`
+	BlockedAt time.Time `json:"blocked_at"`
+
+	User *User `json:"user"`
+}
+
+func (m UserBlocked) TableName() string {
+	return "auth_users_blocked"
 }

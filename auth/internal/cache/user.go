@@ -13,8 +13,8 @@ import (
 
 type IUserCache interface {
 	cache.BatchDeleter
-	GetUserInfo(ctx context.Context, userID int, fn func(ctx context.Context) (*model.User, error)) (userInfo *model.User, err error)
-	DelUsersInfo(userIDs ...int) IUserCache
+	GetUserInfo(ctx context.Context, userID int64, fn func(ctx context.Context) (*model.User, error)) (userInfo *model.User, err error)
+	DelUsersInfo(userIDs ...int64) IUserCache
 }
 
 type UserCache struct {
@@ -39,11 +39,11 @@ func (u *UserCache) CloneUserCache() IUserCache {
 	}
 }
 
-func (u *UserCache) GetUserInfo(ctx context.Context, userID int, fn func(ctx context.Context) (*model.User, error)) (userInfo *model.User, err error) {
+func (u *UserCache) GetUserInfo(ctx context.Context, userID int64, fn func(ctx context.Context) (*model.User, error)) (userInfo *model.User, err error) {
 	return cache.GetCache(ctx, u.rcClient, cachekey.GetUserInfoKey(userID), 1*time.Minute, fn)
 }
 
-func (u *UserCache) DelUsersInfo(userIDs ...int) IUserCache {
+func (u *UserCache) DelUsersInfo(userIDs ...int64) IUserCache {
 	keys := make([]string, 0, len(userIDs))
 	for _, userID := range userIDs {
 		keys = append(keys, cachekey.GetUserInfoKey(userID))

@@ -1,15 +1,16 @@
 package transformer
 
 import (
+	"github.com/aws/smithy-go/ptr"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/profile"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
 
 type UserSimpleTransformer struct {
-	ID         int     `json:"id"`
+	ID         int64   `json:"id"`
 	Login      string  `json:"login"`
 	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
@@ -31,21 +32,26 @@ func UserSimpleTransform(m *model.User) *UserSimpleTransformer {
 }
 
 type UserTransformer struct {
-	ID         int     `json:"id"`
+	ID         int64   `json:"id"`
 	Login      string  `json:"login"`
 	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
-	Phone      *string `json:"phone"`
 	Blocked    bool    `json:"blocked"`
 	IsDomain   bool    `json:"is_domain"`
+	IsPassword *bool   `json:"is_password,omitempty"`
 
 	Roles   []*SimpleRoleTransformer `json:"roles"`
 	Profile interface{}              `json:"profile,omitempty"`
 }
 
 func UserTransform(m *model.User, profileTransformer profile.ITransformer) *UserTransformer {
+	var isPassword *bool
+	if !m.IsDomain {
+		isPassword = ptr.Bool(m.Password != nil)
+	}
+
 	r := &UserTransformer{
 		ID:         m.ID,
 		Login:      m.Login,
@@ -53,14 +59,14 @@ func UserTransform(m *model.User, profileTransformer profile.ITransformer) *User
 		SecondName: m.SecondName,
 		LastName:   m.LastName,
 		Email:      m.Email,
-		Phone:      m.Phone,
 		Blocked:    m.Blocked,
 		IsDomain:   m.IsDomain,
+		IsPassword: isPassword,
 		Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
 	}
 
 	if profileTransformer != nil && m.Profile != nil {
-		if prof, ok := m.Profile.(*profile.IModel); ok {
+		if prof, ok := m.Profile.(profile.IModel); ok {
 			r.Profile = profileTransformer.Transform(prof)
 		}
 	}
@@ -69,13 +75,12 @@ func UserTransform(m *model.User, profileTransformer profile.ITransformer) *User
 }
 
 type UserListTransformer struct {
-	ID         int     `json:"id"`
+	ID         int64   `json:"id"`
 	Login      string  `json:"login"`
 	FirstName  string  `json:"first_name"`
 	SecondName *string `json:"second_name"`
 	LastName   *string `json:"last_name"`
 	Email      *string `json:"email"`
-	Phone      *string `json:"phone"`
 	Blocked    bool    `json:"blocked"`
 	IsDomain   bool    `json:"is_domain"`
 
@@ -83,7 +88,7 @@ type UserListTransformer struct {
 	Profile interface{}              `json:"profile,omitempty"`
 }
 
-func UserListTransform(c *gin.Context, p *model2.Pagination[model.User], profileTransformer profile.ITransformer) []UserListTransformer {
+func UserListTransform(c *gin.Context, p *meta.Pagination[model.User], profileTransformer profile.ITransformer) []UserListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]UserListTransformer, 0)
@@ -96,14 +101,13 @@ func UserListTransform(c *gin.Context, p *model2.Pagination[model.User], profile
 			SecondName: m.SecondName,
 			LastName:   m.LastName,
 			Email:      m.Email,
-			Phone:      m.Phone,
 			Blocked:    m.Blocked,
 			IsDomain:   m.IsDomain,
 			Roles:      transformer.Array(m.Roles, SimpleRoleTransform),
 		}
 
 		if profileTransformer != nil && m.Profile != nil {
-			if prof, ok := m.Profile.(*profile.IModel); ok {
+			if prof, ok := m.Profile.(profile.IModel); ok {
 				user.Profile = profileTransformer.Transform(prof)
 			}
 		}

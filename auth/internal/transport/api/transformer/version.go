@@ -5,14 +5,16 @@ import (
 )
 
 type VersionTransformer struct {
-	App string `json:"app"`
-	DB  string `json:"db"`
+	AppName string `json:"app_name"`
+	App     string `json:"app"`
+	DB      string `json:"db"`
 }
 
 func VersionTransform(m *model.Version) *VersionTransformer {
 	r := &VersionTransformer{
-		App: m.App,
-		DB:  m.DB,
+		AppName: m.AppName,
+		App:     m.App,
+		DB:      m.DB,
 	}
 
 	return r

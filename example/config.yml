@@ -1,0 +1,28 @@
+force: false
+
+# Настройка сети
+http:
+  # Адрес
+  # localhost - при настройке nginx(http/https)
+  # ip адрес - доступ по IP адресу, настройка nginx не требуется
+  host: localhost
+  # Порт
+  # Укажите любой свободный порт
+  # При настройке nginx укажите этот порт в proxy настройках
+  port: 8061
+
+# Настройка подключения к Postgres
+# Для настройки TLS укажите сертификаты (https://www.postgresql.org/docs/current/libpq-ssl.html#LIBPQ-SSL-PROTECTION)
+# postgres:postgres@postgretls:5432/auth?sslmode=require&sslrootcert=server.crt&sslcert=client.crt&sslkey=client.key
+postgres_url: broker:broker@172.30.30.236:5432/example?sslmode=disable
+
+# Настройка подключения к REDIS
+redis:
+  address:
+    - localhost:6379
+  cluster_mode: false
+  db: 0
+  max_retry: 10
+  password:
+  username:
+version: 3

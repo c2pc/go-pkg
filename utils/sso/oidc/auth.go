@@ -29,6 +29,7 @@ var (
 
 type AuthService interface {
 	IsEnabled() bool
+	GetDescription() string
 	SumState(redirectURL string, deviceID int) (string, string, error)
 	SumStateAny(state any) (string, string, error)
 	Verify(ctx context.Context, state string, code string) (*Token, error)
@@ -39,6 +40,7 @@ type AuthService interface {
 
 type Config struct {
 	Enabled           bool
+	Description       string
 	ConfigURL         string
 	ClientID          string
 	ClientSecret      string
@@ -50,6 +52,7 @@ type Config struct {
 type Auth struct {
 	enabled           bool
 	loginAttr         string
+	description       string
 	oauth2            *oauth2.Config
 	verifier          *oidc.IDTokenVerifier
 	validRedirectURLs []string
@@ -57,8 +60,15 @@ type Auth struct {
 
 func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 	auth := new(Auth)
-	auth.validRedirectURLs = cfg.ValidRedirectURLs
+
+	var redirectURLs []string
+	for _, redirectURL := range cfg.ValidRedirectURLs {
+		redirectURLs = append(redirectURLs, strings.TrimRight(redirectURL, "/"))
+	}
+	auth.validRedirectURLs = redirectURLs
+
 	auth.enabled = false
+	auth.description = cfg.Description
 
 	if cfg.LoginAttr == "" {
 		cfg.LoginAttr = "sub"
@@ -96,7 +106,7 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 			ClientSecret: cfg.ClientSecret,
 			RedirectURL:  cfg.RootURL,
 			Endpoint:     provider.Endpoint(),
-			Scopes:       []string{oidc.ScopeOpenID},
+			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 		}
 
 		auth.verifier = provider.Verifier(&oidc.Config{
@@ -111,6 +121,12 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 
 func (auth *Auth) IsEnabled() bool {
 	return auth.enabled
+}
+func (auth *Auth) GetDescription() string {
+	if auth.description == "" {
+		return "SSO"
+	}
+	return auth.description
 }
 
 func (auth *Auth) CheckRedirectURLs(redirectURL string) bool {

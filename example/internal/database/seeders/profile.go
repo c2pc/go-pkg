@@ -6,7 +6,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/example/profile"
 )
 
-func ProfileSeeder(ctx context.Context, profileRepository profile.IRepository, adminID int) (*profile.Profile, error) {
+func ProfileSeeder(ctx context.Context, profileRepository profile.IRepository, adminID int64) (*profile.Profile, error) {
 	admin, err := profileRepository.FirstOrCreate(ctx, &profile.Profile{
 		UserID:  adminID,
 		Age:     nil,

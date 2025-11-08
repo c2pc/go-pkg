@@ -46,30 +46,28 @@ func (l LimiterCache) GetAttempts(ctx context.Context, key string) (int, error) 
 }
 
 func (l LimiterCache) IncrAttempts(ctx context.Context, key string, ttl time.Duration) (int, error) {
-	exists, err := l.rdb.Exists(ctx, key).Result()
+	script := redis.NewScript(`
+		local current = redis.call("GET", KEYS[1])
+		if not current then
+			redis.call("SET", KEYS[1], 1, "EX", ARGV[1])
+			return 1
+		else
+			local newval = redis.call("INCR", KEYS[1])
+			return newval
+		end
+	`)
+
+	result, err := script.Run(ctx, l.rdb, []string{key}, int(ttl.Seconds())).Result()
 	if err != nil {
 		return 0, err
 	}
 
-	if exists == 0 {
-		err = l.rdb.Set(ctx, key, 1, ttl).Err()
-		if err != nil {
-			return 0, err
-		}
-		return 1, nil
-	} else {
-		attempts, err := l.rdb.Incr(ctx, key).Result()
-		if err != nil {
-			return 0, err
-		}
-
-		err = l.rdb.Expire(ctx, key, ttl).Err()
-		if err != nil {
-			return 0, err
-		}
-
-		return int(attempts), nil
+	attempts, ok := result.(int64)
+	if !ok {
+		return 0, errors.New("unexpected result type from redis script")
 	}
+
+	return int(attempts), nil
 }
 
 func (l LimiterCache) SetTTL(ctx context.Context, key string, ttl time.Duration) error {

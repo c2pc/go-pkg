@@ -14,7 +14,7 @@ var UserRoleOrderBy = clause.FieldOrderBy{}
 
 type IUserRoleRepository interface {
 	repository.Repository[IUserRoleRepository, model.UserRole]
-	GetUsersByRole(ctx context.Context, roleID int) ([]int, error)
+	GetUsersByRole(ctx context.Context, roleID int) ([]int64, error)
 }
 
 type UserRoleRepository struct {
@@ -32,8 +32,8 @@ func (r UserRoleRepository) Trx(db *gorm.DB) IUserRoleRepository {
 	return r
 }
 
-func (r UserRoleRepository) GetUsersByRole(ctx context.Context, roleID int) ([]int, error) {
-	var result []int
+func (r UserRoleRepository) GetUsersByRole(ctx context.Context, roleID int) ([]int64, error) {
+	var result []int64
 	row := r.Model()
 
 	res := r.Repo.DB().WithContext(ctx).Table(row.TableName()).Select("user_id").Where("role_id = ?", roleID).Scan(&result)

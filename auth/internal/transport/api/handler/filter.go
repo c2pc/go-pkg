@@ -7,7 +7,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
@@ -47,9 +47,9 @@ func (h *FilterHandler) List(c *gin.Context) {
 		return
 	}
 
-	m := model2.NewMeta(
-		model2.NewPagination[model.Filter](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy, cred.Where),
+	m := meta.NewMeta(
+		meta.NewPagination[model.Filter](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		meta.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.filterService.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)

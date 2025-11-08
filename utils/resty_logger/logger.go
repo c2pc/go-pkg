@@ -1,7 +1,7 @@
 package resty_logger
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 )
@@ -11,16 +11,13 @@ type RestyLogger struct {
 }
 
 func (l *RestyLogger) Errorf(format string, v ...any) {
-	logger.Error().
-		Msg(fmt.Sprintf(format, v...))
+	logger.ErrorFLog(context.Background(), l.LoggerID, format, v...)
 }
 
 func (l *RestyLogger) Warnf(format string, v ...any) {
-	logger.Warn().
-		Msg(fmt.Sprintf(format, v...))
+	logger.WarningFLog(context.Background(), l.LoggerID, format, v...)
 }
 
 func (l *RestyLogger) Debugf(format string, v ...any) {
-	logger.Debug().
-		Msg(fmt.Sprintf(format, v...))
+	logger.DebugFLog(context.Background(), l.LoggerID, format, v...)
 }

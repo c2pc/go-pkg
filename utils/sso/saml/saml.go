@@ -6,9 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
@@ -28,6 +26,7 @@ var (
 
 type AuthService interface {
 	IsEnabled() bool
+	GetDescription() string
 	GetLoginFromContext(ctx context.Context) string
 	CheckRedirectURLs(redirectURL string) bool
 	SamlSP() *Middleware
@@ -35,9 +34,10 @@ type AuthService interface {
 
 type Config struct {
 	Enabled           bool
-	MetaDataURL       string
-	CertFile          string
-	KeyFile           string
+	Description       string
+	MetaDataFile      []byte
+	CertFile          []byte
+	KeyFile           []byte
 	RootURL           string
 	LoginAttr         string
 	ValidRedirectURLs []string
@@ -45,6 +45,7 @@ type Config struct {
 
 type Auth struct {
 	enabled           bool
+	description       string
 	loginAttr         string
 	validRedirectURLs []string
 	samlSP            *Middleware
@@ -53,7 +54,14 @@ type Auth struct {
 func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 	auth := new(Auth)
 	auth.enabled = false
-	auth.validRedirectURLs = cfg.ValidRedirectURLs
+
+	var redirectURLs []string
+	for _, redirectURL := range cfg.ValidRedirectURLs {
+		redirectURLs = append(redirectURLs, strings.TrimRight(redirectURL, "/"))
+	}
+
+	auth.validRedirectURLs = redirectURLs
+	auth.description = cfg.Description
 
 	if cfg.Enabled {
 		if cfg.LoginAttr == "" {
@@ -61,14 +69,13 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 		}
 		auth.loginAttr = cfg.LoginAttr
 
-		if cfg.CertFile == "" {
+		if cfg.CertFile == nil {
 			return auth, apperr.New("SAML cert file is required")
 		}
-		if cfg.KeyFile == "" {
+		if cfg.KeyFile == nil {
 			return auth, apperr.New("SAML key file is required")
 		}
-
-		if cfg.MetaDataURL == "" {
+		if cfg.MetaDataFile == nil {
 			return auth, apperr.New("SAML metadata url or metadata path are required")
 		}
 
@@ -77,7 +84,7 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 			return auth, fmt.Errorf(`SAML: invalid root url "%s"`, cfg.RootURL)
 		}
 
-		keyPair, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+		keyPair, err := tls.X509KeyPair(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
 			return auth, fmt.Errorf("SAML: failed to load certificate key pair: %s", err)
 		}
@@ -87,31 +94,9 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 			return auth, fmt.Errorf("SAML: failed to parse certificate: %s", err)
 		}
 
-		var idpMetadata *saml.EntityDescriptor
-		if !strings.HasSuffix(cfg.MetaDataURL, "http") {
-			dat, err := os.ReadFile(cfg.MetaDataURL)
-			if err != nil {
-				return auth, fmt.Errorf("SAML: failed to read metadata file: %s", err)
-			}
-			idpMetadata, err = samlsp.ParseMetadata(dat)
-			if err != nil {
-				return auth, fmt.Errorf("SAML: failed to parse metadata file: %s", err)
-			}
-		} else {
-			tr := &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			}
-			httpClient := &http.Client{Transport: tr}
-
-			idpMetadataURL, err := url.Parse(cfg.MetaDataURL)
-			if err != nil {
-				return auth, fmt.Errorf("SAML: failed to parse metadata url: %s", err)
-			}
-
-			idpMetadata, err = samlsp.FetchMetadata(ctx, httpClient, *idpMetadataURL)
-			if err != nil {
-				return auth, fmt.Errorf("SAML: failed to fetch metadata: %s", err)
-			}
+		idpMetadata, err := samlsp.ParseMetadata(cfg.MetaDataFile)
+		if err != nil {
+			return auth, fmt.Errorf("SAML: failed to parse metadata file: %s", err)
 		}
 
 		samlSP, err := newSamlSP(samlsp.Options{
@@ -136,6 +121,12 @@ func NewAuthService(ctx context.Context, cfg Config) (*Auth, error) {
 
 func (auth *Auth) IsEnabled() bool {
 	return auth.enabled
+}
+func (auth *Auth) GetDescription() string {
+	if auth.description == "" {
+		return "SSO"
+	}
+	return auth.description
 }
 
 func (auth *Auth) CheckRedirectURLs(redirectURL string) bool {

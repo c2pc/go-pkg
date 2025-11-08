@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func SeedersRun(ctx context.Context, db *gorm.DB, profileRepository profile.IRepository, adminID int) (err error) {
+func SeedersRun(ctx context.Context, db *gorm.DB, profileRepository profile.IRepository, adminID int64) (err error) {
 	txHandle := db.Session(&gorm.Session{NewDB: true}).WithContext(ctx).Begin(&sql.TxOptions{})
 
 	defer func() {

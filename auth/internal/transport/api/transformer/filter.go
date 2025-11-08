@@ -2,7 +2,7 @@ package transformer
 
 import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +32,7 @@ type FilterListTransformer struct {
 	Value    string `json:"value"`
 }
 
-func FilterListTransform(c *gin.Context, p *model2.Pagination[model.Filter]) []FilterListTransformer {
+func FilterListTransform(c *gin.Context, p *meta.Pagination[model.Filter]) []FilterListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]FilterListTransformer, 0)

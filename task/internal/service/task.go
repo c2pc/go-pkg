@@ -5,23 +5,23 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/c2pc/go-pkg/v2/task/internal/fx"
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
 	"github.com/c2pc/go-pkg/v2/task/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
-	model3 "github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
 	"github.com/c2pc/go-pkg/v2/utils/datautil"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/tokenverify"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/c2pc/go-pkg/v2/websocket"
@@ -41,6 +41,7 @@ var (
 	ErrTaskStatusInvalid    = apperr.New("invalid_task_status", apperr.WithTextTranslate(translator.Translate{translator.RU: "Задача все еще находится в исполнении", translator.EN: "The task is still in progress"}), apperr.WithCode(code.Aborted))
 	ErrGenerateToken        = apperr.New("token_generation_failed", apperr.WithTextTranslate(translator.Translate{translator.RU: "Не удалось сгенерировать токен", translator.EN: "Failed to generate token"}), apperr.WithCode(code.Internal))
 	ErrInvalidLink          = apperr.New("invalid_link", apperr.WithTextTranslate(translator.Translate{translator.RU: "Неправильная ссылка", translator.EN: "Invalid link"}), apperr.WithCode(code.NotFound))
+	ErrServiceNotFound      = apperr.New("task_service_not_found", apperr.WithTextTranslate(translator.Translate{translator.RU: "Сервис не найден", translator.EN: "Service not found"}), apperr.WithCode(code.NotFound))
 )
 
 type Queue interface {
@@ -51,15 +52,15 @@ type Queue interface {
 type Consumers map[string]Consumer
 
 type Consumer interface {
-	Export(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
-	Import(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
-	MassUpdate(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
-	MassDelete(ctx context.Context, taskID int, data []byte, msqChan chan<- *model3.Message) (*model3.Message, error)
+	Export(ctx context.Context, taskID int, data []byte, msqChan chan<- *types.Message) (*types.Message, error)
+	Import(ctx context.Context, taskID int, data []byte, msqChan chan<- *types.Message) (*types.Message, error)
+	MassUpdate(ctx context.Context, taskID int, data []byte, msqChan chan<- *types.Message) (*types.Message, error)
+	MassDelete(ctx context.Context, taskID int, data []byte, msqChan chan<- *types.Message) (*types.Message, error)
 }
 
 type ITaskService interface {
 	Trx(db *gorm.DB) ITaskService
-	List(ctx context.Context, m *model2.Meta[model.Task]) error
+	List(ctx context.Context, m *meta.Meta[model.Task]) error
 	GetFull(ctx context.Context, taskID *int, statuses ...string) ([]model.Task, error)
 	Update(ctx context.Context, id int, input TaskUpdateInput) error
 	UpdateStatus(ctx context.Context, status string, ids ...int) error
@@ -76,7 +77,7 @@ type ITaskService interface {
 
 type TaskService struct {
 	taskRepository repository.ITaskRepository
-	services       Consumers
+	consumerHolder *fx.ConsumerHolder[Consumer]
 	queue          Queue
 	tokenSecret    string
 	ws             websocket.WebSocket
@@ -84,14 +85,14 @@ type TaskService struct {
 
 func NewTaskService(
 	taskRepository repository.ITaskRepository,
-	services Consumers,
+	consumerHolder *fx.ConsumerHolder[Consumer],
 	queue Queue,
 	tokenSecret string,
 	ws websocket.WebSocket,
 ) TaskService {
 	return TaskService{
 		taskRepository: taskRepository,
-		services:       services,
+		consumerHolder: consumerHolder,
 		queue:          queue,
 		tokenSecret:    tokenSecret,
 		ws:             ws,
@@ -103,11 +104,11 @@ func (s TaskService) Trx(db *gorm.DB) ITaskService {
 	return s
 }
 
-func (s TaskService) List(ctx context.Context, m *model2.Meta[model.Task]) error {
+func (s TaskService) List(ctx context.Context, m *meta.Meta[model.Task]) error {
 	var query string
 	var args []interface{}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -134,7 +135,7 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 		args = append(args, statuses)
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -144,7 +145,7 @@ func (s TaskService) GetFull(ctx context.Context, taskID *int, statuses ...strin
 		args = append(args, userID)
 	}
 
-	return s.taskRepository.Omit("input", "output").List(ctx, &model2.Filter{
+	return s.taskRepository.Omit("input", "output").List(ctx, &meta.Filter{
 		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 }
@@ -158,7 +159,7 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -179,7 +180,7 @@ func (s TaskService) GetById(ctx context.Context, id int) (*model.Task, error) {
 		return nil, apperr.ErrBadRequest.WithError(err)
 	}
 
-	if tsk.Type == model3.Export && msg != nil {
+	if tsk.Type == types.Export && msg != nil {
 		fi, err := os.Stat(tsk.FilePath(msg.FileName))
 		if err == nil {
 			size := fi.Size()
@@ -200,7 +201,7 @@ func (s TaskService) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -230,7 +231,7 @@ func (s TaskService) Delete(ctx context.Context, id int) error {
 		return err
 	}
 
-	if tsk.Type == model3.Export && msg != nil {
+	if tsk.Type == types.Export && msg != nil {
 		_ = os.Remove(tsk.FilePath(msg.FileName))
 	}
 
@@ -246,7 +247,7 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 		return "", err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return "", apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -257,7 +258,7 @@ func (s TaskService) Download(ctx context.Context, id int) (string, error) {
 		}
 	}
 
-	if tsk.Type != model3.Export {
+	if tsk.Type != types.Export {
 		return "", ErrTaskFileNotFound
 	}
 
@@ -300,7 +301,7 @@ func (s TaskService) Stop(ctx context.Context, id int) error {
 		return err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -342,7 +343,7 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 		return nil, err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		if tsk.UserID != userID {
 			return nil, apperr.ErrForbidden
 		}
@@ -378,7 +379,7 @@ func (s TaskService) Rerun(ctx context.Context, id int) (*model.Task, error) {
 
 type TaskUpdateInput struct {
 	Status *string
-	Output *model3.Message
+	Output *types.Message
 }
 
 func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) error {
@@ -390,7 +391,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 		return err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -437,7 +438,7 @@ func (s TaskService) Update(ctx context.Context, id int, input TaskUpdateInput) 
 }
 
 func (s TaskService) UpdateStatus(ctx context.Context, status string, ids ...int) error {
-	tasks, err := s.taskRepository.Omit("output").List(ctx, &model2.Filter{}, `id IN (?)`, ids)
+	tasks, err := s.taskRepository.Omit("output").List(ctx, &meta.Filter{}, `id IN (?)`, ids)
 	if err != nil {
 		return err
 	}
@@ -445,7 +446,7 @@ func (s TaskService) UpdateStatus(ctx context.Context, status string, ids ...int
 		return ErrTaskNotFound
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -484,7 +485,7 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 		args = append(args, statuses)
 	}
 
-	tasks, err := s.taskRepository.Omit("output").List(ctx, &model2.Filter{
+	tasks, err := s.taskRepository.Omit("output").List(ctx, &meta.Filter{
 		OrderBy: []clause.ExpressionOrderBy{{"created_at", clause.OrderByAsc}},
 	}, strings.Join(query, " AND "), args...)
 	if err != nil {
@@ -493,7 +494,7 @@ func (s TaskService) RunTasks(ctx context.Context, statuses []string, ids ...int
 
 	var runnerData []runner.Data
 	for _, tsk := range tasks {
-		if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+		if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 			userID, ok := mcontext.GetOpUserID(ctx)
 			if !ok {
 				return apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -543,7 +544,7 @@ func (s TaskService) Create(ctx context.Context, input TaskCreateInput) (*model.
 		return nil, apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
 	}
 
-	if _, ok := model3.Types[input.Type]; !ok {
+	if _, ok := types.Types[input.Type]; !ok {
 		return nil, ErrTaskTypeNotFound
 	}
 
@@ -606,22 +607,22 @@ func (s TaskService) decompressData(data []byte) ([]byte, error) {
 }
 
 func (s TaskService) getRunFunc(tp string, name string) (runner.RunFunc, error) {
-	srv, ok := s.services[name]
+	srv, ok := s.consumerHolder.Get()[name]
 	if !ok {
-		return nil, fmt.Errorf("service not found")
+		return nil, ErrServiceNotFound
 	}
 
 	switch tp {
-	case model3.Export:
+	case types.Export:
 		return srv.Export, nil
-	case model3.Import:
+	case types.Import:
 		return srv.Import, nil
-	case model3.MassUpdate:
+	case types.MassUpdate:
 		return srv.MassUpdate, nil
-	case model3.MassDelete:
+	case types.MassDelete:
 		return srv.MassDelete, nil
 	default:
-		return nil, fmt.Errorf("type not found")
+		return nil, ErrTaskTypeNotFound
 	}
 }
 
@@ -634,7 +635,7 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 		return "", err
 	}
 
-	if v, ok := ctx.Value(model3.ONLY_USERS_TASKS).(bool); ok && v {
+	if v, ok := ctx.Value(types.ONLY_USERS_TASKS).(bool); ok && v {
 		userID, ok := mcontext.GetOpUserID(ctx)
 		if !ok {
 			return "", apperr.ErrUnauthenticated.WithErrorText("operation user id is empty")
@@ -645,7 +646,7 @@ func (s TaskService) GenerateDownloadToken(ctx context.Context, id int) (string,
 		}
 	}
 
-	if tsk.Type != model3.Export {
+	if tsk.Type != types.Export {
 		return "", ErrTaskTypeInvalid
 	}
 
@@ -708,14 +709,14 @@ func (s TaskService) sendStatusChangedMessage(ctx context.Context, task *model.T
 			Name:   task.Name,
 			Type:   task.Type,
 		},
-		To: []int{task.UserID},
+		To: []int64{task.UserID},
 	}
 
 	return s.ws.SendMessage(ctx, msg)
 }
 
-func (s TaskService) unmarshalOutput(output []byte) (*model3.Message, error) {
-	var msg model3.Message
+func (s TaskService) unmarshalOutput(output []byte) (*types.Message, error) {
+	var msg types.Message
 	if output != nil {
 		err := json.Unmarshal(output, &msg)
 		if err != nil {

@@ -16,19 +16,19 @@ const (
 type Listener struct {
 	Event     string
 	Message   []byte
-	ClientID  int
+	ClientID  int64
 	SessionID string
 }
 
 type Client struct {
-	ID        int
+	ID        int64
 	ch        chan broadcast
 	sessionID string
 }
 
 type manager struct {
 	mu         sync.RWMutex
-	clients    map[int]map[string]*Client
+	clients    map[int64]map[string]*Client
 	broadcast  chan broadcast
 	register   chan *Client
 	unregister chan *Client
@@ -39,7 +39,7 @@ type manager struct {
 
 func newWebSocketManager(lenChan int) *manager {
 	mgr := &manager{
-		clients:    make(map[int]map[string]*Client),
+		clients:    make(map[int64]map[string]*Client),
 		broadcast:  make(chan broadcast, lenChan),
 		register:   make(chan *Client, lenChan),
 		unregister: make(chan *Client, lenChan),

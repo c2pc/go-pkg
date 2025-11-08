@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 	"github.com/c2pc/go-pkg/v2/utils/translator"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -90,6 +91,8 @@ func UnwrapError(c *gin.Context, err error, lang string) ErrorResponse {
 	if !errors.As(err, &appError) {
 		appError = apperr.ErrInternal.WithError(err)
 	}
+
+	c.Request = c.Request.WithContext(mcontext.WithOpErrorContext(c.Request.Context(), appError))
 
 	var childError apperr.Error
 	lastError := appError.LastError()

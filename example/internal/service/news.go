@@ -9,11 +9,11 @@ import (
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
 	"github.com/c2pc/go-pkg/v2/example/internal/repository"
 	"github.com/c2pc/go-pkg/v2/task"
-	model3 "github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +25,7 @@ var (
 
 type INews interface {
 	Trx(db *gorm.DB) INews
-	List(ctx context.Context, m *model2.Meta[model.News]) error
+	List(ctx context.Context, m *meta.Meta[model.News]) error
 	GetById(ctx context.Context, id int) (*model.News, error)
 	Create(ctx context.Context, input NewsCreateInput) (*model.News, error)
 	Update(ctx context.Context, id int, input NewsUpdateInput) error
@@ -49,7 +49,7 @@ func (s News) Trx(db *gorm.DB) INews {
 	return s
 }
 
-func (s News) List(ctx context.Context, m *model2.Meta[model.News]) error {
+func (s News) List(ctx context.Context, m *meta.Meta[model.News]) error {
 	return s.newsRepository.Omit("content").Paginate(ctx, m, ``)
 }
 
@@ -150,14 +150,14 @@ func (s News) Delete(ctx context.Context, id int) error {
 type NewsExport struct {
 	Title   string  `json:"title" csv:"title"`
 	Content *string `json:"content" csv:"content"`
-	UserID  int     `json:"user_id" csv:"user_id"`
+	UserID  int64   `json:"user_id" csv:"user_id"`
 }
 
 type NewsExportInput struct {
-	Filter model2.Filter `json:"filter"`
+	Filter meta.Filter `json:"filter"`
 }
 
-func (s News) Export(ctx context.Context, taskID int, data []byte, msgChan chan<- *model3.Message) (*model3.Message, error) {
+func (s News) Export(ctx context.Context, taskID int, data []byte, msgChan chan<- *types.Message) (*types.Message, error) {
 	return task.Export[model.News, NewsExport, NewsExportInput](
 		ctx,
 		taskID,
@@ -189,11 +189,11 @@ type NewsImportDataInput struct {
 }
 
 type NewsImportInput struct {
-	UserID int                   `json:"user_id"`
+	UserID int64                 `json:"user_id"`
 	Data   []NewsImportDataInput `json:"data"`
 }
 
-func (s News) Import(ctx context.Context, taskID int, data []byte, msgChan chan<- *model3.Message) (*model3.Message, error) {
+func (s News) Import(ctx context.Context, taskID int, data []byte, msgChan chan<- *types.Message) (*types.Message, error) {
 	return task.Import[NewsImportInput, NewsImportDataInput](
 		ctx,
 		taskID,
@@ -233,7 +233,7 @@ type NewsMassUpdateInput struct {
 	Content *string `json:"content"`
 }
 
-func (s News) MassUpdate(ctx context.Context, taskID int, data []byte, msgChan chan<- *model3.Message) (*model3.Message, error) {
+func (s News) MassUpdate(ctx context.Context, taskID int, data []byte, msgChan chan<- *types.Message) (*types.Message, error) {
 	return task.MassUpdate[NewsMassUpdateInput](
 		ctx,
 		taskID,
@@ -267,7 +267,7 @@ type NewsMassDeleteInput struct {
 	IDs []int `json:"ids"`
 }
 
-func (s News) MassDelete(ctx context.Context, taskID int, data []byte, msgChan chan<- *model3.Message) (*model3.Message, error) {
+func (s News) MassDelete(ctx context.Context, taskID int, data []byte, msgChan chan<- *types.Message) (*types.Message, error) {
 	return task.MassDelete[NewsMassDeleteInput](
 		ctx,
 		taskID,

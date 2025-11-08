@@ -1,8 +1,11 @@
 package db
 
 import (
+	"time"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 func ConnectMysql(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
@@ -11,7 +14,13 @@ func ConnectMysql(url string, maxIdleConn, maxOpenConn int) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db.Logger = &logger{}
+	db.Logger = NewLogger(gormLogger.Config{
+		SlowThreshold:             1 * time.Second,
+		Colorful:                  false,
+		IgnoreRecordNotFoundError: true,
+		ParameterizedQueries:      true,
+		LogLevel:                  gormLogger.Info,
+	})
 
 	sqlDB, err := db.DB()
 	if err != nil {

@@ -24,6 +24,13 @@ func (e *ErrMap) Get(id string) (Error, error) {
 	return Error{}, errors.New("error not found")
 }
 
+func (e *ErrMap) GetAll() map[string]Error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	return e.errMap
+}
+
 func (e *ErrMap) Set(id string, err Error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -58,6 +65,10 @@ var (
 	ErrDBRecordNotFound = New("db_not_found", WithTextTranslate(i18n.ErrDBRecordNotFound), WithCode(code.NotFound))
 	ErrDBDuplicated     = New("db_duplicated", WithTextTranslate(i18n.ErrDBDuplicated), WithCode(code.AlreadyExists))
 	ErrDBInternal       = New("db_internal", WithTextTranslate(i18n.ErrDBInternal), WithCode(code.Internal))
+)
+
+var (
+	ErrEmptyList = New("empty_list", WithTextTranslate(i18n.ErrEmptyList), WithCode(code.NotFound))
 )
 
 type ImportError struct {

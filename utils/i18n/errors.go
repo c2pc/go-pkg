@@ -38,6 +38,8 @@ var (
 	ErrDBDuplicated     = translator.Translate{translator.RU: "Запись с такими данными уже добавлена", translator.EN: "Column with this data already exists"}
 	ErrDBInternal       = translator.Translate{translator.RU: "Ошибка базы данных", translator.EN: "Database internal error"}
 
+	ErrEmptyList = translator.Translate{translator.RU: "Пустой список", translator.EN: "Empty list"}
+
 	ErrFilterUnknownOperator = translator.Translate{translator.RU: "Неизвестный оператор (%s) для столбца (%s)", translator.EN: "Unknown operator (%s) for column (%s)"}
 	ErrFilterInvalidOperator = translator.Translate{translator.RU: "Неправильный оператор (%s)", translator.EN: "Invalid operator (%s)"}
 	ErrFilterUnknownColumn   = translator.Translate{translator.RU: "Неизвестный столбец (%s)", translator.EN: "Unknown column (%s)"}

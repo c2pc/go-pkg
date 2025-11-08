@@ -14,6 +14,10 @@ type Repositories struct {
 	SettingRepository        ISettingRepository
 	FilterRepository         IFilterRepository
 	MigrationRepository      IMigrationRepository
+	ConfigRepository         IConfigRepository
+	ConfigFileRepository     IConfigFileRepository
+	AnalyticRepository       IAnalyticRepository
+	UserBlockedRepository    IUserBlockedRepository
 }
 
 func NewRepositories(db *gorm.DB) Repositories {
@@ -27,5 +31,9 @@ func NewRepositories(db *gorm.DB) Repositories {
 		SettingRepository:        NewSettingRepository(db),
 		FilterRepository:         NewFilterRepository(db),
 		MigrationRepository:      NewMigrationRepository(db),
+		ConfigRepository:         NewConfigRepository(db),
+		ConfigFileRepository:     NewConfigFileRepository(db),
+		AnalyticRepository:       NewAnalyticRepository(db),
+		UserBlockedRepository:    NewUserBlockedRepository(db),
 	}
 }

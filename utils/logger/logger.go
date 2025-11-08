@@ -5,124 +5,148 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
+	"sync/atomic"
 
-	"github.com/c2pc/go-pkg/v2/utils/constant"
-	"github.com/rs/zerolog"
+	"github.com/c2pc/go-pkg/v2/utils/app_data"
+	"github.com/op/go-logging"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
-	AppName string
+	AppModule          = "APP"
+	initialized        = atomic.Bool{}
+	backendFileLeveled logging.LeveledBackend
+	loggersMap         logCache
+	format             = logging.MustStringFormatter("%{time:2006-01-02 15:04:05} | %{level:-8s} | %{module:-8s} %{message}")
 )
 
-var (
-	log     zerolog.Logger
-	closers []io.Closer
-)
-
-var DefaultLoggerConfig = Config{
-	Level: zerolog.ErrorLevel,
-}
-
-type FileConfig struct {
-	Enabled    bool
+type Config struct {
+	Level      Level
 	Path       string
+	Filename   string
 	MaxSizeMB  int
 	MaxBackups int
 	MaxAgeDays int
 	Compress   bool
 }
 
-type Config struct {
-	Level zerolog.Level
-	File  *FileConfig
-}
-
 func Init(cfg Config) {
-	reload(cfg)
+	if cfg.Filename == "" {
+		cfg.Filename = "app.log"
+	}
+
+	if cfg.Path == "" {
+		cfg.Path = "logs"
+	}
+
+	logDir := filepath.Join(cfg.Path, app_data.AppName)
+	logPath := filepath.Join(logDir, cfg.Filename)
+
+	_ = os.MkdirAll(filepath.Dir(logDir), 0o740)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640)
+	if err == nil {
+		_ = f.Close()
+	}
+
+	rotator := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    cfg.MaxSizeMB,
+		MaxBackups: cfg.MaxBackups,
+		MaxAge:     cfg.MaxAgeDays,
+		Compress:   cfg.Compress,
+	}
+
+	level := convertLevel(cfg.Level)
+
+	backendFile := logging.NewLogBackend(rotator, "", 0)
+	backendFileFormatted := logging.NewBackendFormatter(backendFile, format)
+
+	backendFileLeveled = logging.AddModuleLevel(backendFileFormatted)
+	backendFileLeveled.SetLevel(level, "")
+
+	appFileLeveled := logging.AddModuleLevel(backendFileFormatted)
+	appFileLeveled.SetLevel(logging.DEBUG, AppModule)
+
+	logging.SetBackend(backendFileLeveled, appFileLeveled)
+
+	loggersMap.mutex.Lock()
+	loggersMap.loggers = make(map[string]*logging.Logger)
+	loggersMap.mutex.Unlock()
+
+	loggersMap.addLogger(AppModule, appFileLeveled)
+	initialized.Store(true)
+
+	return
 }
 
-func Reload(cfg Config) {
-	reload(cfg)
-}
-
-func Close() {
-	for _, closer := range closers {
-		_ = closer.Close()
+func convertLevel(lvl Level) logging.Level {
+	switch lvl {
+	case DebugLevel:
+		return logging.DEBUG
+	case InfoLevel:
+		return logging.INFO
+	case WarnLevel:
+		return logging.WARNING
+	case ErrorLevel:
+		return logging.ERROR
+	case PanicLevel:
+		return logging.CRITICAL
+	default:
+		return logging.ERROR
 	}
 }
 
-func reload(cfg Config) {
-	var writers []io.Writer
-	var clrs []io.Closer
-
-	if cfg.File != nil && cfg.File.Enabled {
-		dirPath := filepath.Join(cfg.File.Path, AppName)
-		_ = os.MkdirAll(dirPath, 0740)
-
-		fileWriter := &lumberjack.Logger{
-			Filename:   filepath.Join(dirPath, "app.log"),
-			MaxSize:    cfg.File.MaxSizeMB,
-			MaxBackups: cfg.File.MaxBackups,
-			MaxAge:     cfg.File.MaxAgeDays,
-			Compress:   cfg.File.Compress,
-		}
-
-		writers = append(writers, zerolog.ConsoleWriter{
-			Out:        fileWriter,
-			NoColor:    true,
-			TimeFormat: time.RFC3339,
-			FormatLevel: func(i interface{}) string {
-				if i == nil {
-					return fmt.Sprintf("%-6s", "")
-				}
-				return strings.ToUpper(fmt.Sprintf("%-6s", i))
-			},
-			FormatMessage: func(i interface{}) string {
-				if i == nil {
-					return ""
-				}
-				return fmt.Sprintf("%s", i)
-			},
-			FormatFieldValue: func(i interface{}) string {
-				if i == nil {
-					return ""
-				}
-				return fmt.Sprintf("%s", i)
-			},
-			PartsOrder: []string{
-				zerolog.TimestampFieldName,
-				zerolog.LevelFieldName,
-				string(constant.OperationID),
-				string(constant.OpAction),
-				zerolog.CallerFieldName,
-				zerolog.MessageFieldName,
-			},
-			FieldsExclude: []string{string(constant.OperationID), string(constant.OpAction)},
-		})
-
-		clrs = append(clrs, fileWriter)
+func logInfo(logger *logging.Logger, stdout bool, msg string) {
+	write(stdout, msg, os.Stdout)
+	if !initialized.Load() {
+		return
 	}
-
-	if len(writers) == 0 && cfg.File == nil {
-		writers = append(writers, zerolog.ConsoleWriter{Out: os.Stdout})
-	}
-
-	multi := zerolog.MultiLevelWriter(writers...)
-
-	log = zerolog.New(multi).Level(cfg.Level).With().
-		Timestamp().
-		Logger()
-	closers = clrs
+	logger.Infof(msg)
 }
 
-func Debug() *zerolog.Event   { return log.Debug() }
-func Info() *zerolog.Event    { return log.Info() }
-func Warn() *zerolog.Event    { return log.Warn() }
-func Error() *zerolog.Event   { return log.Error() }
-func Fatal() *zerolog.Event   { return log.WithLevel(zerolog.FatalLevel) }
-func Panic() *zerolog.Event   { return log.WithLevel(zerolog.PanicLevel) }
-func NoLevel() *zerolog.Event { return log.WithLevel(zerolog.NoLevel) }
-func GetLevel() zerolog.Level { return log.GetLevel() }
+func logError(logger *logging.Logger, stdout bool, msg string) {
+	write(stdout, msg, os.Stdout)
+	if !initialized.Load() {
+		return
+	}
+	logger.Errorf(msg)
+}
+
+func logWarning(logger *logging.Logger, stdout bool, msg string) {
+	write(stdout, msg, os.Stdout)
+	if !initialized.Load() {
+		return
+	}
+	logger.Warningf(msg)
+}
+
+func logDebug(logger *logging.Logger, stdout bool, msg string) {
+	write(stdout, msg, os.Stdout)
+	if !initialized.Load() {
+		return
+	}
+	logger.Debugf(msg)
+}
+
+func logCritical(logger *logging.Logger, stdout bool, msg string) {
+	write(stdout, msg, os.Stdout)
+	if !initialized.Load() {
+		return
+	}
+	logger.Criticalf(msg)
+}
+
+func isEnabledForLevel(logger *logging.Logger, level logging.Level) bool {
+	if !initialized.Load() {
+		return false
+	}
+
+	return logger.IsEnabledFor(level)
+}
+
+func write(stdout bool, msg string, writer io.Writer) {
+	if !stdout {
+		return
+	}
+	_, _ = fmt.Fprintln(writer, msg)
+}

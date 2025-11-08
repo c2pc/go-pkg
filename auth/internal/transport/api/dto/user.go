@@ -22,6 +22,7 @@ func UserCreate(input *request.UserCreateRequest) service.UserCreateInput {
 
 func UserUpdate(input *request.UserUpdateRequest) service.UserUpdateInput {
 	return service.UserUpdateInput{
+		Login:      input.Login,
 		FirstName:  input.FirstName,
 		SecondName: input.SecondName,
 		LastName:   input.LastName,

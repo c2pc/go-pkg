@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/c2pc/go-pkg/v2/task/internal/runner"
-	"github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 )
 
@@ -34,11 +34,11 @@ func TestRun(t *testing.T) {
 		Name:     "Test Task",
 		Type:     "test",
 		Data:     nil,
-		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *types.Message) (*types.Message, error) {
 			for i := 0; i < 10; i++ {
-				msqChan <- &model.Message{Count: i * 10}
+				msqChan <- &types.Message{Count: i * 10}
 			}
-			return &model.Message{Count: 110}, nil
+			return &types.Message{Count: 110}, nil
 		},
 	}
 
@@ -72,13 +72,13 @@ func TestStop(t *testing.T) {
 		ClientID: 123,
 		Name:     "Test Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *types.Message) (*types.Message, error) {
 			for i := 0; i < 10; i++ {
-				msqChan <- &model.Message{Count: i * 10}
+				msqChan <- &types.Message{Count: i * 10}
 			}
 			select {
 			case <-time.After(2 * time.Second): // Имитация долгой работы
-				return &model.Message{Count: 100}, nil
+				return &types.Message{Count: 100}, nil
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
@@ -131,12 +131,12 @@ func TestExit(t *testing.T) {
 		ClientID: 123,
 		Name:     "Test Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *types.Message) (*types.Message, error) {
 			for i := 0; i < 10; i++ {
-				msqChan <- &model.Message{Count: i * 10}
+				msqChan <- &types.Message{Count: i * 10}
 			}
 			time.Sleep(10 * time.Second)
-			return &model.Message{Count: 100}, nil
+			return &types.Message{Count: 100}, nil
 		},
 	}
 
@@ -183,9 +183,9 @@ func TestRunFuncError(t *testing.T) {
 		ClientID: 123,
 		Name:     "Failing Task",
 		Type:     "test",
-		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+		RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *types.Message) (*types.Message, error) {
 			for i := 0; i < 10; i++ {
-				msqChan <- &model.Message{Count: i * 10}
+				msqChan <- &types.Message{Count: i * 10}
 			}
 			panic(expectedErr)
 		},
@@ -238,18 +238,18 @@ func TestConcurrentRun(t *testing.T) {
 		go func(id int) {
 			data := runner.Data{
 				ID:       i,
-				ClientID: numTasks % 10,
+				ClientID: int64(numTasks % 10),
 				Name:     fmt.Sprintf("Task %d", numTasks%200),
 				Type:     "test",
-				RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+				RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *types.Message) (*types.Message, error) {
 					for i := 0; i < 10; i++ {
-						msqChan <- &model.Message{Count: i * 10}
+						msqChan <- &types.Message{Count: i * 10}
 					}
 					time.Sleep(1 * time.Millisecond)
 					if id%13 == 0 {
 						panic(errTask)
 					}
-					return &model.Message{Count: 100}, nil
+					return &types.Message{Count: 100}, nil
 				},
 			}
 			r.Run(data)
@@ -260,18 +260,18 @@ func TestConcurrentRun(t *testing.T) {
 		func(id int) {
 			data := runner.Data{
 				ID:       id,
-				ClientID: id,
+				ClientID: int64(id),
 				Name:     fmt.Sprintf("Task %d", id),
 				Type:     "test",
-				RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *model.Message) (*model.Message, error) {
+				RunFunc: func(ctx context.Context, id int, data []byte, msqChan chan<- *types.Message) (*types.Message, error) {
 					for i := 0; i < 10; i++ {
-						msqChan <- &model.Message{Count: i * 10}
+						msqChan <- &types.Message{Count: i * 10}
 					}
 					time.Sleep(100 * time.Nanosecond)
 					if id%15 == 0 {
 						panic(errTask)
 					}
-					return &model.Message{Count: 100}, nil
+					return &types.Message{Count: 100}, nil
 				},
 			}
 			r.Run(data)

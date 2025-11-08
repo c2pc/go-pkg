@@ -1,279 +1,159 @@
 package syslog
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
+	"log/syslog"
 	"os"
+	"path/filepath"
 	"strings"
-	"sync"
+	"time"
 
-	"github.com/RackSec/srslog"
+	"github.com/aws/smithy-go/ptr"
+	"github.com/c2pc/go-pkg/v2/utils/app_data"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
-	"github.com/rs/zerolog"
+	"github.com/c2pc/go-pkg/v2/utils/secret"
+	"github.com/sirupsen/logrus"
+	logrussyslog "github.com/sirupsen/logrus/hooks/syslog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
+
+type OnlyMessageFormatter struct{}
+
+func (f *OnlyMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	return []byte(fmt.Sprintln(entry.Message)), nil
+}
 
 var (
-	Vendor  string
-	Product string
-	Version string
+	log *logrus.Logger
 )
 
-var (
-	syslog = Writer{level: srslog.LOG_ERR}
-)
-
-type AddrConfig struct {
-	Network string // "udp", "tcp" или "unix"
-	Addr    string // "host:port" или "/dev/log"
+type ConfigSyslog struct {
+	Network string
+	Addr    string
 }
 
 type Config struct {
-	Level zerolog.Level
-	Addrs []AddrConfig
+	Path       string
+	Filename   string
+	MaxSizeMB  int
+	MaxBackups int
+	MaxAgeDays int
+	Compress   bool
+	Syslog     []ConfigSyslog
 }
 
-type Writer struct {
-	level srslog.Priority
-	mu    sync.RWMutex
-	w     []*srslog.Writer
-}
+func Init(cfg Config) {
+	log = logrus.New()
+	log.SetFormatter(&OnlyMessageFormatter{})
 
-type Msg struct {
-	Signature    string
-	Severity     int
-	Message      string
-	Extension    string
-	ExtensionMap map[string]interface{}
-}
-
-func Init(cfg Config) error {
-	return reload(cfg)
-}
-
-func Reload(cfg Config) error {
-	return reload(cfg)
-}
-
-func reload(cfg Config) error {
-	if strings.TrimSpace(logger.AppName) == "" {
-		panic("AppName must be set before Init/Reload")
+	if cfg.Filename == "" {
+		cfg.Filename = "audit.log"
 	}
 
-	if strings.TrimSpace(Vendor) == "" || strings.TrimSpace(Product) == "" || strings.TrimSpace(Version) == "" {
-		panic("Vendor, Product and Version must be set before Init/Reload")
+	if cfg.Path == "" {
+		cfg.Path = "logs"
 	}
 
-	writers := make([]*srslog.Writer, 0)
-	var errs []string
-	for _, addr := range cfg.Addrs {
-		if strings.TrimSpace(addr.Network) == "" || strings.TrimSpace(addr.Addr) == "" {
-			errs = append(errs, fmt.Sprintf("invalid addr: network=%q addr=%q", addr.Network, addr.Addr))
-			continue
-		}
-		w, err := srslog.Dial(addr.Network, addr.Addr, srslog.LOG_LOCAL0|srslog.LOG_DEBUG, logger.AppName)
+	logDir := filepath.Join(cfg.Path, app_data.AppName)
+	logPath := filepath.Join(logDir, cfg.Filename)
+
+	_ = os.MkdirAll(filepath.Dir(logDir), 0o740)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640)
+	if err == nil {
+		_ = f.Close()
+	}
+
+	lumber := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    cfg.MaxSizeMB,
+		MaxBackups: cfg.MaxBackups,
+		MaxAge:     cfg.MaxAgeDays,
+		Compress:   cfg.Compress,
+	}
+	log.SetOutput(lumber)
+
+	for _, sys := range cfg.Syslog {
+		w, err := logrussyslog.NewSyslogHook(sys.Network, sys.Addr, syslog.LOG_LOCAL0|syslog.LOG_DEBUG, app_data.AppName)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "syslog connect failed (%s %s): %v\n", addr.Network, addr.Addr, err)
-			errs = append(errs, fmt.Sprintf("%s %s: %v", addr.Network, addr.Addr, err))
+			logger.AppWarningFLog(context.Background(), "Failed to connect to syslog: %v", err)
 			continue
 		}
-		w.SetFormatter(srslog.RFC5424Formatter)
-		writers = append(writers, w)
+		log.AddHook(w)
 	}
-
-	syslog.mu.Lock()
-	defer syslog.mu.Unlock()
-	syslog.w = writers
-	syslog.level = cefSeverity(cfg.Level)
-
-	if len(writers) == 0 {
-		if len(errs) > 0 {
-			return fmt.Errorf("no syslog writers available: %s", strings.Join(errs, "; "))
-		}
-	}
-
-	return nil
 }
 
-func BuildExtension(m map[string]interface{}) string {
-	if len(m) == 0 {
-		return ""
-	}
-	parts := make([]string, 0, len(m))
-	for k, v := range m {
-		if strings.TrimSpace(k) == "" {
-			continue
-		}
-		val := fmt.Sprintf("%v", v)
-		val = escapeCEF(val)
-		parts = append(parts, fmt.Sprintf("%s=%s", k, val))
-	}
-	return strings.Join(parts, " ")
+type Record struct {
+	EventID   string   //Системный идентификатор сообщения о событии
+	EventName string   //Краткое наименование события
+	Severity  Severity //Уровень важности
+	Success   bool     //Успех/Отказ
 }
 
-func escapeCEF(s string) string {
-	replacer := strings.NewReplacer(
-		"\\", "\\\\",
-		"=", "\\=",
-		"|", "\\|",
-		"\n", "\\n",
-		"\r", "\\r",
-		"\"", "",
-		"'", "",
+func escapeField(s string) string {
+	s = strings.ReplaceAll(s, "\"", "")
+	s = strings.ReplaceAll(s, "'", "")
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "|", `\|`)
+	s = strings.ReplaceAll(s, "=", `\=`)
+	s = strings.ReplaceAll(s, "\r\n", `\n`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	return s
+}
+
+func addPair(pairs *[]string, key, value string, alwaysInclude bool) {
+	if value == "" {
+		if alwaysInclude {
+			*pairs = append(*pairs, key+"=")
+		}
+		return
+	}
+	*pairs = append(*pairs, fmt.Sprintf("%s=%s", key, escapeField(value)))
+}
+
+func Write(ctx context.Context, r Record, msg string, args ...any) {
+	header := fmt.Sprintf(
+		"CEF:0|%s|%s|%s|%s|%s|%d|",
+		escapeField(app_data.Vendor),
+		escapeField(app_data.AppName),
+		escapeField(app_data.AppVersion),
+		escapeField(r.EventID),
+		escapeField(r.EventName),
+		r.Severity,
 	)
-	return replacer.Replace(s)
-}
 
-func (w *Writer) buildCEF(msg Msg) []byte {
-	var ext string
-	if msg.ExtensionMap != nil && len(msg.ExtensionMap) > 0 {
-		ext = BuildExtension(msg.ExtensionMap)
-	} else {
-		ext = msg.Extension
+	d := CtxGetData(ctx)
+	if d.StartTime == nil {
+		d.StartTime = ptr.Time(time.Now())
 	}
 
-	var buf bytes.Buffer
-	_, _ = fmt.Fprintf(&buf,
-		"CEF:0|%s|%s|%s|%s|%s|%d|%s",
-		Vendor, Product, Version, msg.Signature, msg.Message, msg.Severity, ext,
-	)
-	return buf.Bytes()
-}
-
-func (w *Writer) WriteContext(ctx context.Context, level srslog.Priority, msg Msg) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	var outcome = "Отказ"
+	if r.Success {
+		outcome = "Успех"
 	}
 
-	payload := w.buildCEF(msg)
+	var pairs []string
+	addPair(&pairs, "externalId", secret.GenerateSecureID(), true)
+	addPair(&pairs, "suser", d.UserLogin, true)
+	addPair(&pairs, "sntdom", d.ClientHost, true)
+	addPair(&pairs, "src", d.ServerIP, true)
+	addPair(&pairs, "smac", d.ServerMac, false)
+	addPair(&pairs, "shost", d.ServerHost, false)
+	addPair(&pairs, "duser", "", false)
+	addPair(&pairs, "dntdom", "", false)
+	addPair(&pairs, "dst", "", false)
+	addPair(&pairs, "dmac", "", false)
+	addPair(&pairs, "dhost", "", false)
+	addPair(&pairs, "spt", d.ClientPort, true)
+	addPair(&pairs, "dpt", d.ServerPort, false)
+	addPair(&pairs, "app", d.ServerProto, false)
+	addPair(&pairs, "start", fmt.Sprint(d.StartTime.Unix()), true)
+	addPair(&pairs, "end", "", false)
+	addPair(&pairs, "rt", "", false)
+	addPair(&pairs, "msg", fmt.Sprintf(msg, args...), true)
+	addPair(&pairs, "deviceProcessName", app_data.AppName, true)
+	addPair(&pairs, "outcome", outcome, true)
 
-	w.mu.RLock()
-	writers := make([]*srslog.Writer, len(w.w))
-	copy(writers, w.w)
-	w.mu.RUnlock()
-
-	if len(writers) == 0 {
-		return errors.New("no syslog writers available")
-	}
-
-	var mu sync.Mutex
-	errs := make([]string, 0)
-	var wg sync.WaitGroup
-	wg.Add(len(writers))
-	for _, writer := range writers {
-		go func(writer *srslog.Writer) {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				mu.Lock()
-				errs = append(errs, fmt.Sprintf("write canceled: %v", ctx.Err()))
-				mu.Unlock()
-				return
-			default:
-			}
-			_, err := writer.WriteWithPriority(level, payload)
-			if err != nil {
-				mu.Lock()
-				errs = append(errs, err.Error())
-				mu.Unlock()
-			}
-		}(writer)
-	}
-	wg.Wait()
-
-	if len(errs) > 0 {
-		_, _ = fmt.Fprintf(os.Stderr, "syslog write errors: %s\n", strings.Join(errs, "; "))
-		return fmt.Errorf("write errors: %s", strings.Join(errs, "; "))
-	}
-
-	return nil
-}
-
-func (w *Writer) Write(level srslog.Priority, msg Msg) error {
-	return w.WriteContext(context.Background(), level, msg)
-}
-
-func Close() error {
-	syslog.mu.Lock()
-	writers := syslog.w
-	syslog.w = nil
-	syslog.mu.Unlock()
-
-	if len(writers) == 0 {
-		return nil
-	}
-
-	errs := make([]string, 0)
-	for _, closer := range writers {
-		if err := closer.Close(); err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("close errors: %s", strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-func cefSeverity(level zerolog.Level) srslog.Priority {
-	switch level {
-	case zerolog.DebugLevel:
-		return srslog.LOG_DEBUG
-	case zerolog.InfoLevel:
-		return srslog.LOG_INFO
-	case zerolog.WarnLevel:
-		return srslog.LOG_WARNING
-	case zerolog.ErrorLevel:
-		return srslog.LOG_ERR
-	case zerolog.FatalLevel, zerolog.PanicLevel:
-		return srslog.LOG_CRIT
-	default:
-		return srslog.LOG_INFO
-	}
-}
-
-func Debug(msg Msg) error {
-	if syslog.level <= srslog.LOG_DEBUG {
-		return syslog.Write(srslog.LOG_DEBUG, msg)
-	}
-	return nil
-}
-
-func Info(msg Msg) error {
-	if syslog.level <= srslog.LOG_INFO {
-		return syslog.Write(srslog.LOG_INFO, msg)
-	}
-	return nil
-}
-
-func Warn(msg Msg) error {
-	if syslog.level <= srslog.LOG_WARNING {
-		return syslog.Write(srslog.LOG_WARNING, msg)
-	}
-	return nil
-}
-
-func Error(msg Msg) error {
-	if syslog.level <= srslog.LOG_ERR {
-		return syslog.Write(srslog.LOG_ERR, msg)
-	}
-	return nil
-}
-
-func Fatal(msg Msg) error {
-	if syslog.level <= srslog.LOG_CRIT {
-		return syslog.Write(srslog.LOG_CRIT, msg)
-	}
-	return nil
-}
-
-func Panic(msg Msg) error {
-	return Fatal(msg)
-}
-
-func WithLevel(level srslog.Priority, msg Msg) error {
-	return syslog.Write(level, msg)
+	log.Print(header + strings.Join(pairs, " "))
 }

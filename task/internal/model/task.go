@@ -41,7 +41,7 @@ type Task struct {
 	ID        int       `json:"id"`
 	Name      string    `json:"name"`
 	Type      string    `json:"type"`
-	UserID    int       `json:"user_id"`
+	UserID    int64     `json:"user_id"`
 	Status    string    `json:"status"`
 	Output    []byte    `json:"output"`
 	Input     []byte    `json:"input"`

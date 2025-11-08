@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/c2pc/go-pkg/v2/auth"
 	"github.com/c2pc/go-pkg/v2/example/internal/model"
 	"github.com/c2pc/go-pkg/v2/example/internal/service"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api/dto"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api/request"
 	"github.com/c2pc/go-pkg/v2/example/internal/transport/api/transformer"
-	"github.com/c2pc/go-pkg/v2/task"
-	model3 "github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
@@ -24,13 +24,13 @@ import (
 type NewsHandler struct {
 	news        service.INews
 	trx         mw.ITransaction
-	taskService task.Tasker
+	taskService auth.Tasker
 }
 
 func NewNewsHandlers(
 	news service.INews,
 	trx mw.ITransaction,
-	taskService task.Tasker,
+	taskService auth.Tasker,
 ) *NewsHandler {
 	return &NewsHandler{
 		news,
@@ -42,10 +42,10 @@ func NewNewsHandlers(
 func (h *NewsHandler) Init(api *gin.RouterGroup) {
 	news := api.Group("/news")
 	{
-		news.POST(model3.Export, h.taskService.ExportHandler("news", h.Export))
-		news.POST(model3.Import, h.taskService.ImportHandler("news", h.Import))
-		news.POST(model3.MassUpdate, h.taskService.MassUpdateHandler("news", h.MassUpdate))
-		news.POST(model3.MassDelete, h.taskService.MassDeleteHandler("news", h.MassDelete))
+		news.POST(types.Export, h.taskService.ExportHandler("news", h.Export))
+		news.POST(types.Import, h.taskService.ImportHandler("news", h.Import))
+		news.POST(types.MassUpdate, h.taskService.MassUpdateHandler("news", h.MassUpdate))
+		news.POST(types.MassDelete, h.taskService.MassDeleteHandler("news", h.MassDelete))
 
 		news.GET("", h.List)
 		news.GET("/:id", h.GetById)
@@ -62,9 +62,9 @@ func (h *NewsHandler) List(c *gin.Context) {
 		return
 	}
 
-	m := model2.NewMeta(
-		model2.NewPagination[model.News](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy, cred.Where),
+	m := meta.NewMeta(
+		meta.NewPagination[model.News](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		meta.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.news.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)
@@ -149,7 +149,7 @@ func (h *NewsHandler) Export(c *gin.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	f := model2.NewFilter(filter.OrderBy, filter.Where)
+	f := meta.NewFilter(filter.OrderBy, filter.Where)
 
 	cred := service.NewsExportInput{
 		Filter: f,

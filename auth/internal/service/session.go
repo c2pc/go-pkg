@@ -3,15 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
-	"github.com/c2pc/go-pkg/v2/auth/fx"
+	"github.com/c2pc/go-pkg/v2/auth/internal/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
-	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
 	"github.com/c2pc/go-pkg/v2/utils/constant"
-	model3 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
+	"github.com/c2pc/go-pkg/v2/utils/syslog"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
@@ -22,8 +24,8 @@ var (
 
 type ISessionService interface {
 	Trx(db *gorm.DB) ISessionService
-	List(ctx context.Context, m *model3.Meta[model2.RefreshToken]) error
-	End(ctx context.Context, id int) (string, error)
+	List(ctx context.Context, m *meta.Meta[model.RefreshToken]) error
+	End(ctx context.Context, id int64) (string, error)
 }
 
 type SessionService struct {
@@ -46,12 +48,22 @@ func (s SessionService) Trx(db *gorm.DB) ISessionService {
 	return s
 }
 
-func (s SessionService) List(ctx context.Context, m *model3.Meta[model2.RefreshToken]) error {
+func (s SessionService) List(ctx context.Context, m *meta.Meta[model.RefreshToken]) error {
 	return s.repositories.TokenRepository.With("user").Paginate(ctx, m, ``)
 }
 
-func (s SessionService) End(ctx context.Context, id int) (string, error) {
-	token, err := s.repositories.TokenRepository.With("User").FindById(ctx, id)
+func (s SessionService) End(ctx context.Context, id int64) (userLogin string, err error) {
+	defer func() {
+		success := err == nil
+		msg := fmt.Sprintf("Отключение сессии администратора: %s", userLogin)
+		if err != nil {
+			msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		}
+
+		syslog.Write(ctx, syslog.Record{EventID: "create-admin", EventName: "Отключение сессии администратора", Severity: syslog.SeverityLow, Success: success}, msg)
+	}()
+
+	token, err := s.repositories.TokenRepository.With("User").FindById64(ctx, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
 			return "", ErrSessionNotFound

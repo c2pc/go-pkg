@@ -31,7 +31,7 @@ func getKey() []byte {
 	return []byte(b2)
 }
 
-var key2 = []byte("29HNL(<V}dv|GrzJ*7m5D<zK3i1!W:w@")
+var key2 = []byte("29HNL(<V}vd|rGzJ*7mD5<zK31i!W:w@")
 
 func getKey2() []byte {
 	file, err := os.Open("key.key")
@@ -92,6 +92,14 @@ func Decrypt(ciphertext []byte) ([]byte, error) {
 			return nil, err
 		}
 		return rc4, nil
+	}
+	return aes, nil
+}
+
+func Encrypt(ciphertext []byte) ([]byte, error) {
+	aes, err := AESCipher.Encrypt(ciphertext)
+	if err != nil {
+		return nil, err
 	}
 	return aes, nil
 }

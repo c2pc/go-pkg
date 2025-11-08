@@ -2,16 +2,18 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
-	"github.com/c2pc/go-pkg/v2/auth/fx"
+	"github.com/c2pc/go-pkg/v2/auth/internal/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/i18n"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/apperr/code"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
+	"github.com/c2pc/go-pkg/v2/utils/syslog"
 	"gorm.io/gorm"
 )
 
@@ -24,8 +26,8 @@ var (
 
 type IRoleService interface {
 	Trx(db *gorm.DB) IRoleService
-	List(ctx context.Context, m *model2.Meta[model.Role]) error
-	UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error
+	List(ctx context.Context, m *meta.Meta[model.Role]) error
+	UserList(ctx context.Context, id int, m *meta.Meta[model.UserRole]) error
 	GetById(ctx context.Context, id int) (*model.Role, error)
 	Create(ctx context.Context, input RoleCreateInput) (*model.Role, error)
 	Update(ctx context.Context, id int, input RoleUpdateInput) (string, error)
@@ -53,11 +55,11 @@ func (s RoleService) Trx(db *gorm.DB) IRoleService {
 	return s
 }
 
-func (s RoleService) List(ctx context.Context, m *model2.Meta[model.Role]) error {
+func (s RoleService) List(ctx context.Context, m *meta.Meta[model.Role]) error {
 	return s.repositories.RoleRepository.With("role_permissions").Paginate(ctx, m, ``)
 }
 
-func (s RoleService) UserList(ctx context.Context, id int, m *model2.Meta[model.UserRole]) error {
+func (s RoleService) UserList(ctx context.Context, id int, m *meta.Meta[model.UserRole]) error {
 	return s.repositories.UserRoleRepository.With("user", "user.roles").Paginate(ctx, m, `auth_user_roles.role_id = ?`, id)
 }
 
@@ -80,8 +82,18 @@ type RoleCreateInput struct {
 	Exec  []int
 }
 
-func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.Role, error) {
-	role, err := s.repositories.RoleRepository.Create(ctx, &model.Role{
+func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (role *model.Role, err error) {
+	defer func() {
+		success := err == nil
+		msg := fmt.Sprintf("Создание роли администраторов: %s", input.Name)
+		if err != nil {
+			msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		}
+
+		syslog.Write(ctx, syslog.Record{EventID: "create-role", EventName: "Создание роли администраторов", Severity: syslog.SeverityLow, Success: success}, msg)
+	}()
+
+	role, err = s.repositories.RoleRepository.Create(ctx, &model.Role{
 		Name: input.Name,
 	}, "id")
 	if err != nil {
@@ -102,14 +114,32 @@ func (s RoleService) Create(ctx context.Context, input RoleCreateInput) (*model.
 }
 
 type RoleUpdateInput struct {
-	Name        *string
-	Write       []int
-	Read        []int
-	Exec        []int
-	LogDisabled *bool
+	Name  *string
+	Write []int
+	Read  []int
+	Exec  []int
 }
 
-func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) (string, error) {
+func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) (roleName string, err error) {
+	var actions []syslog.Record
+	var msgs []string
+	defer func() {
+		success := err == nil
+		msg := fmt.Sprintf("Редактирование роли администраторов: %s", roleName)
+		if err != nil {
+			msg = fmt.Sprintf("%s: %s", msg, err.Error())
+		}
+
+		syslog.Write(ctx, syslog.Record{EventID: "update-role", EventName: "Редактирование роли администраторов", Severity: syslog.SeverityLow, Success: success}, msg)
+
+		if err == nil {
+			for i, act := range actions {
+				act.Success = success
+				syslog.Write(ctx, act, msgs[i])
+			}
+		}
+	}()
+
 	role, err := s.repositories.RoleRepository.With("role_permissions").Find(ctx, `id = ?`, id)
 	if err != nil {
 		if apperr.Is(err, apperr.ErrDBRecordNotFound) {
@@ -117,28 +147,25 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 		}
 		return "", err
 	}
+	roleName = role.Name
 
-	if role.Name == model.SuperAdmin || role.Name == model.Broker {
-		if input.LogDisabled != nil && role.Name == model.Broker {
-			if err = s.repositories.RoleRepository.Update(ctx, &model.Role{LogDisabled: *input.LogDisabled}, []interface{}{"log_disabled"}, `id = ?`, role.ID); err != nil {
-				if apperr.Is(err, apperr.ErrDBDuplicated) {
-					return role.Name, ErrRoleExists
-				}
-				return role.Name, err
-			}
-			return role.Name, nil
-		}
-		return role.Name, ErrRoleCannotBeChanged
+	if model.IsRole(role.Name, model.SuperAdmin) {
+		return roleName, ErrRoleCannotBeChanged
 	}
 
 	if input.Name != nil && *input.Name != "" {
 		if *input.Name != role.Name {
 			if err = s.repositories.RoleRepository.Update(ctx, &model.Role{Name: *input.Name}, []interface{}{"name"}, `id = ?`, role.ID); err != nil {
 				if apperr.Is(err, apperr.ErrDBDuplicated) {
-					return role.Name, ErrRoleExists
+					return roleName, ErrRoleExists
 				}
-				return role.Name, err
+				return roleName, err
 			}
+
+			defer func() {
+				actions = append(actions, syslog.Record{EventID: "update-role-name", EventName: "Смена имени роли администраторов", Severity: syslog.SeverityLow})
+				msgs = append(msgs, fmt.Sprintf("Смена имени роли администраторов: %s на %s", role.Name, *input.Name))
+			}()
 		}
 	}
 
@@ -167,27 +194,30 @@ func (s RoleService) Update(ctx context.Context, id int, input RoleUpdateInput) 
 		}
 
 		if err = s.repositories.RolePermissionRepository.Delete(ctx, `role_id = ?`, role.ID); err != nil {
-			return role.Name, err
+			return roleName, err
 		}
 
 		_, err = s.createPermissions(ctx, role, write, read, exec)
 		if err != nil {
-			return role.Name, err
+			return roleName, err
 		}
 
 		userIDs, err := s.repositories.UserRoleRepository.GetUsersByRole(ctx, role.ID)
 		if err != nil {
-			return role.Name, err
+			return roleName, err
 		}
 
 		if len(userIDs) > 0 {
 			if err := s.cache.Get().UserCache.DelUsersInfo(userIDs...).ChainExecDel(ctx); err != nil {
-				return role.Name, apperr.ErrInternal.WithError(err)
+				return roleName, apperr.ErrInternal.WithError(err)
 			}
 		}
+
+		actions = append(actions, syslog.Record{EventID: "update-role-perms", EventName: "Изменение прав роли администраторов", Severity: syslog.SeverityLow})
+		msgs = append(msgs, fmt.Sprintf("Изменение прав роли администраторов: %s", roleName))
 	}
 
-	return role.Name, nil
+	return roleName, nil
 }
 
 func (s RoleService) Delete(ctx context.Context, id int) (string, error) {
@@ -204,7 +234,7 @@ func (s RoleService) Delete(ctx context.Context, id int) (string, error) {
 		return role.Name, err
 	}
 
-	if role.Name == model.SuperAdmin || role.Name == model.Broker {
+	if model.IsRole(role.Name, model.SuperAdmin) {
 		return role.Name, ErrRoleCannotBeDeleted
 	}
 
@@ -233,7 +263,7 @@ func (s RoleService) createPermissions(ctx context.Context, role *model.Role, wr
 
 	uniquePerms := stringutil.RemoveDuplicate(slices.Concat(write, read, exec))
 
-	permissions, err := s.repositories.PermissionRepository.List(ctx, &model2.Filter{}, `id IN (?)`, uniquePerms)
+	permissions, err := s.repositories.PermissionRepository.List(ctx, &meta.Filter{}, `id IN (?)`, uniquePerms)
 	if err != nil {
 		return nil, err
 	}

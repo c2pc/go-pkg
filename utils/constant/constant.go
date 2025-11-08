@@ -3,22 +3,19 @@ package constant
 // Типы для ключей контекста
 type contextKey string
 
-// Константы для заголовков
 const (
-	OperationIDHeader = "X-Operation-Id"             // Заголовок HTTP для отслеживания операций
-	OperationID       = contextKey("X-Operation-Id") // Ключ контекста для отслеживания операций
-	TxValue           = contextKey("dbTx")           // Ключ контекста для базы данных
-	OpUserID          = contextKey("opUserID")       // Ключ контекста для идентификатора пользователя операции
-	OpUserRole        = contextKey("opUserRole")     // Ключ контекста для идентификатора пользователя операции
-	OpDeviceID        = contextKey("opDeviceID")     // Ключ контекста для идентификатора устройства операции
-	OpAction          = contextKey("opAction")       // Ключ контекста для идентификатора устройства операции
+	OperationIDHeader = "X-Operation-Id" // Заголовок HTTP для отслеживания операций
 )
 
-// Константы для идентификаторов
 const (
-	APP_ID   = "APP"   // Идентификатор приложения
-	DB_ID    = "DB"    // Идентификатор базы данных
-	REDIS_ID = "REDIS" // Идентификатор Redis
+	OperationID = contextKey("X-Operation-Id")
+	TxValue     = contextKey("dbTx")
+	OpUserID    = contextKey("opUserID")
+	OpUserLogin = contextKey("OpUserLogin")
+	OpUserRole  = contextKey("opUserRole")
+	OpDeviceID  = contextKey("opDeviceID")
+	OpAction    = contextKey("opAction")
+	OpError     = contextKey("OpError")
 )
 
 // Код состояния токена

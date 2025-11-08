@@ -8,6 +8,6 @@ const (
 	UserInfo = "USER_INFO:"
 )
 
-func GetUserInfoKey(userID int) string {
-	return ServiceName + UserInfo + stringutil.IntToString(userID)
+func GetUserInfoKey(userID int64) string {
+	return ServiceName + UserInfo + stringutil.Int64ToString(userID)
 }

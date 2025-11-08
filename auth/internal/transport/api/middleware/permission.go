@@ -7,11 +7,10 @@ import (
 	"strings"
 
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache"
-	model3 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
 	"github.com/c2pc/go-pkg/v2/utils/stringutil"
 	"github.com/gin-gonic/gin"
@@ -43,7 +42,7 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
-	user, err := j.cache.UserCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model3.User, error) {
+	user, err := j.cache.UserCache.GetUserInfo(ctx, userID, func(ctx context.Context) (*model.User, error) {
 		return j.repositories.UserRepository.GetUserWithPermissions(ctx, "id = ?", userID)
 	})
 	if err != nil {
@@ -52,8 +51,8 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
-	permissions, err := j.cache.PermissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model3.Permission, error) {
-		return j.repositories.PermissionRepository.List(ctx, &model2.Filter{}, ``)
+	permissions, err := j.cache.PermissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model.Permission, error) {
+		return j.repositories.PermissionRepository.GetList(ctx)
 	})
 	if err != nil {
 		response.Response(c, apperr.ErrInternal.WithError(err))
@@ -79,7 +78,7 @@ func (j *PermissionMiddleware) Can(c *gin.Context) {
 		return
 	}
 
-	permission := func(perm string) *model3.Permission {
+	permission := func(perm string) *model.Permission {
 		perms := strings.Split(perm, "/")
 		for i := range perms {
 			p2 := strings.Join(perms[0:len(perms)-i], "/")

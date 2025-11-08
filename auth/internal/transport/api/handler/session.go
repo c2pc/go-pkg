@@ -7,7 +7,7 @@ import (
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/transformer"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/mw"
 	request2 "github.com/c2pc/go-pkg/v2/utils/request"
 	response "github.com/c2pc/go-pkg/v2/utils/response/http"
@@ -33,7 +33,7 @@ func (h *SessionHandler) Init(api *gin.RouterGroup) {
 	session := api.Group("/sessions")
 	{
 		session.GET("", h.list)
-		session.POST("/:id/end", h.tr.DBTransaction, h.end)
+		session.DELETE("/:id", h.tr.DBTransaction, h.end)
 	}
 }
 func (h *SessionHandler) list(c *gin.Context) {
@@ -43,9 +43,9 @@ func (h *SessionHandler) list(c *gin.Context) {
 		return
 	}
 
-	m := model2.NewMeta(
-		model2.NewPagination[model.RefreshToken](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
-		model2.NewFilter(cred.OrderBy, cred.Where),
+	m := meta.NewMeta(
+		meta.NewPagination[model.RefreshToken](cred.Limit, cred.Offset, cred.MustReturnTotalRows),
+		meta.NewFilter(cred.OrderBy, cred.Where),
 	)
 	if err := h.sessionService.List(c.Request.Context(), &m); err != nil {
 		response.Response(c, err)
@@ -56,9 +56,9 @@ func (h *SessionHandler) list(c *gin.Context) {
 }
 
 func (h *SessionHandler) end(c *gin.Context) {
-	id, err := request2.Id(c)
+	id, err := request2.Id64(c)
 	if err != nil {
-		c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Очистка сессии пользователя"))
+		c.Request = mcontext.WithOpActionRequest(c.Request, "Очистка сессии администратора")
 		response.Response(c, err)
 		return
 	}
@@ -66,7 +66,7 @@ func (h *SessionHandler) end(c *gin.Context) {
 	userLogin, err := h.sessionService.Trx(request2.TxHandle(c)).End(c.Request.Context(), id)
 	if err != nil {
 		if userLogin != "" {
-			c.Request = c.Request.WithContext(mcontext.WithOpActionContext(c.Request.Context(), "Очистка сессии пользователя: "+userLogin))
+			c.Request = mcontext.WithOpActionRequest(c.Request, "Очистка сессии администратора: "+userLogin)
 		}
 		response.Response(c, err)
 		return

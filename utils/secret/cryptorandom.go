@@ -1,6 +1,11 @@
 package secret
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"time"
+)
 
 func GenerateRandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
@@ -23,4 +28,12 @@ func GenerateRandomString(n int) (string, error) {
 		bytes[i] = letters[b%byte(len(letters))]
 	}
 	return string(bytes), nil
+}
+
+func GenerateSecureID() string {
+	b := make([]byte, 19)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprint(time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
 }

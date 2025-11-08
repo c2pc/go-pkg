@@ -3,10 +3,9 @@ package service
 import (
 	"context"
 
-	"github.com/c2pc/go-pkg/v2/auth/fx"
+	"github.com/c2pc/go-pkg/v2/auth/internal/fx"
 	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
 	"gorm.io/gorm"
 )
 
@@ -37,6 +36,6 @@ func (s PermissionService) Trx(db *gorm.DB) IPermissionService {
 
 func (s PermissionService) List(ctx context.Context) ([]model.Permission, error) {
 	return s.cache.Get().PermissionCache.GetPermissionList(ctx, func(ctx context.Context) ([]model.Permission, error) {
-		return s.repositories.PermissionRepository.List(ctx, &model2.Filter{}, ``)
+		return s.repositories.PermissionRepository.GetList(ctx)
 	})
 }

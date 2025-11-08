@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	http2 "net/http"
 	"time"
 
@@ -94,7 +93,6 @@ func (s *handler) Stream(c *gin.Context) {
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Println(err)
 		return
 	}
 

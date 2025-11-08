@@ -2,101 +2,174 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
+	"fmt"
+	"math"
+	"net/http"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/auth/fx"
+	"github.com/c2pc/go-pkg/v2/auth/configurator"
 	"github.com/c2pc/go-pkg/v2/auth/internal/cache/cachekey"
 	authConf "github.com/c2pc/go-pkg/v2/auth/internal/configurator"
-	"github.com/c2pc/go-pkg/v2/auth/profile"
-	"github.com/c2pc/go-pkg/v2/auth_config"
-	"github.com/c2pc/go-pkg/v2/utils/model"
-	"github.com/c2pc/go-pkg/v2/utils/mw"
-	"github.com/c2pc/go-pkg/v2/utils/sso/ldap"
-	"github.com/c2pc/go-pkg/v2/utils/sso/oidc"
-	"github.com/c2pc/go-pkg/v2/utils/sso/saml"
-	"github.com/redis/go-redis/v9"
-
 	"github.com/c2pc/go-pkg/v2/auth/internal/database"
-	model2 "github.com/c2pc/go-pkg/v2/auth/internal/model"
+	"github.com/c2pc/go-pkg/v2/auth/internal/fx"
+	"github.com/c2pc/go-pkg/v2/auth/internal/model"
 	"github.com/c2pc/go-pkg/v2/auth/internal/repository"
 	"github.com/c2pc/go-pkg/v2/auth/internal/service"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/handler"
 	"github.com/c2pc/go-pkg/v2/auth/internal/transport/api/middleware"
+	"github.com/c2pc/go-pkg/v2/auth/profile"
+	"github.com/c2pc/go-pkg/v2/task"
+	"github.com/c2pc/go-pkg/v2/utils/app_data"
+	"github.com/c2pc/go-pkg/v2/utils/apperr"
+	"github.com/c2pc/go-pkg/v2/utils/logger"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
+	"github.com/c2pc/go-pkg/v2/utils/mw"
+	response "github.com/c2pc/go-pkg/v2/utils/response/http"
+	"github.com/c2pc/go-pkg/v2/utils/syslog"
+	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
+type Tasker interface {
+	task.Handler
+	InitConsumers(consumers task.Consumers)
+}
+
 type IAuth interface {
+	//NewHandlerEngine Инициализация gin.Engine
+	NewHandlerEngine() *gin.Engine
+	//InitHandler Инициализация хендлеров
 	InitHandler(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc)
-	Authenticate(c *gin.Context)
-	CanPermission(c *gin.Context)
-	GetAdminID() int
-	LimiterMiddleware(c *gin.Context)
+	//AuthenticateMW Проверка авторизации
+	AuthenticateMW(c *gin.Context)
+	//CanPermissionMW проверка прав
+	CanPermissionMW(c *gin.Context)
+	//GetAdminID Получение ID дефолтного админа
+	GetAdminID() int64
+	//SetConfig Установка новых конфигураций
+	SetConfig(ctx context.Context, key string, value configurator.Configurator) (configurator.Config, error)
+	//Start Запуск сервиса
+	Start(ctx context.Context) error
+	//Stop остановка сервиса
+	Stop(ctx context.Context)
+	//WebSocket websocket
+	WebSocket() websocket.Sender
+	//Task планировщик задач
+	Task() Tasker
 }
 
 type Auth struct {
 	handler              handler.IHandler
-	adminID              int
+	adminID              int64
 	permissionMiddleware *middleware.PermissionMiddleware
-	cfg                  authConf.Cfg
+	authCfg              authConf.ACfg
+	auditCfg             authConf.AuditCfg
 	rdb                  redis.UniversalClient
+	db                   *gorm.DB
 	tokenMW              *middleware.TokenMiddleware
-	limiterMW            *middleware.AuthMiddleware
+	analyticsMW          *middleware.AnalyticMiddleware
+	configService        service.IConfigService
 
 	cacheHolder   *fx.CacheHolder
+	auditHolder   *fx.AuditorHolder
 	ldapHolder    *fx.LDAPHolder
 	oidcHolder    *fx.OIDCHolder
 	samlHolder    *fx.SAMLHolder
 	limiterHolder *fx.LimiterHolder
 	authHolder    *fx.AuthHolder
+
+	task       task.Tasker
+	ws         websocket.WebSocket
+	cancelFunc context.CancelFunc
 }
 
+type Analytic struct {
+	//ExcludeInputBodies Исключать requests
+	ExcludeInputBodies map[string][]string
+	//ExcludeOutputBodies Исключать responses
+	ExcludeOutputBodies map[string][]string
+	//SkipRequests Исключать запросы
+	SkipRequests map[string][]string
+	//HiddenKeys Скрытые ключи
+	HiddenKeys []string
+}
 type Input struct {
-	DB           *gorm.DB
-	Rdb          redis.UniversalClient
-	Transaction  mw.ITransaction
-	Permissions  []model.Permission
-	Configurator auth_config.Config
+	DB          *gorm.DB
+	Rdb         redis.UniversalClient
+	Permissions []meta.Permission
+	Analytic    Analytic
+}
+
+type Data struct {
+	Vendor     string
+	AppName    string
+	AppVersion string
+	LogPath    string
 }
 
 func New(
 	ctx context.Context,
-	serviceName string,
-	version string,
+	data Data,
 	input Input,
 	prof *profile.Profile,
 ) (IAuth, error) {
-	if serviceName == "" {
-		return nil, errors.New("service name is required")
+	ctx, cancelFunc := context.WithCancel(ctx)
+
+	if data.AppName == "" || data.AppVersion == "" || data.LogPath == "" || data.Vendor == "" {
+		cancelFunc()
+		return nil, fmt.Errorf("app name, app version, vendor and log path are required")
+	} else {
+		app_data.Vendor = data.Vendor
+		app_data.AppName = data.AppName
+		app_data.AppVersion = data.AppVersion
+		if app_data.IsDevMode() {
+			data.LogPath = "logs"
+		}
 	}
-	cachekey.SetServiceName(serviceName)
 
-	authConfig := authConf.NewConfigurator()
+	resetMigration(input.DB)
 
-	err := input.Configurator.SetConfig(ctx, "auth", authConfig)
-	if err != nil {
+	if err := database.Migrate(input.DB); err != nil {
+		cancelFunc()
 		return nil, err
 	}
 
-	cfgByte, err := input.Configurator.GetService().GetWithoutTransform(ctx, "auth")
-	if err != nil {
-		return nil, err
-	}
-
-	cfgW, err := authConfig.Unmarshal(cfgByte.Value)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := cfgW.(authConf.Cfg)
-
-	model2.SetPermissions(input.Permissions)
+	cachekey.SetServiceName(data.AppName)
+	model.SetPermissions(input.Permissions)
 
 	repositories := repository.NewRepositories(input.DB)
-	admin, err := database.SeedersRun(ctx, input.DB, repositories, model2.GetPermissionsKeys())
+
+	configService := service.NewConfigService(repositories)
+
+	logConfig := authConf.NewLogConfigurator(data.LogPath)
+	logCfg, err := getLogCfg(ctx, configService, logConfig)
 	if err != nil {
+		cancelFunc()
+		return nil, err
+	}
+	resetLog(logCfg)
+
+	authConfig := authConf.NewAuthConfigurator()
+	authCfg, err := getAuthCfg(ctx, configService, authConfig)
+	if err != nil {
+		cancelFunc()
+		return nil, err
+	}
+
+	analyticConfig := authConf.NewAuditConfigurator(data.LogPath)
+	auditCfg, err := getAuditCfg(ctx, configService, analyticConfig)
+	if err != nil {
+		cancelFunc()
+		return nil, err
+	}
+	resetSyslog(auditCfg)
+	PrintAppStartMessage(ctx)
+
+	admin, err := database.SeedersRun(ctx, input.DB, repositories, model.GetPermissionsKeys())
+	if err != nil {
+		cancelFunc()
 		return nil, err
 	}
 
@@ -109,36 +182,62 @@ func New(
 		profileRequest = prof.Request
 	}
 
-	accessTokenTTL := time.Duration(cfg.AccessTokenTTL) * time.Minute
-	refreshExpire := time.Duration(cfg.AccessTokenTTL) * time.Minute
-	accessSecret := cfg.Key
+	accessTokenTTL := time.Duration(authCfg.AccessTokenTTL) * time.Minute
+	refreshExpire := time.Duration(authCfg.RefreshTokenTTL) * time.Minute
+	accessSecret := authCfg.AccessKey
 
 	cacheHolder := fx.NewCacheHolder(input.Rdb, accessTokenTTL)
-	ldapHolder := fx.NewLDAPHolder(len(cfg.LDAP) != 0, getLdapConfig(cfg.LDAP))
-	oidcHolder, err := fx.NewOIDCHolder(ctx, getOIDCConfig(cfg.SSO.Enabled == "oidc", cfg.SSO.OIDC))
+	auditHolder := fx.NewAuditorHolder(fx.Auditor{
+		Admin: fx.AuditorDB{
+			MaxAgeDays:         auditCfg.DB.Admin.MaxAgeDays,
+			MaxCount:           auditCfg.DB.Admin.MaxCount,
+			PercentageOfDelete: auditCfg.DB.Admin.PercentageOfDelete,
+		},
+	})
+	ldapHolder := fx.NewLDAPHolder(len(authCfg.LDAP) != 0, getLdapConfig(authCfg.LDAP))
+	oidcHolder, err := fx.NewOIDCHolder(ctx, getOIDCConfig(authCfg.SSO.Enabled == "oidc", authCfg.SSO.OIDC, authCfg.SSO.Description))
 	if err != nil {
+		cancelFunc()
 		return nil, err
 	}
-	samlHolder, err := fx.NewSAMLHolder(ctx, getSAMLConfig(cfg.SSO.Enabled == "saml", cfg.SSO.SAML))
+	samlHolder, err := fx.NewSAMLHolder(ctx, getSAMLConfig(authCfg.SSO.Enabled == "saml", authCfg.SSO.SAML, authCfg.SSO.Description))
 	if err != nil {
+		cancelFunc()
 		return nil, err
 	}
 
-	limiterHolder := fx.NewLimiterHolder(getLimiterConfig(cfg.Limiter))
+	limiterHolder := fx.NewLimiterHolder(getLimiterConfig(authCfg.Limiter))
 	authHolder := fx.NewAuthHolder(accessTokenTTL, refreshExpire, string(accessSecret))
 	tokenMW := middleware.NewTokenMiddleware(cacheHolder, repositories, authHolder)
-	limiterMW := middleware.NewAuthLimiterMiddleware(cacheHolder, limiterHolder)
 
-	authService := service.NewAuthService(profileService, repositories, cacheHolder, authHolder, ldapHolder, oidcHolder, samlHolder)
+	authService := service.NewAuthService(profileService, repositories, cacheHolder, authHolder, ldapHolder, oidcHolder, samlHolder, limiterHolder)
 	permissionService := service.NewPermissionService(repositories, cacheHolder)
 	roleService := service.NewRoleService(repositories, cacheHolder)
 	userService := service.NewUserService(profileService, repositories, cacheHolder)
 	settingService := service.NewSettingService(repositories)
 	sessionService := service.NewSessionService(repositories, cacheHolder)
+	userBlockedService := service.NewUserBlockedService(repositories, cacheHolder)
 	filterService := service.NewFilterService(repositories)
-	versionService := service.NewVersionService(version, repositories)
-
+	versionService := service.NewVersionService(data.AppVersion, repositories)
+	analyticService := service.NewAnalyticService(repositories)
 	permissionMiddleware := middleware.NewPermissionMiddleware(cacheHolder.Get(), repositories)
+
+	if input.Analytic.SkipRequests == nil {
+		input.Analytic.SkipRequests = make(map[string][]string)
+	}
+	input.Analytic.SkipRequests["/auth/settings"] = []string{}
+	input.Analytic.SkipRequests["/stream"] = []string{}
+	input.Analytic.SkipRequests["/version"] = []string{}
+	input.Analytic.SkipRequests["/ping"] = []string{}
+	analyticMiddleware := middleware.NewAnalyticMiddleware(middleware.AnalyticConfig{}, auditHolder, cacheHolder.Get(), repositories)
+
+	trx := mw.NewTransaction(input.DB)
+	ws := websocket.New(100, 10)
+	tasker, err := task.NewTask(ctx, task.Config{
+		DB:          input.DB,
+		Transaction: trx,
+		WS:          ws,
+	})
 
 	handlers := handler.NewHandlers(
 		authService,
@@ -148,14 +247,21 @@ func New(
 		settingService,
 		filterService,
 		sessionService,
-		input.Transaction,
+		configService,
+		analyticService,
+		userBlockedService,
+		trx,
 		tokenMW,
 		permissionMiddleware,
+		analyticMiddleware,
 		profileTransformer,
 		profileRequest,
 		oidcHolder,
 		samlHolder,
 		versionService,
+		limiterHolder,
+		ws,
+		tasker,
 	)
 
 	auth := &Auth{
@@ -165,17 +271,28 @@ func New(
 		ldapHolder:           ldapHolder,
 		oidcHolder:           oidcHolder,
 		samlHolder:           samlHolder,
-		limiterMW:            limiterMW,
+		auditHolder:          auditHolder,
 		tokenMW:              tokenMW,
+		analyticsMW:          analyticMiddleware,
 		authHolder:           authHolder,
 		limiterHolder:        limiterHolder,
 		permissionMiddleware: permissionMiddleware,
-		cfg:                  cfg,
+		configService:        configService,
+		authCfg:              authCfg,
+		auditCfg:             auditCfg,
 		rdb:                  input.Rdb,
+		db:                   input.DB,
+		cancelFunc:           cancelFunc,
+		task:                 tasker,
+		ws:                   ws,
 	}
 
-	go auth.startSessionCleaner(ctx, input.DB)
-	go auth.configWatcher(ctx, authConfig)
+	go auth.startSessionCleaner(ctx)
+	go auth.startUserBlockedCleaner(ctx)
+	go auth.startAnalyticCleaner(ctx)
+	go auth.authConfigWatcher(ctx, authConfig)
+	go auth.auditConfigWatcher(ctx, analyticConfig)
+	go auth.logConfigWatcher(ctx, logConfig)
 
 	return auth, nil
 }
@@ -183,13 +300,38 @@ func New(
 func (a *Auth) InitHandler(engine *gin.Engine, api *gin.RouterGroup, handlers ...gin.HandlerFunc) {
 	a.handler.Init(engine, api, handlers...)
 }
-func (a *Auth) Authenticate(c *gin.Context)  { a.tokenMW.Authenticate(c) }
-func (a *Auth) CanPermission(c *gin.Context) { a.permissionMiddleware.Can(c) }
-func (a *Auth) GetAdminID() int              { return a.adminID }
-func (a *Auth) LimiterMiddleware(c *gin.Context) {
-	a.limiterMW.LimiterMiddleware(c)
+
+func (a *Auth) NewHandlerEngine() *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
+	engine := gin.New()
+
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {}
+
+	engine.Use(mw.HandlersFunc...)
+	engine.Use(a.analyticsMW.Collect)
+
+	engine.NoRoute(func(c *gin.Context) {
+		response.Response(c, apperr.ErrNotFound)
+	})
+
+	engine.POST("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
+
+	engine.Any("/", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	return engine
 }
-func (a *Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
+
+func (a *Auth) AuthenticateMW(c *gin.Context) { a.tokenMW.Authenticate(c) }
+
+func (a *Auth) CanPermissionMW(c *gin.Context) { a.permissionMiddleware.Can(c) }
+
+func (a *Auth) GetAdminID() int64 { return a.adminID }
+
+func (a *Auth) startSessionCleaner(ctx context.Context) {
 	tm := time.NewTicker(10 * time.Minute)
 	defer tm.Stop()
 	for {
@@ -197,110 +339,162 @@ func (a *Auth) startSessionCleaner(ctx context.Context, db *gorm.DB) {
 		case <-ctx.Done():
 			return
 		case <-tm.C:
-			db.WithContext(ctx).Where("expires_at < ?", time.Now().UTC()).Delete(&model2.RefreshToken{})
+			a.db.Exec(`DELETE FROM auth_tokens WHERE expires_at < ?`,
+				time.Now().UTC())
 		}
 	}
 }
 
-func getLdapConfig(c []authConf.CfgLDAP) map[string]ldap.Config {
-	cfg := make(map[string]ldap.Config)
-	for _, conf := range c {
-		addrs := make([]string, len(conf.Addrs))
-		for i, addr := range conf.Addrs {
-			scheme := "ldap://"
-			if addr.Secured {
-				scheme = "ldaps://"
-			}
-			addrs[i] = scheme + addr.Addr
-		}
-		cfg[conf.Domain] = ldap.Config{
-			Addrs:  addrs,
-			Domain: conf.Domain,
-		}
-	}
-	return cfg
-}
-
-func getOIDCConfig(enabled bool, cfg *authConf.CfgOIDC) oidc.Config {
-	if cfg == nil {
-		return oidc.Config{
-			Enabled: false,
-		}
-	}
-
-	return oidc.Config{
-		Enabled:           enabled,
-		ConfigURL:         cfg.ConfigURL,
-		ClientID:          cfg.ClientID,
-		ClientSecret:      string(cfg.ClientSecret),
-		RootURL:           cfg.RootURL,
-		LoginAttr:         cfg.LoginAttr,
-		ValidRedirectURLs: cfg.ValidRedirectURLs,
-	}
-}
-
-func getSAMLConfig(enabled bool, cfg *authConf.CfgSAML) saml.Config {
-	if cfg == nil {
-		return saml.Config{
-			Enabled: false,
-		}
-	}
-
-	return saml.Config{
-		Enabled:           enabled,
-		MetaDataURL:       cfg.MetaDataFile,
-		CertFile:          cfg.CertFile,
-		KeyFile:           cfg.KeyFile,
-		RootURL:           cfg.RootURL,
-		LoginAttr:         cfg.LoginAttr,
-		ValidRedirectURLs: cfg.ValidRedirectURLs,
-	}
-}
-
-func getLimiterConfig(cfg authConf.CfgLimiter) fx.ConfigLimiter {
-	return fx.ConfigLimiter{
-		MaxAttempts: cfg.MaxAttempts,
-		TTL:         time.Duration(cfg.TTL) * time.Second,
-	}
-}
-
-func (a *Auth) configWatcher(ctx context.Context, authConfig *authConf.Configurator) {
+func (a *Auth) startUserBlockedCleaner(ctx context.Context) {
+	tm := time.NewTicker(1 * time.Minute)
+	defer tm.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case newCfg := <-authConfig.Watch():
-			oldCfg := a.cfg
-
-			accessTokenTTL := time.Duration(newCfg.AccessTokenTTL) * time.Minute
-			refreshExpire := time.Duration(newCfg.AccessTokenTTL) * time.Minute
-			accessSecret := newCfg.Key
-
-			if newCfg.AccessTokenTTL != oldCfg.AccessTokenTTL || newCfg.RefreshTokenTTL != oldCfg.RefreshTokenTTL || string(newCfg.Key) != string(oldCfg.Key) {
-				a.cacheHolder.Reload(a.rdb, accessTokenTTL)
-				a.authHolder.Reload(accessTokenTTL, refreshExpire, string(accessSecret))
-			}
-
-			if newCfg.Limiter.MaxAttempts != oldCfg.Limiter.MaxAttempts || newCfg.Limiter.TTL != oldCfg.Limiter.TTL {
-				a.limiterHolder.Reload(getLimiterConfig(newCfg.Limiter))
-			}
-
-			m1, _ := json.Marshal(newCfg.LDAP)
-			m2, _ := json.Marshal(oldCfg.LDAP)
-
-			if string(m1) != string(m2) || len(newCfg.LDAP) != len(oldCfg.LDAP) {
-				a.ldapHolder.Reload(len(newCfg.LDAP) != 0, getLdapConfig(newCfg.LDAP))
-			}
-
-			m3, _ := json.Marshal(newCfg.SSO)
-			m4, _ := json.Marshal(oldCfg.SSO)
-			if string(m3) != string(m4) {
-				_ = a.oidcHolder.Reload(ctx, getOIDCConfig(newCfg.SSO.Enabled == "oidc", newCfg.SSO.OIDC))
-				_ = a.samlHolder.Reload(ctx, getSAMLConfig(newCfg.SSO.Enabled == "saml", newCfg.SSO.SAML))
-			}
-
-			a.cfg = newCfg
+		case <-tm.C:
+			a.db.Exec(`DELETE FROM auth_users_blocked WHERE blocked_at <= ?`,
+				time.Now().UTC().Add(-1*a.limiterHolder.Get().BlockingTTL))
 		}
 	}
+}
 
+func (a *Auth) startAnalyticCleaner(ctx context.Context) {
+	fn := func() {
+		var deleteSQL string
+		if a.db.Dialector.Name() == "mysql" {
+			deleteSQL = `DELETE t FROM %s t
+								 JOIN (
+							SELECT id
+							FROM %s
+							ORDER BY created_at ASC
+							LIMIT 1
+						) sub ON t.id = sub.id`
+		} else if a.db.Dialector.Name() == "postgres" {
+			deleteSQL = `DELETE FROM %s
+							WHERE id IN (
+								SELECT id
+								FROM %s
+								ORDER BY created_at ASC
+								LIMIT ?
+						);`
+		}
+
+		err := a.db.Exec(`DELETE FROM auth_analytics_admins WHERE created_at < ?`,
+			time.Now().UTC().Add(-1*time.Duration(a.auditHolder.Get().Admin.MaxAgeDays)*24*time.Hour)).Error
+		if err != nil {
+			//fmt.Println(err)
+		}
+
+		if deleteSQL == "" {
+			return
+		}
+
+		var totalCount int64
+		err = a.db.Raw("SELECT COUNT(*) FROM auth_analytics_admins").Scan(&totalCount).Error
+		if err == nil && totalCount > int64(a.auditHolder.Get().Admin.MaxCount) {
+			//count = 1500 - 1000 + (1000 * 20 / 100)
+			//count = 500 + 200
+			//count = 700
+			count := totalCount - int64(a.auditHolder.Get().Admin.MaxCount) +
+				int64(math.Ceil(float64(a.auditHolder.Get().Admin.MaxCount)*
+					a.auditHolder.Get().Admin.PercentageOfDelete/100))
+
+			if count > 0 {
+				err = a.db.Exec(fmt.Sprintf(deleteSQL, "auth_analytics_admins", "auth_analytics_admins"), count).Error
+				if err != nil {
+					//fmt.Println(err)
+				}
+			}
+		} else if err != nil {
+			//fmt.Println(err)
+		}
+	}
+	tm := time.NewTicker(10 * time.Minute)
+	defer tm.Stop()
+	fn()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tm.C:
+			fn()
+		}
+	}
+}
+
+func (a *Auth) SetConfig(ctx context.Context, key string, value configurator.Configurator) (configurator.Config, error) {
+	var v configurator.Config
+	err := a.db.Transaction(func(tx *gorm.DB) error {
+		val, err := a.configService.Trx(tx).SetConfig(ctx, key, value)
+		if err != nil {
+			return err
+		}
+		v = val
+		return nil
+	})
+	return v, err
+}
+
+func (a *Auth) WebSocket() websocket.Sender {
+	return a.ws
+}
+
+func (a *Auth) Task() Tasker {
+	return a.task
+}
+
+func (a *Auth) Start(ctx context.Context) error {
+	return a.db.Transaction(func(tx *gorm.DB) error {
+		return a.configService.Trx(tx).Init(ctx)
+	})
+}
+
+func (a *Auth) Stop(ctx context.Context) {
+	if a.cancelFunc != nil {
+		a.cancelFunc()
+	}
+
+	a.analyticsMW.Shutdown(ctx)
+	PrintAppStopMessage(ctx)
+}
+
+func resetMigration(db *gorm.DB) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return
+	}
+
+	_, schemaMigrationsTableCheck := sqlDB.Query("select * from schema_migrations;")
+	if schemaMigrationsTableCheck == nil {
+		db.Exec(`DELETE FROM schema_migrations WHERE version < 1 OR (version = 1 AND dirty = true)`)
+		db.Exec(`UPDATE schema_migrations SET version = version - 1, dirty = false WHERE dirty = true`)
+	}
+
+	_, schemaAuthMigrationsTableCheck := sqlDB.Query("select * from schema_auth_migrations;")
+	if schemaAuthMigrationsTableCheck == nil {
+		db.Exec(`DELETE FROM schema_auth_migrations WHERE version < 1 OR (version = 1 AND dirty = true)`)
+		db.Exec(`UPDATE schema_auth_migrations SET version = version - 1, dirty = false WHERE dirty = true`)
+	}
+}
+
+func PrintAppStartMessage(ctx context.Context) {
+	logger.AppInfoFLog(ctx, "Начало работы системы")
+	syslog.Write(ctx, syslog.Record{
+		EventID:   "starting-app",
+		EventName: "Запуск системы",
+		Severity:  syslog.SeverityLow,
+		Success:   true,
+	}, "Начало работы системы")
+}
+
+func PrintAppStopMessage(ctx context.Context) {
+	logger.AppInfoFLog(ctx, "Окончание работы системы")
+	syslog.Write(ctx, syslog.Record{
+		EventID:   "stopping-app",
+		EventName: "Остановка системы",
+		Severity:  syslog.SeverityHigh,
+		Success:   true,
+	}, "Окончание работы системы")
 }

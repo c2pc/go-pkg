@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 
 	"github.com/c2pc/go-pkg/v2/task/internal/model"
-	model3 "github.com/c2pc/go-pkg/v2/task/model"
-	model2 "github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
+	meta "github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/c2pc/go-pkg/v2/utils/transformer"
 	"github.com/gin-gonic/gin"
 )
@@ -35,21 +35,21 @@ func SimpleTaskTransform(m *model.Task) *SimpleTaskTransformer {
 }
 
 type TaskTransformer struct {
-	ID        int             `json:"id"`
-	Name      string          `json:"name"`
-	UserID    int             `json:"user_id"`
-	Status    string          `json:"status"`
-	Type      string          `json:"type"`
-	Message   *model3.Message `json:"message,omitempty"`
-	FileSize  *int64          `json:"file_size,omitempty"`
-	CreatedAt string          `json:"created_at"`
-	UpdatedAt string          `json:"updated_at"`
+	ID        int            `json:"id"`
+	Name      string         `json:"name"`
+	UserID    int64          `json:"user_id"`
+	Status    string         `json:"status"`
+	Type      string         `json:"type"`
+	Message   *types.Message `json:"message,omitempty"`
+	FileSize  *int64         `json:"file_size,omitempty"`
+	CreatedAt string         `json:"created_at"`
+	UpdatedAt string         `json:"updated_at"`
 
 	User *UserSimpleTransformer `json:"user,omitempty"`
 }
 
 func TaskTransform(m *model.Task) *TaskTransformer {
-	var msg model3.Message
+	var msg types.Message
 	if m.Output != nil {
 		_ = json.Unmarshal(m.Output, &msg)
 	}
@@ -81,7 +81,7 @@ type TaskListTransformer struct {
 	User *UserSimpleTransformer `json:"user,omitempty"`
 }
 
-func TaskListTransform(c *gin.Context, p *model2.Pagination[model.Task]) []TaskListTransformer {
+func TaskListTransform(c *gin.Context, p *meta.Pagination[model.Task]) []TaskListTransformer {
 	transformer.PaginationTransform(c, p)
 
 	r := make([]TaskListTransformer, 0)

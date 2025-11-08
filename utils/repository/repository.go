@@ -9,7 +9,7 @@ import (
 
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
 	"github.com/c2pc/go-pkg/v2/utils/clause"
-	"github.com/c2pc/go-pkg/v2/utils/model"
+	"github.com/c2pc/go-pkg/v2/utils/meta"
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/text/cases"
@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type Repository[T any, C model.Model] interface {
+type Repository[T any, C meta.Model] interface {
 	Trx(db *gorm.DB) T
 	With(models ...string) Repo[C]
 	WithOne(model string, args ...any) Repo[C]
@@ -27,6 +27,7 @@ type Repository[T any, C model.Model] interface {
 	Omit(columns ...string) Repo[C]
 	Find(ctx context.Context, query string, args ...any) (*C, error)
 	FindById(ctx context.Context, id int) (*C, error)
+	FindById64(ctx context.Context, id int64) (*C, error)
 	Delete(ctx context.Context, query string, args ...any) error
 	Create(ctx context.Context, u *C, returning ...string) (*C, error)
 	Create2(ctx context.Context, u *[]C, returning ...string) (*[]C, error)
@@ -36,20 +37,22 @@ type Repository[T any, C model.Model] interface {
 	Update2(ctx context.Context, u *[]C, selects []interface{}, query string, args ...any) error
 	UpdateMap(ctx context.Context, u map[string]interface{}, query string, args ...any) error
 	Count(ctx context.Context, query string, args ...any) (int64, error)
-	List(ctx context.Context, f *model.Filter, query string, args ...any) ([]C, error)
-	Paginate(ctx context.Context, p *model.Meta[C], query string, args ...any) error
+	List(ctx context.Context, f *meta.Filter, query string, args ...any) ([]C, error)
+	Paginate(ctx context.Context, p *meta.Meta[C], query string, args ...any) error
 	PluckIDs(ctx context.Context, query string, args ...any) ([]int, error)
 	DB() *gorm.DB
+	WithTable(tableName string) Repo[C]
 }
 
-type Repo[C model.Model] struct {
+type Repo[C meta.Model] struct {
 	searchable   clause.FieldSearchable
 	fieldOrderBy clause.FieldOrderBy
 	db           *gorm.DB
 	with         []string
+	table        string
 }
 
-func NewRepository[C model.Model](db *gorm.DB, fieldSearchable clause.FieldSearchable, fieldOrderBy clause.FieldOrderBy) Repo[C] {
+func NewRepository[C meta.Model](db *gorm.DB, fieldSearchable clause.FieldSearchable, fieldOrderBy clause.FieldOrderBy) Repo[C] {
 	return Repo[C]{
 		searchable:   fieldSearchable,
 		fieldOrderBy: fieldOrderBy,
@@ -73,6 +76,19 @@ func (r Repo[C]) DB() *gorm.DB {
 	return r.db.Session(&gorm.Session{})
 }
 
+func (r Repo[C]) WithTable(table string) Repo[C] {
+	r.table = table
+	return r
+}
+
+func (r Repo[C]) getTable() string {
+	if r.table != "" {
+		return r.table
+	}
+
+	return r.Model().TableName()
+}
+
 func (r Repo[C]) SetDB(db *gorm.DB) Repo[C] {
 	r.db = db
 	return r
@@ -89,6 +105,7 @@ func (r Repo[C]) FieldOrderBy() clause.FieldOrderBy {
 func (r Repo[C]) Exists(ctx context.Context, field string, value interface{}, excludeField string, excludeValue interface{}) error {
 	row := r.Model()
 	res := r.DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Select(field).
 		Scopes(func(tx *gorm.DB) *gorm.DB {
@@ -272,6 +289,7 @@ func (r Repo[C]) Find(ctx context.Context, query string, args ...any) (*C, error
 
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		First(&row)
@@ -287,6 +305,23 @@ func (r Repo[C]) FindById(ctx context.Context, id int) (*C, error) {
 	query := fmt.Sprintf(`%s."id" = ?`, r.Model().TableName())
 	res := r.
 		DB().
+		Table(r.getTable()).
+		WithContext(ctx).
+		Scopes(clause.Where(r.QuoteTo, query, id)).
+		First(&row)
+	if err := res.Error; err != nil {
+		return nil, r.Error(ctx, err)
+	}
+
+	return &row, nil
+}
+
+func (r Repo[C]) FindById64(ctx context.Context, id int64) (*C, error) {
+	row := r.Model()
+	query := fmt.Sprintf(`%s."id" = ?`, r.Model().TableName())
+	res := r.
+		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Scopes(clause.Where(r.QuoteTo, query, id)).
 		First(&row)
@@ -302,6 +337,7 @@ func (r Repo[C]) Delete(ctx context.Context, query string, args ...any) error {
 
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Delete(&row)
@@ -314,6 +350,7 @@ func (r Repo[C]) Delete(ctx context.Context, query string, args ...any) error {
 
 func (r Repo[C]) Create(ctx context.Context, u *C, returning ...string) (*C, error) {
 	res := r.DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Clauses(clause.Returning(returning...)).
 		Create(u)
@@ -326,6 +363,7 @@ func (r Repo[C]) Create(ctx context.Context, u *C, returning ...string) (*C, err
 
 func (r Repo[C]) Create2(ctx context.Context, u *[]C, returning ...string) (*[]C, error) {
 	res := r.DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Clauses(clause.Returning(returning...)).
 		Create(u)
@@ -338,6 +376,7 @@ func (r Repo[C]) Create2(ctx context.Context, u *[]C, returning ...string) (*[]C
 
 func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interface{}, doUpdates []interface{}, doCreates []interface{}, returning ...string) (*C, error) {
 	res := r.DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Clauses(clause.Returning(returning...))
 
@@ -371,6 +410,7 @@ func (r Repo[C]) CreateOrUpdate(ctx context.Context, u *C, onConflict []interfac
 
 func (r Repo[C]) FirstOrCreate(ctx context.Context, u *C, returning string, query string, args ...any) (*C, error) {
 	res := r.DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
 		Clauses(clause.Returning(returning)).
@@ -385,6 +425,7 @@ func (r Repo[C]) FirstOrCreate(ctx context.Context, u *C, returning string, quer
 func (r Repo[C]) Update(ctx context.Context, u *C, selects []interface{}, query string, args ...any) error {
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...))
@@ -404,6 +445,7 @@ func (r Repo[C]) Update(ctx context.Context, u *C, selects []interface{}, query 
 func (r Repo[C]) Update2(ctx context.Context, u *[]C, selects []interface{}, query string, args ...any) error {
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...))
@@ -423,6 +465,7 @@ func (r Repo[C]) Update2(ctx context.Context, u *[]C, selects []interface{}, que
 func (r Repo[C]) UpdateMap(ctx context.Context, u map[string]interface{}, query string, args ...any) error {
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
@@ -438,6 +481,7 @@ func (r Repo[C]) Count(ctx context.Context, query string, args ...any) (int64, e
 	var count int64
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
@@ -449,20 +493,25 @@ func (r Repo[C]) Count(ctx context.Context, query string, args ...any) (int64, e
 	return count, nil
 }
 
-func (r Repo[C]) List(ctx context.Context, f *model.Filter, query string, args ...any) ([]C, error) {
-	repo, err := r.Where(f.Where)
-	if err != nil {
-		return nil, r.Error(ctx, err)
-	}
+func (r Repo[C]) List(ctx context.Context, f *meta.Filter, query string, args ...any) ([]C, error) {
+	repo := r
+	var err error
+	if f != nil {
+		repo, err = r.Where(f.Where)
+		if err != nil {
+			return nil, r.Error(ctx, err)
+		}
 
-	repo, err = repo.OrderBy(f.OrderBy)
-	if err != nil {
-		return nil, r.Error(ctx, err)
+		repo, err = repo.OrderBy(f.OrderBy)
+		if err != nil {
+			return nil, r.Error(ctx, err)
+		}
 	}
 
 	var rows []C
 	res := repo.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
@@ -478,6 +527,7 @@ func (r Repo[C]) PluckIDs(ctx context.Context, query string, args ...any) ([]int
 	var rows []int
 	res := r.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...)).
@@ -489,7 +539,7 @@ func (r Repo[C]) PluckIDs(ctx context.Context, query string, args ...any) ([]int
 	return rows, nil
 }
 
-func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, args ...any) error {
+func (r Repo[C]) Paginate(ctx context.Context, p *meta.Meta[C], query string, args ...any) error {
 	repo, err := r.Where(p.Where)
 	if err != nil {
 		return r.Error(ctx, err)
@@ -497,6 +547,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 
 	db := repo.
 		DB().
+		Table(r.getTable()).
 		WithContext(ctx).
 		Model(r.Model()).
 		Scopes(clause.Where(r.QuoteTo, query, args...))
@@ -516,6 +567,7 @@ func (r Repo[C]) Paginate(ctx context.Context, p *model.Meta[C], query string, a
 	var rows []C
 	res2 := repo.
 		DB().
+		Table(r.getTable()).
 		Scopes(clause.Limit(p.GetLimit(), p.GetOffset())).
 		Find(&rows)
 	if err := res2.Error; err != nil {

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	model3 "github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/internal/fx"
+	"github.com/c2pc/go-pkg/v2/task/types"
+	"github.com/c2pc/go-pkg/v2/utils/secret"
 	"github.com/c2pc/go-pkg/v2/websocket"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -36,26 +38,30 @@ type Queue interface {
 	TaskResults() chan runner.TaskResult
 }
 
-type Tasker interface {
-	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
+type Handler interface {
 	ExportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	ImportHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 	MassDeleteHandler(name string, bind func(c *gin.Context) ([]byte, error)) gin.HandlerFunc
 }
 
+type Tasker interface {
+	Handler
+	InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc)
+	InitConsumers(consumers Consumers)
+}
+
 type Task struct {
-	db          *gorm.DB
-	handler     handler.IHandler
-	runner      Queue
-	taskService service.ITaskService
+	db             *gorm.DB
+	handler        handler.IHandler
+	runner         Queue
+	taskService    service.ITaskService
+	consumerHolder *fx.ConsumerHolder[service.Consumer]
 }
 
 type Config struct {
 	DB          *gorm.DB
 	Transaction mw.ITransaction
-	Services    Consumers
-	TokenString string
 	WS          websocket.WebSocket
 }
 
@@ -64,24 +70,23 @@ func NewTask(ctx context.Context, cfg Config) (Tasker, error) {
 
 	repositories := repository.NewRepositories(cfg.DB)
 
-	consumers := make(service.Consumers, len(cfg.Services))
-	for name, consumer := range cfg.Services {
-		consumers[name] = service.Consumer(consumer)
+	consumerHolder := fx.NewConsumersHolder[service.Consumer](make(service.Consumers))
+
+	token, err := secret.GenerateRandomString(26)
+	if err != nil {
+		return nil, err
 	}
 
-	if cfg.TokenString == "" {
-		return nil, apperr.New("tokenString is required")
-	}
-
-	taskService := service.NewTaskService(repositories.TaskRepository, consumers, queue, cfg.TokenString, cfg.WS)
+	taskService := service.NewTaskService(repositories.TaskRepository, consumerHolder, queue, token, cfg.WS)
 
 	handlers := handler.NewHandlers(taskService, cfg.Transaction)
 
 	exporter := &Task{
-		handler:     handlers,
-		runner:      queue,
-		taskService: taskService,
-		db:          cfg.DB,
+		handler:        handlers,
+		runner:         queue,
+		taskService:    taskService,
+		db:             cfg.DB,
+		consumerHolder: consumerHolder,
 	}
 
 	go exporter.listen(ctx)
@@ -113,7 +118,7 @@ func (e *Task) listen(ctx context.Context) {
 				input.Status = &status
 			}
 
-			msg := model3.NewMessage()
+			msg := types.NewMessage()
 			var appError apperr.Error
 			if result.Error != nil {
 				if !errors.As(result.Error, &appError) {
@@ -153,6 +158,14 @@ func (e *Task) reset(ctx context.Context) error {
 
 func (e *Task) InitHandler(secured *gin.RouterGroup, unsecured *gin.RouterGroup, handlers ...gin.HandlerFunc) {
 	e.handler.Init(secured, unsecured, handlers...)
+}
+
+func (e *Task) InitConsumers(consumers Consumers) {
+	cons := make(service.Consumers)
+	for name, consumer := range consumers {
+		cons[name] = service.Consumer(consumer)
+	}
+	e.consumerHolder.Reload(cons)
 }
 
 func (e *Task) NewTask(c *gin.Context, tp string, name string, data []byte) (*model.Task, error) {
@@ -210,7 +223,7 @@ func (e *Task) ExportHandler(name string, bind func(c *gin.Context) ([]byte, err
 			return
 		}
 
-		task, err := e.NewTask(c, model3.Export, name, cred)
+		task, err := e.NewTask(c, types.Export, name, cred)
 		if err != nil {
 			response.Response(c, err)
 			return
@@ -232,7 +245,7 @@ func (e *Task) ImportHandler(name string, bind func(c *gin.Context) ([]byte, err
 			return
 		}
 
-		task, err := e.NewTask(c, model3.Import, name, cred)
+		task, err := e.NewTask(c, types.Import, name, cred)
 		if err != nil {
 			response.Response(c, err)
 			return
@@ -254,7 +267,7 @@ func (e *Task) MassUpdateHandler(name string, bind func(c *gin.Context) ([]byte,
 			return
 		}
 
-		task, err := e.NewTask(c, model3.MassUpdate, name, cred)
+		task, err := e.NewTask(c, types.MassUpdate, name, cred)
 		if err != nil {
 			response.Response(c, err)
 			return
@@ -276,7 +289,7 @@ func (e *Task) MassDeleteHandler(name string, bind func(c *gin.Context) ([]byte,
 			return
 		}
 
-		task, err := e.NewTask(c, model3.MassDelete, name, cred)
+		task, err := e.NewTask(c, types.MassDelete, name, cred)
 		if err != nil {
 			response.Response(c, err)
 			return

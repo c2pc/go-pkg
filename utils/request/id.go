@@ -26,6 +26,18 @@ func Id(c *gin.Context) (int, error) {
 	return r.Id, nil
 }
 
+type Id64Request struct {
+	Id int64 `uri:"id" binding:"required,gte=1"`
+}
+
+func Id64(c *gin.Context) (int64, error) {
+	r, err := BindUri[Id64Request](c)
+	if err != nil {
+		return 0, ErrorValidationId.WithError(err)
+	}
+	return r.Id, nil
+}
+
 type UUIDRequest struct {
 	UUID string `uri:"uuid" binding:"required"`
 }

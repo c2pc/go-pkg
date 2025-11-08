@@ -6,9 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/c2pc/go-pkg/v2/task/model"
+	"github.com/c2pc/go-pkg/v2/task/types"
 	"github.com/c2pc/go-pkg/v2/utils/apperr"
-	"github.com/c2pc/go-pkg/v2/utils/constant"
 	"github.com/c2pc/go-pkg/v2/utils/logger"
 	"github.com/c2pc/go-pkg/v2/utils/mcontext"
 )
@@ -22,7 +21,7 @@ const (
 
 type Task struct {
 	ID       int
-	ClientID int
+	ClientID int64
 	Name     string
 	Type     string
 	RanAt    time.Time
@@ -32,15 +31,15 @@ type Task struct {
 type TaskResult struct {
 	Task
 	Status  *string
-	Message *model.Message
+	Message *types.Message
 	Error   error
 }
 
-type RunFunc func(ctx context.Context, taskID int, data []byte, msqChan chan<- *model.Message) (*model.Message, error)
+type RunFunc func(ctx context.Context, taskID int, data []byte, msqChan chan<- *types.Message) (*types.Message, error)
 
 type Data struct {
 	ID       int
-	ClientID int
+	ClientID int64
 	Name     string
 	Type     string
 	Data     []byte
@@ -149,7 +148,7 @@ func (r *Runner) run(data Data) {
 		ClientID: data.ClientID,
 		Name:     data.Name,
 		Type:     data.Type,
-		RanAt:    time.Now(),
+		RanAt:    time.Now().UTC(),
 	}
 
 	if _, ok := r.getActiveTask(data.ID); !ok {
@@ -172,7 +171,7 @@ func (r *Runner) run(data Data) {
 
 	go func() {
 		defer close(done)
-		msgChan := make(chan *model.Message)
+		msgChan := make(chan *types.Message)
 		defer close(msgChan)
 
 		go func() {
@@ -193,7 +192,7 @@ func (r *Runner) run(data Data) {
 		}()
 
 		msg, err := data.RunFunc(ctx, task.ID, data.Data, msgChan)
-		task.EndedAt = time.Now()
+		task.EndedAt = time.Now().UTC()
 		if r.ctx.Err() != nil {
 			r.printf(ctx, "Task stopped globally: ID=%d", task.ID)
 		} else if ctx.Err() != nil {
@@ -299,5 +298,5 @@ func (r *Runner) sendTaskResult(data TaskResult) {
 }
 
 func (r *Runner) printf(ctx context.Context, format string, v ...any) {
-	logger.Info().Str(string(constant.OperationID), mcontext.GetOperationID2(ctx)).Msgf(format, v...)
+	logger.DebugFLog(ctx, "TASK", format, v...)
 }
