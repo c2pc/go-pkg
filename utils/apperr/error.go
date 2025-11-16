@@ -114,7 +114,7 @@ func Translate(err error, lang string) string {
 
 	var appError Error
 	if !errors.As(err, &appError) {
-		err = ErrInternal.WithError(err)
+		appError = ErrInternal.WithError(err)
 	}
 
 	if appError.TextTranslate == nil {
